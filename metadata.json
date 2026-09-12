@@ -1,0 +1,6 @@
+{
+  "name": "SAHAYAK",
+  "description": "Campus Lost & Found Platform for Chandigarh University students. Lost something on campus? Let SAHAYAK help you find it.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

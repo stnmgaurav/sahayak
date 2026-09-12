@@ -1,0 +1,298 @@
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { SahayakLogo } from './SahayakLogo';
+import { 
+  Shield, 
+  PlusCircle, 
+  HandHeart, 
+  LogOut, 
+  LayoutDashboard, 
+  Compass,
+  Menu,
+  X,
+  LogIn,
+  Sparkles,
+  ChevronDown,
+  UserCheck
+} from 'lucide-react';
+
+interface NavbarProps {
+  currentTab: 'browse' | 'student-dashboard' | 'admin-dashboard' | 'login';
+  setCurrentTab: (tab: 'browse' | 'student-dashboard' | 'admin-dashboard' | 'login') => void;
+  onOpenReportModal: (type: 'lost' | 'found') => void;
+  unreadMatchesCount: number;
+  pendingClaimsCount: number;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({
+  currentTab,
+  setCurrentTab,
+  onOpenReportModal,
+  unreadMatchesCount,
+  pendingClaimsCount,
+}) => {
+  const { currentUser, isAuthenticated, logout } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-40 w-full backdrop-blur-xl bg-white/70 border-b border-slate-200/60 transition-all">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 gap-4">
+          
+          {/* Logo & Startup Identity */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { setCurrentTab('browse'); setIsMobileMenuOpen(false); }}
+              className="flex items-center gap-3 text-left focus:outline-hidden group"
+            >
+              {/* Modern Glass Brand Icon */}
+              <div className="relative w-10 h-10 rounded-xl bg-white p-1 border border-slate-200/80 shadow-xs flex items-center justify-center group-hover:scale-105 transition-transform">
+                <SahayakLogo className="w-8 h-8" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white animate-pulse"></span>
+              </div>
+
+              <div>
+                <span className="text-xl font-black tracking-tight text-slate-950 group-hover:text-red-800 transition-colors">
+                  SAHAYAK
+                </span>
+                <p className="text-[11px] font-medium text-slate-500 tracking-tight leading-none hidden sm:block mt-0.5">
+                  Chandigarh University Lost &amp; Found
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {/* Center Glass Pill Segmented Nav (Desktop) */}
+          <nav className="hidden md:flex items-center gap-1 p-1 rounded-2xl glass-panel-subtle shadow-xs">
+            <button
+              onClick={() => setCurrentTab('browse')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                currentTab === 'browse'
+                  ? 'bg-white text-slate-950 shadow-sm border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5 text-slate-500" />
+              <span>Explore Items</span>
+            </button>
+
+            <button
+              onClick={() => setCurrentTab('student-dashboard')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all relative ${
+                currentTab === 'student-dashboard'
+                  ? 'bg-white text-slate-950 shadow-sm border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+              }`}
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 text-slate-500" />
+              <span>My Dashboard</span>
+              {unreadMatchesCount > 0 && (
+                <span className="flex items-center gap-1 px-1.5 py-0.2 bg-amber-500/15 border border-amber-500/40 text-amber-800 text-[10px] font-extrabold rounded-full animate-pulse">
+                  <Sparkles className="w-2.5 h-2.5 text-amber-600" />
+                  {unreadMatchesCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setCurrentTab('admin-dashboard')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all relative ${
+                currentTab === 'admin-dashboard'
+                  ? 'bg-red-800 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-red-800 hover:bg-white/40'
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span>Security Desk</span>
+              {pendingClaimsCount > 0 && (
+                <span className="px-1.5 py-0.2 text-[10px] font-bold bg-red-600 text-white rounded-full">
+                  {pendingClaimsCount}
+                </span>
+              )}
+            </button>
+          </nav>
+
+          {/* Right: Glass Actions & Profile */}
+          <div className="flex items-center gap-2.5">
+            {/* The Two Main Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onOpenReportModal('lost')}
+                className="group relative flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 active:scale-97 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/10 hover:shadow-md hover:shadow-red-900/20"
+                title="Report lost item"
+              >
+                <PlusCircle className="w-3.5 h-3.5 text-red-200 group-hover:rotate-90 transition-transform duration-200" />
+                <span className="whitespace-nowrap">I Lost Something</span>
+              </button>
+
+              <button
+                onClick={() => onOpenReportModal('found')}
+                className="group relative flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 active:scale-97 text-white rounded-xl text-xs font-bold transition-all shadow-sm hover:shadow-md"
+                title="Report found item"
+              >
+                <HandHeart className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                <span className="whitespace-nowrap">I Found Something</span>
+              </button>
+            </div>
+
+            {/* Profile / Login Menu */}
+            <div className="relative">
+              {isAuthenticated && currentUser ? (
+                <div>
+                  <button
+                    onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                    className="flex items-center gap-2 p-1.5 rounded-xl border border-slate-200/80 bg-white/60 hover:bg-white transition-all shadow-2xs"
+                    aria-label="User profile menu"
+                  >
+                    {currentUser.avatarUrl ? (
+                      <img
+                        src={currentUser.avatarUrl}
+                        alt={currentUser.name}
+                        className="w-8 h-8 rounded-lg object-cover border border-slate-200"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-800 to-red-900 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                        {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                      </div>
+                    )}
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+                  </button>
+
+                  {isProfileDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-72 glass-panel rounded-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="px-3 py-3 border-b border-slate-100/80">
+                        <p className="text-xs font-bold text-slate-950 truncate">{currentUser.name}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>
+                        <div className="mt-2 flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">
+                            UID: {currentUser.uidOrRoll}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                            currentUser.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
+                          }`}>
+                            {currentUser.role === 'admin' ? 'Campus Security' : 'CU Student'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setCurrentTab('student-dashboard');
+                            setIsProfileDropdownOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100/80 rounded-xl transition-colors text-left"
+                        >
+                          <LayoutDashboard className="w-4 h-4 text-slate-400" />
+                          <span>My Activity &amp; Claims</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setCurrentTab('admin-dashboard');
+                            setIsProfileDropdownOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-red-800 hover:bg-red-50/60 rounded-xl transition-colors text-left"
+                        >
+                          <Shield className="w-4 h-4 text-red-700" />
+                          <span>Campus Security Desk</span>
+                        </button>
+
+                        <button
+                          onClick={async () => {
+                            await logout();
+                            setIsProfileDropdownOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50/80 rounded-xl transition-colors text-left"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span>Sign Out</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => setCurrentTab('login')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    currentTab === 'login'
+                      ? 'bg-red-800 text-white shadow-sm'
+                      : 'border border-slate-200 bg-white/80 hover:bg-white text-slate-800 shadow-2xs hover:shadow-xs'
+                  }`}
+                >
+                  <LogIn className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Student Sign In</span>
+                </button>
+              )}
+            </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden p-2 text-slate-600 hover:text-slate-950 rounded-xl hover:bg-slate-100"
+              aria-label="Toggle navigation"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Drawer */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden border-t border-slate-200/80 bg-white/95 backdrop-blur-xl px-4 py-3 space-y-2">
+          <button
+            onClick={() => { setCurrentTab('browse'); setIsMobileMenuOpen(false); }}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-left ${
+              currentTab === 'browse' ? 'bg-slate-100 text-slate-950' : 'text-slate-600'
+            }`}
+          >
+            <Compass className="w-4 h-4 text-slate-500" />
+            <span>Explore Campus Lost &amp; Found</span>
+          </button>
+          <button
+            onClick={() => { setCurrentTab('student-dashboard'); setIsMobileMenuOpen(false); }}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-left ${
+              currentTab === 'student-dashboard' ? 'bg-slate-100 text-slate-950' : 'text-slate-600'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4 text-slate-500" />
+            <span>Student Dashboard</span>
+            {unreadMatchesCount > 0 && (
+              <span className="ml-auto text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                {unreadMatchesCount} Matches
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => { setCurrentTab('admin-dashboard'); setIsMobileMenuOpen(false); }}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-left ${
+              currentTab === 'admin-dashboard' ? 'bg-red-50 text-red-800' : 'text-slate-600'
+            }`}
+          >
+            <Shield className="w-4 h-4 text-red-700" />
+            <span>Campus Security Admin Desk</span>
+            {pendingClaimsCount > 0 && (
+              <span className="ml-auto text-[10px] font-bold bg-red-600 text-white px-2 py-0.5 rounded-full">
+                {pendingClaimsCount} Pending
+              </span>
+            )}
+          </button>
+
+          {!isAuthenticated && (
+            <button
+              onClick={() => { setCurrentTab('login'); setIsMobileMenuOpen(false); }}
+              className="w-full flex items-center justify-center gap-2 mt-2 px-4 py-2.5 bg-gradient-to-r from-red-700 to-red-800 text-white font-bold rounded-xl text-xs shadow-sm"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Student / Staff Login</span>
+            </button>
+          )}
+        </div>
+      )}
+    </header>
+  );
+};

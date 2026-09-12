@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" fill="none" className="w-full h-full">
+  <!-- Circular Target & Magnifier Outer Ring -->
+  <circle cx="230" cy="190" r="140" stroke="#b91c1c" stroke-width="26" fill="none" />
+  
+  <!-- Magnifier Handle -->
+  <path d="M330 290 L400 360" stroke="#b91c1c" stroke-width="32" stroke-linecap="round" />
+  
+  <!-- Inner Concentric Arc -->
+  <path d="M155 190 A 75 75 0 0 1 230 115" stroke="#b91c1c" stroke-width="14" stroke-linecap="round" fill="none" />
+  
+  <!-- Map Pin Location Marker in Center -->
+  <path d="M230 115 C195 115 168 142 168 178 C168 220 230 280 230 280 C230 280 292 220 292 178 C292 142 265 115 230 115 Z" fill="#b91c1c" />
+  <!-- Center Pin Hole -->
+  <circle cx="230" cy="172" r="26" fill="#ffffff" />
+  
+  <!-- Curved Orbit Swoosh from Pin to Star -->
+  <path d="M125 240 C110 200 135 150 170 110 C215 65 295 90 335 115" stroke="#b91c1c" stroke-width="16" stroke-linecap="round" fill="none" />
+  
+  <!-- Orbit Star -->
+  <polygon points="340,95 348,110 365,112 352,124 356,140 340,131 324,140 328,124 315,112 332,110" fill="#b91c1c" />
+</svg>
