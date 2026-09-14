@@ -3,8 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import { SahayakLogo } from './SahayakLogo';
 import { 
   Shield, 
-  PlusCircle, 
-  HandHeart, 
   LogOut, 
   LayoutDashboard, 
   Compass,
@@ -19,7 +17,7 @@ import {
 interface NavbarProps {
   currentTab: 'browse' | 'student-dashboard' | 'admin-dashboard' | 'login';
   setCurrentTab: (tab: 'browse' | 'student-dashboard' | 'admin-dashboard' | 'login') => void;
-  onOpenReportModal: (type: 'lost' | 'found') => void;
+  onOpenReportModal?: (type: 'lost' | 'found') => void;
   unreadMatchesCount: number;
   pendingClaimsCount: number;
 }
@@ -57,7 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   SAHAYAK
                 </span>
                 <p className="text-[11px] font-medium text-slate-500 tracking-tight leading-none hidden sm:block mt-0.5">
-                  Chandigarh University Lost &amp; Found
+                  Lost &amp; Found
                 </p>
               </div>
             </button>
@@ -114,28 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Right: Glass Actions & Profile */}
-          <div className="flex items-center gap-2.5">
-            {/* The Two Main Action Buttons */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onOpenReportModal('lost')}
-                className="group relative flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 active:scale-97 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/10 hover:shadow-md hover:shadow-red-900/20"
-                title="Report lost item"
-              >
-                <PlusCircle className="w-3.5 h-3.5 text-red-200 group-hover:rotate-90 transition-transform duration-200" />
-                <span className="whitespace-nowrap">I Lost Something</span>
-              </button>
-
-              <button
-                onClick={() => onOpenReportModal('found')}
-                className="group relative flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 active:scale-97 text-white rounded-xl text-xs font-bold transition-all shadow-sm hover:shadow-md"
-                title="Report found item"
-              >
-                <HandHeart className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-                <span className="whitespace-nowrap">I Found Something</span>
-              </button>
-            </div>
-
+          <div className="flex items-center gap-2">
             {/* Profile / Login Menu */}
             <div className="relative">
               {isAuthenticated && currentUser ? (
@@ -215,17 +192,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                   )}
                 </div>
               ) : (
-                <button
-                  onClick={() => setCurrentTab('login')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                    currentTab === 'login'
-                      ? 'bg-red-800 text-white shadow-sm'
-                      : 'border border-slate-200 bg-white/80 hover:bg-white text-slate-800 shadow-2xs hover:shadow-xs'
-                  }`}
-                >
-                  <LogIn className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Student Sign In</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-600 bg-slate-100/90 border border-slate-200/80">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Public Guest View
+                  </span>
+                  <button
+                    onClick={() => setCurrentTab('login')}
+                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all ${
+                      currentTab === 'login'
+                        ? 'bg-red-800 text-white shadow-sm'
+                        : 'border border-slate-200 bg-white/80 hover:bg-white text-slate-800 shadow-2xs hover:shadow-xs'
+                    }`}
+                  >
+                    <LogIn className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="hidden sm:inline">Student</span>
+                    <span>Sign In</span>
+                  </button>
+                </div>
               )}
             </div>
 

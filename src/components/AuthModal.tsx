@@ -21,7 +21,8 @@ export const AuthModal: React.FC = () => {
     authModalMode, 
     loginWithEmail, 
     signupWithEmail, 
-    loginWithGoogle 
+    loginWithGoogle,
+    loginAsDemo
   } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'signup'>(authModalMode);
@@ -51,6 +52,9 @@ export const AuthModal: React.FC = () => {
     }
     if (code.includes('popup-closed-by-user')) {
       return 'Google sign-in popup closed.';
+    }
+    if (code.includes('unauthorized-domain')) {
+      return 'Domain not authorized in Firebase. Please add sahayakcu.vercel.app to Firebase Console > Authentication > Settings > Authorized domains.';
     }
     return err?.message || 'Authentication error. Please try again.';
   };
@@ -287,6 +291,37 @@ export const AuthModal: React.FC = () => {
                 </>
               )}
             </button>
+
+            {/* Quick Demo Access */}
+            <div className="pt-2 border-t border-slate-100">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-1.5">
+                Quick 1-Click Access
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await loginAsDemo('student');
+                    closeAuthModal();
+                  }}
+                  className="p-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left transition-all"
+                >
+                  <span className="text-[9px] font-bold text-slate-500 uppercase block">Student Demo</span>
+                  <span className="text-[11px] font-bold text-slate-800 block truncate">Arjun (21BCS)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await loginAsDemo('admin');
+                    closeAuthModal();
+                  }}
+                  className="p-2 rounded-lg border border-red-200 bg-red-50/60 hover:bg-red-100/70 text-left transition-all"
+                >
+                  <span className="text-[9px] font-bold text-red-600 uppercase block">Admin Demo</span>
+                  <span className="text-[11px] font-bold text-red-950 block truncate">Insp. Satnam</span>
+                </button>
+              </div>
+            </div>
           </form>
 
           {/* Toggle between login and signup */}

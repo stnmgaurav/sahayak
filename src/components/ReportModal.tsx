@@ -49,7 +49,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   existingItems,
   onItemCreated,
 }) => {
-  const { currentUser, openAuthModal } = useAuth();
+  const { currentUser, openAuthModal, loginAsDemo } = useAuth();
   const [type, setType] = useState<ReportType>(initialType);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<ItemCategory>('Electronics');
@@ -69,6 +69,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Guest reporter details when not logged in
+  const [guestName, setGuestName] = useState('');
+  const [guestUid, setGuestUid] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
 
   const fileInputId = useId();
 
@@ -129,8 +135,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       return;
     }
 
-    if (!currentUser) {
-      openAuthModal('login');
+    if (!currentUser && !guestName.trim()) {
+      setErrorMessage('Please enter your full name so campus security or finders can contact you.');
       return;
     }
 
@@ -138,6 +144,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     try {
       const hasHighMatch = instantMatches.length > 0 && instantMatches[0].score >= 60;
       const finalStatus = hasHighMatch ? 'match_found' : type;
+
+      const reporterId = currentUser ? currentUser.id : `usr_guest_${Date.now()}`;
+      const reporterName = currentUser ? currentUser.name : guestName.trim();
+      const reporterEmail = currentUser ? currentUser.email : (guestEmail.trim() || `${guestName.trim().toLowerCase().replace(/[^a-z0-9]/g, '')}@cuchd.in`);
+      const reporterPhone = currentUser ? currentUser.phone : (guestPhone.trim() || '+91 98765 00000');
+      const reporterUid = currentUser ? currentUser.uidOrRoll : (guestUid.trim().toUpperCase() || '24CU_CAMPUS');
 
       const newItem: ItemReport = {
         id: `rep_${Date.now()}`,
@@ -152,11 +164,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         dateTime,
         imageUrl: imageUrl || PRESET_PHOTOS[0].url,
         status: finalStatus,
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userEmail: currentUser.email,
-        userPhone: currentUser.phone,
-        userUid: currentUser.uidOrRoll,
+        userId: reporterId,
+        userName: reporterName,
+        userEmail: reporterEmail,
+        userPhone: reporterPhone,
+        userUid: reporterUid,
         identifyingMark: identifyingMark.trim() || undefined,
         currentHoldingLocation: type === 'found' ? currentHoldingLocation : undefined,
         secretVerificationQuestion: type === 'found' ? secretVerificationQuestion.trim() : undefined,
@@ -529,6 +541,102 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Section 4: Reporter Identity & Contact */}
+            <div className="space-y-3 pt-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                4. Reporter Information
+              </h3>
+
+              {currentUser ? (
+                <div className="p-3.5 bg-slate-100/90 rounded-2xl border border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-red-800 text-white flex items-center justify-center font-bold text-xs">
+                      {currentUser.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">{currentUser.name}</p>
+                      <p className="text-[11px] text-slate-500">
+                        UID: {currentUser.uidOrRoll} • {currentUser.phone || currentUser.email}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">
+                    Verified Student
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-3 p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-slate-800">
+                      Submit without login (Guest / Student Reporter)
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => loginAsDemo('student')}
+                      className="text-[11px] font-bold text-red-700 hover:text-red-900 underline"
+                    >
+                      ⚡ 1-Click Demo Login
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Your Full Name <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Gurpreet Singh"
+                        value={guestName}
+                        onChange={e => setGuestName(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-red-600 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        CU UID / Roll Number
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 23BCS10442"
+                        value={guestUid}
+                        onChange={e => setGuestUid(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-red-600 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Phone / WhatsApp Number
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="+91 98765 43210"
+                        value={guestPhone}
+                        onChange={e => setGuestPhone(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-red-600 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Email Address (Optional)
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="student@cuchd.in"
+                        value={guestEmail}
+                        onChange={e => setGuestEmail(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-red-600 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Submit Action */}

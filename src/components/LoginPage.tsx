@@ -29,7 +29,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onBackToBrowse,
   initialMode = 'login',
 }) => {
-  const { loginWithEmail, signupWithEmail, loginWithGoogle, resetPassword } = useAuth();
+  const { loginWithEmail, signupWithEmail, loginWithGoogle, resetPassword, loginAsDemo } = useAuth();
   
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
   
@@ -68,6 +68,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     if (code.includes('popup-blocked')) {
       return 'Browser blocked the Google sign-in popup. Please allow popups for this site.';
     }
+    if (code.includes('unauthorized-domain')) {
+      return 'The domain is not authorized in Firebase. Please add sahayakcu.vercel.app to Firebase Console > Authentication > Settings > Authorized domains.';
+    }
     if (code.includes('network-request-failed')) {
       return 'Network connection error. Please check your internet connection.';
     }
@@ -85,6 +88,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setLoading(true);
     try {
       await loginWithEmail(email.trim(), password);
+      onBackToBrowse();
+    } catch (err: any) {
+      setError(getFriendlyErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoSignIn = async (role: 'student' | 'admin') => {
+    setError(null);
+    setLoading(true);
+    try {
+      await loginAsDemo(role);
       onBackToBrowse();
     } catch (err: any) {
       setError(getFriendlyErrorMessage(err));
@@ -373,6 +389,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       <span>Sign In to SAHAYAK</span>
                     )}
                   </button>
+
+                  {/* 1-Click Demo Profiles for Quick Testing */}
+                  <div className="pt-3 border-t border-slate-200/80 space-y-2">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">
+                      Quick Instant Access (No Password Needed)
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDemoSignIn('student')}
+                        disabled={loading || googleLoading}
+                        className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 hover:border-slate-300 text-left transition-all group"
+                      >
+                        <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500 block">
+                          Student Role
+                        </span>
+                        <span className="text-xs font-bold text-slate-900 group-hover:text-red-700 block truncate">
+                          Arjun Sharma (21BCS)
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDemoSignIn('admin')}
+                        disabled={loading || googleLoading}
+                        className="p-2.5 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-100/70 hover:border-red-300 text-left transition-all group"
+                      >
+                        <span className="text-[10px] font-extrabold uppercase tracking-wide text-red-600 block">
+                          Security Admin
+                        </span>
+                        <span className="text-xs font-bold text-red-950 group-hover:text-red-800 block truncate">
+                          Insp. Satnam Singh
+                        </span>
+                      </button>
+                    </div>
+                  </div>
                 </form>
               )}
 

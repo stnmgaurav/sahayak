@@ -1,3 +1,14 @@
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  onSnapshot, 
+  getDocs 
+} from 'firebase/firestore';
+import { db } from './firebase';
+import { uploadImageToCloudinary } from './cloudinary';
 import { ItemReport, ItemClaim, HandoverReceipt } from '../types';
 import { INITIAL_REPORTS, INITIAL_CLAIMS } from '../data/mockData';
 
@@ -19,7 +30,26 @@ function notifyListeners() {
   listeners.forEach(cb => cb());
 }
 
-export function getStoredItems(): ItemReport[] {
+/**
+ * Strips undefined properties so Firestore never throws unsupported field value errors
+ */
+function sanitizeForFirestore(obj: Record<string, any>): Record<string, any> {
+  const clean: Record<string, any> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) {
+      clean[key] = val;
+    }
+  }
+  return clean;
+}
+
+// In-memory caches initialized from localStorage
+let cachedItems: ItemReport[] = loadLocalItems();
+let cachedClaims: ItemClaim[] = loadLocalClaims();
+let cachedReceipts: HandoverReceipt[] = loadLocalReceipts();
+let hasInitializedFirestore = false;
+
+function loadLocalItems(): ItemReport[] {
   try {
     const raw = localStorage.getItem(ITEMS_KEY);
     if (!raw) {
@@ -28,45 +58,12 @@ export function getStoredItems(): ItemReport[] {
     }
     return JSON.parse(raw);
   } catch (err) {
-    console.error('Failed to load items from storage:', err);
+    console.error('Failed to read items from localStorage:', err);
     return INITIAL_REPORTS;
   }
 }
 
-export function saveItem(newItem: ItemReport): ItemReport {
-  const items = getStoredItems();
-  const existingIdx = items.findIndex(i => i.id === newItem.id);
-  
-  if (existingIdx >= 0) {
-    items[existingIdx] = { ...items[existingIdx], ...newItem, updatedAt: new Date().toISOString() };
-  } else {
-    items.unshift(newItem);
-  }
-
-  localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
-  notifyListeners();
-  return newItem;
-}
-
-export function updateItemStatus(itemId: string, status: ItemReport['status']): void {
-  const items = getStoredItems();
-  const index = items.findIndex(i => i.id === itemId);
-  if (index >= 0) {
-    items[index].status = status;
-    items[index].updatedAt = new Date().toISOString();
-    localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
-    notifyListeners();
-  }
-}
-
-export function deleteItem(itemId: string): void {
-  const items = getStoredItems();
-  const filtered = items.filter(i => i.id !== itemId);
-  localStorage.setItem(ITEMS_KEY, JSON.stringify(filtered));
-  notifyListeners();
-}
-
-export function getStoredClaims(): ItemClaim[] {
+function loadLocalClaims(): ItemClaim[] {
   try {
     const raw = localStorage.getItem(CLAIMS_KEY);
     if (!raw) {
@@ -75,92 +72,275 @@ export function getStoredClaims(): ItemClaim[] {
     }
     return JSON.parse(raw);
   } catch (err) {
-    console.error('Failed to load claims from storage:', err);
+    console.error('Failed to read claims from localStorage:', err);
     return INITIAL_CLAIMS;
   }
 }
 
+function loadLocalReceipts(): HandoverReceipt[] {
+  try {
+    const raw = localStorage.getItem(RECEIPTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Initializes real-time Firestore synchronization for items, claims, and receipts.
+ */
+export function initFirestoreSync() {
+  if (hasInitializedFirestore) return;
+  hasInitializedFirestore = true;
+
+  try {
+    // 1. Synchronize Items Collection
+    const itemsCol = collection(db, 'items');
+    onSnapshot(itemsCol, (snapshot) => {
+      if (!snapshot.empty) {
+        const firestoreItems: ItemReport[] = [];
+        const seenIds = new Set<string>();
+        snapshot.forEach((docSnap) => {
+          const item = { ...(docSnap.data() as ItemReport), id: docSnap.id };
+          firestoreItems.push(item);
+          seenIds.add(item.id);
+        });
+
+        // Ensure any locally reported items not yet reflected in Firestore are merged and saved
+        for (const local of cachedItems) {
+          if (!seenIds.has(local.id)) {
+            firestoreItems.push(local);
+            seenIds.add(local.id);
+            setDoc(doc(db, 'items', local.id), sanitizeForFirestore(local), { merge: true }).catch(() => {});
+          }
+        }
+        
+        // Sort newest first
+        firestoreItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        cachedItems = firestoreItems;
+        localStorage.setItem(ITEMS_KEY, JSON.stringify(firestoreItems));
+        notifyListeners();
+      } else {
+        // First run on new Firebase project: seed initial campus reports so registry is populated
+        INITIAL_REPORTS.forEach(async (report) => {
+          try {
+            await setDoc(doc(db, 'items', report.id), sanitizeForFirestore(report));
+          } catch (err) {
+            console.warn('Could not seed initial report to Firestore:', err);
+          }
+        });
+      }
+    }, (error) => {
+      console.warn('Firestore items onSnapshot error (using local cache):', error);
+    });
+
+    // 2. Synchronize Claims Collection
+    const claimsCol = collection(db, 'claims');
+    onSnapshot(claimsCol, (snapshot) => {
+      if (!snapshot.empty) {
+        const firestoreClaims: ItemClaim[] = [];
+        snapshot.forEach((docSnap) => {
+          firestoreClaims.push({ ...(docSnap.data() as ItemClaim), id: docSnap.id });
+        });
+        firestoreClaims.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        cachedClaims = firestoreClaims;
+        localStorage.setItem(CLAIMS_KEY, JSON.stringify(firestoreClaims));
+        notifyListeners();
+      } else {
+        // Seed initial claims
+        INITIAL_CLAIMS.forEach(async (claim) => {
+          try {
+            await setDoc(doc(db, 'claims', claim.id), sanitizeForFirestore(claim));
+          } catch (err) {
+            console.warn('Could not seed initial claim to Firestore:', err);
+          }
+        });
+      }
+    }, (error) => {
+      console.warn('Firestore claims onSnapshot error (using local cache):', error);
+    });
+
+    // 3. Synchronize Receipts Collection
+    const receiptsCol = collection(db, 'receipts');
+    onSnapshot(receiptsCol, (snapshot) => {
+      if (!snapshot.empty) {
+        const firestoreReceipts: HandoverReceipt[] = [];
+        snapshot.forEach((docSnap) => {
+          firestoreReceipts.push(docSnap.data() as HandoverReceipt);
+        });
+        cachedReceipts = firestoreReceipts;
+        localStorage.setItem(RECEIPTS_KEY, JSON.stringify(firestoreReceipts));
+        notifyListeners();
+      }
+    }, (error) => {
+      console.warn('Firestore receipts onSnapshot error:', error);
+    });
+
+  } catch (err) {
+    console.warn('Error starting Firestore real-time synchronization:', err);
+  }
+}
+
+// Automatically start synchronization on load
+initFirestoreSync();
+
+export function getStoredItems(): ItemReport[] {
+  return cachedItems;
+}
+
+export function saveItem(newItem: ItemReport): ItemReport {
+  // 1. Update local cache and notify immediately for instant UI response
+  const existingIdx = cachedItems.findIndex(i => i.id === newItem.id);
+  if (existingIdx >= 0) {
+    cachedItems[existingIdx] = { ...cachedItems[existingIdx], ...newItem, updatedAt: new Date().toISOString() };
+  } else {
+    cachedItems.unshift(newItem);
+  }
+  localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
+  notifyListeners();
+
+  // 2. Persist to Firebase Firestore
+  try {
+    const cleanItem = sanitizeForFirestore(newItem);
+    setDoc(doc(db, 'items', newItem.id), cleanItem, { merge: true }).catch(err => {
+      console.warn('Failed to save item to Firestore:', err);
+    });
+  } catch (err) {
+    console.warn('Error writing item to Firestore:', err);
+  }
+
+  return newItem;
+}
+
+export function updateItemStatus(itemId: string, status: ItemReport['status']): void {
+  // Update local
+  const index = cachedItems.findIndex(i => i.id === itemId);
+  if (index >= 0) {
+    cachedItems[index].status = status;
+    cachedItems[index].updatedAt = new Date().toISOString();
+    localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
+    notifyListeners();
+  }
+
+  // Update Firestore
+  try {
+    updateDoc(doc(db, 'items', itemId), {
+      status,
+      updatedAt: new Date().toISOString(),
+    }).catch(err => {
+      console.warn('Firestore updateItemStatus failed:', err);
+    });
+  } catch (err) {
+    console.warn('Error updating item status in Firestore:', err);
+  }
+}
+
+export function deleteItem(itemId: string): void {
+  // Update local
+  cachedItems = cachedItems.filter(i => i.id !== itemId);
+  localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
+  notifyListeners();
+
+  // Delete from Firestore
+  try {
+    deleteDoc(doc(db, 'items', itemId)).catch(err => {
+      console.warn('Firestore deleteItem failed:', err);
+    });
+  } catch (err) {
+    console.warn('Error deleting item from Firestore:', err);
+  }
+}
+
+export function getStoredClaims(): ItemClaim[] {
+  return cachedClaims;
+}
+
 export function saveClaim(newClaim: ItemClaim): ItemClaim {
-  const claims = getStoredClaims();
-  claims.unshift(newClaim);
-  localStorage.setItem(CLAIMS_KEY, JSON.stringify(claims));
+  // Update local
+  cachedClaims.unshift(newClaim);
+  localStorage.setItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
 
   // Automatically update the associated item status to 'claim_pending'
   updateItemStatus(newClaim.itemId, 'claim_pending');
 
   notifyListeners();
+
+  // Persist to Firebase Firestore
+  try {
+    const cleanClaim = sanitizeForFirestore(newClaim);
+    setDoc(doc(db, 'claims', newClaim.id), cleanClaim, { merge: true }).catch(err => {
+      console.warn('Firestore saveClaim failed:', err);
+    });
+  } catch (err) {
+    console.warn('Error writing claim to Firestore:', err);
+  }
+
   return newClaim;
 }
 
 export function updateClaim(claimId: string, updates: Partial<ItemClaim>): void {
-  const claims = getStoredClaims();
-  const idx = claims.findIndex(c => c.id === claimId);
+  const idx = cachedClaims.findIndex(c => c.id === claimId);
   if (idx >= 0) {
-    claims[idx] = { ...claims[idx], ...updates };
-    localStorage.setItem(CLAIMS_KEY, JSON.stringify(claims));
+    cachedClaims[idx] = { ...cachedClaims[idx], ...updates };
+    localStorage.setItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
 
-    // If claim is verified or returned, update the item status accordingly
+    // Update item status accordingly
     if (updates.status === 'verified') {
-      updateItemStatus(claims[idx].itemId, 'verified');
+      updateItemStatus(cachedClaims[idx].itemId, 'verified');
     } else if (updates.status === 'returned') {
-      updateItemStatus(claims[idx].itemId, 'returned');
+      updateItemStatus(cachedClaims[idx].itemId, 'returned');
     } else if (updates.status === 'rejected') {
-      updateItemStatus(claims[idx].itemId, 'found');
+      updateItemStatus(cachedClaims[idx].itemId, 'found');
     }
 
     notifyListeners();
+
+    // Persist to Firestore
+    try {
+      const cleanUpdates = sanitizeForFirestore(updates as Record<string, any>);
+      updateDoc(doc(db, 'claims', claimId), cleanUpdates).catch(err => {
+        console.warn('Firestore updateClaim failed:', err);
+      });
+    } catch (err) {
+      console.warn('Error updating claim in Firestore:', err);
+    }
   }
 }
 
 export function getStoredReceipts(): HandoverReceipt[] {
-  try {
-    const raw = localStorage.getItem(RECEIPTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (err) {
-    return [];
-  }
+  return cachedReceipts;
 }
 
 export function saveReceipt(receipt: HandoverReceipt): void {
-  const receipts = getStoredReceipts();
-  receipts.unshift(receipt);
-  localStorage.setItem(RECEIPTS_KEY, JSON.stringify(receipts));
+  cachedReceipts.unshift(receipt);
+  localStorage.setItem(RECEIPTS_KEY, JSON.stringify(cachedReceipts));
   notifyListeners();
+
+  // Save to Firestore
+  try {
+    const cleanReceipt = sanitizeForFirestore(receipt);
+    setDoc(doc(db, 'receipts', receipt.receiptNumber), cleanReceipt, { merge: true }).catch(err => {
+      console.warn('Firestore saveReceipt failed:', err);
+    });
+  } catch (err) {
+    console.warn('Error writing receipt to Firestore:', err);
+  }
 }
 
 export function resetDemoData(): void {
-  localStorage.setItem(ITEMS_KEY, JSON.stringify(INITIAL_REPORTS));
-  localStorage.setItem(CLAIMS_KEY, JSON.stringify(INITIAL_CLAIMS));
+  cachedItems = [...INITIAL_REPORTS];
+  cachedClaims = [...INITIAL_CLAIMS];
+  cachedReceipts = [];
+  localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
+  localStorage.setItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
   localStorage.removeItem(RECEIPTS_KEY);
   notifyListeners();
 }
 
 /**
- * Reads an image file and converts to high quality Base64 Data URL,
- * simulating or executing Cloudinary storage upload.
+ * Uploads an image using Cloudinary (with automatic fallback to high-quality compressed storage)
  */
 export async function uploadImageFile(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (!file.type.startsWith('image/')) {
-      reject(new Error('Selected file is not an image'));
-      return;
-    }
-
-    // Limit to 5MB
-    if (file.size > 5 * 1024 * 1024) {
-      reject(new Error('Image size should be less than 5MB'));
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-      } else {
-        reject(new Error('Failed to read image data'));
-      }
-    };
-    reader.onerror = () => reject(new Error('Image read error'));
-    reader.readAsDataURL(file);
-  });
+  const result = await uploadImageToCloudinary(file);
+  return result.url;
 }

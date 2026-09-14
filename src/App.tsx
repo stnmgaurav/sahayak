@@ -35,6 +35,21 @@ import {
   Radio
 } from 'lucide-react';
 
+const QUICK_CATEGORIES = [
+  { id: 'all', label: 'All Categories', icon: '✨' },
+  { id: 'Electronics', label: 'Electronics', icon: '💻' },
+  { id: 'ID & Academic Cards', label: 'IDs & Cards', icon: '🪪' },
+  { id: 'Keys', label: 'Keys', icon: '🔑' },
+  { id: 'Wallets & Purses', label: 'Wallets & Purses', icon: '👛' },
+  { id: 'Bags & Backpacks', label: 'Backpacks', icon: '🎒' },
+  { id: 'Books & Notes', label: 'Books & Notes', icon: '📚' },
+  { id: 'Wearables & Watches', label: 'Watches', icon: '⌚' },
+  { id: 'Eyewear & Sunglasses', label: 'Eyewear', icon: '👓' },
+  { id: 'Water Bottles', label: 'Bottles', icon: '🍶' },
+  { id: 'Clothing & Jackets', label: 'Clothing', icon: '🧥' },
+  { id: 'Other Items', label: 'Other', icon: '📦' },
+];
+
 function SahayakMain() {
   const { currentUser, isAuthenticated } = useAuth();
 
@@ -56,7 +71,7 @@ function SahayakMain() {
 
   // Filter and Search states
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'lost' | 'found'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'lost' | 'found' | 'matched'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [locationFilter, setLocationFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -81,10 +96,6 @@ function SahayakMain() {
 
   // Handlers
   const handleOpenReportModal = (type: 'lost' | 'found') => {
-    if (!isAuthenticated) {
-      setCurrentTab('login');
-      return;
-    }
     setReportModalType(type);
     setReportModalOpen(true);
   };
@@ -134,7 +145,17 @@ function SahayakMain() {
   const pendingClaimsCount = claims.filter(c => c.status === 'pending').length;
   const returnedCount = items.filter(i => i.status === 'returned').length;
   const matchFoundCount = items.filter(i => i.status === 'match_found' || (matchesMap.get(i.id)?.count || 0) > 0).length;
+  const lostCount = items.filter(i => i.type === 'lost').length;
+  const foundCount = items.filter(i => i.type === 'found').length;
   
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    items.forEach(it => {
+      counts[it.category] = (counts[it.category] || 0) + 1;
+    });
+    return counts;
+  }, [items]);
+
   const userLostItems = currentUser ? items.filter(i => i.userId === currentUser.id && i.type === 'lost') : [];
   const unreadMatchesCount = userLostItems.reduce((acc, lost) => {
     return acc + (matchesMap.get(lost.id)?.count || 0);
@@ -143,25 +164,31 @@ function SahayakMain() {
   // Filter items for browse view
   const filteredItems = useMemo(() => {
     return items.filter(item => {
-      const q = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
       const matchesSearch = 
-        !searchQuery.trim() ||
+        !q ||
         item.title.toLowerCase().includes(q) ||
         item.description.toLowerCase().includes(q) ||
         item.locationBlock.toLowerCase().includes(q) ||
         item.specificSpot.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q) ||
         item.color.toLowerCase().includes(q) ||
-        (item.brandOrModel && item.brandOrModel.toLowerCase().includes(q));
+        (item.brandOrModel && item.brandOrModel.toLowerCase().includes(q)) ||
+        (item.identifyingMark && item.identifyingMark.toLowerCase().includes(q));
 
-      const matchesType = typeFilter === 'all' || item.type === typeFilter;
+      const matchesType = 
+        typeFilter === 'all' ||
+        (typeFilter === 'matched' 
+          ? (item.status === 'match_found' || (matchesMap.get(item.id)?.count || 0) > 0)
+          : item.type === typeFilter);
+
       const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
       const matchesLocation = locationFilter === 'all' || item.locationBlock.includes(locationFilter);
       const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
 
       return matchesSearch && matchesType && matchesCategory && matchesLocation && matchesStatus;
     });
-  }, [items, searchQuery, typeFilter, categoryFilter, locationFilter, statusFilter]);
+  }, [items, searchQuery, typeFilter, categoryFilter, locationFilter, statusFilter, matchesMap]);
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -251,7 +278,7 @@ function SahayakMain() {
                   </div>
 
                   {/* Two Primary Action Glass Cards */}
-                  <div className="mt-8 pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-stretch gap-4 relative z-10">
+                  <div className="mt-6 pt-5 border-t border-slate-200/80 flex flex-col sm:flex-row items-stretch gap-4 relative z-10">
                     <button
                       onClick={() => handleOpenReportModal('lost')}
                       className="flex-1 group/btn flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-red-800 to-red-900 hover:from-red-900 hover:to-red-950 text-white shadow-md shadow-red-900/20 hover:shadow-lg transition-all"
@@ -343,9 +370,6 @@ function SahayakMain() {
                         Campus Custody &amp; Handover Desks
                       </h4>
                     </div>
-                    <span className="text-[10px] font-bold text-red-800 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                      Physical Custody Active
-                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -369,10 +393,10 @@ function SahayakMain() {
 
                     <div className="p-3 rounded-2xl bg-white/80 border border-slate-200/80 space-y-1">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-950">Gate 1 Booth</p>
+                        <p className="text-xs font-bold text-slate-950">Gate 2 security Room</p>
                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                       </div>
-                      <p className="text-[11px] text-slate-500">NH-95 Main Security</p>
+                      <p className="text-[11px] text-slate-500">NH-95 gate 2 security</p>
                       <p className="text-[10px] font-extrabold text-emerald-700 pt-1">24x7 Assistance</p>
                     </div>
                   </div>
@@ -384,6 +408,35 @@ function SahayakMain() {
                 </div>
               </div>
             </section>
+
+            {/* CATEGORY DISCOVERY STRIP */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none no-scrollbar">
+                {QUICK_CATEGORIES.map(cat => {
+                  const isSelected = categoryFilter === cat.id;
+                  const count = cat.id === 'all' ? items.length : (categoryCounts[cat.id] || 0);
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setCategoryFilter(isSelected && cat.id !== 'all' ? 'all' : cat.id)}
+                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                        isSelected
+                          ? 'bg-red-800 text-white shadow-md shadow-red-900/20 scale-[1.02]'
+                          : 'bg-white/80 hover:bg-white text-slate-700 border border-slate-200/80 hover:border-slate-300 shadow-2xs'
+                      }`}
+                    >
+                      <span className="text-sm">{cat.icon}</span>
+                      <span>{cat.label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ml-0.5 ${
+                        isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             {/* INTERACTIVE EXPLORER & GLASS FILTERS */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
@@ -411,66 +464,79 @@ function SahayakMain() {
                   </div>
 
                   {/* Type Filter Buttons */}
-                  <div className="flex items-center gap-1.5 p-1 glass-panel-subtle rounded-2xl w-full md:w-auto border border-slate-200/80 shadow-2xs">
+                  <div className="flex items-center gap-1.5 p-1 glass-panel-subtle rounded-2xl w-full md:w-auto border border-slate-200/80 shadow-2xs overflow-x-auto">
                     <button
                       onClick={() => setTypeFilter('all')}
-                      className={`flex-1 md:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      className={`flex-1 md:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                         typeFilter === 'all'
                           ? 'bg-slate-950 text-white shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      All Items ({items.length})
+                      All ({items.length})
                     </button>
                     <button
                       onClick={() => setTypeFilter('lost')}
-                      className={`flex-1 md:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      className={`flex-1 md:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                         typeFilter === 'lost'
                           ? 'bg-red-800 text-white shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      Lost ({items.filter(i => i.type === 'lost').length})
+                      Lost ({lostCount})
                     </button>
                     <button
                       onClick={() => setTypeFilter('found')}
-                      className={`flex-1 md:flex-initial px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      className={`flex-1 md:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                         typeFilter === 'found'
                           ? 'bg-emerald-800 text-white shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      Found ({items.filter(i => i.type === 'found').length})
+                      Found ({foundCount})
+                    </button>
+                    <button
+                      onClick={() => setTypeFilter('matched')}
+                      className={`flex-1 md:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center justify-center gap-1.5 ${
+                        typeFilter === 'matched'
+                          ? 'bg-amber-700 text-white shadow-sm'
+                          : 'text-amber-800 hover:text-amber-950'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span>AI Matched ({matchFoundCount})</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Secondary Category & Location Dropdowns */}
-                <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-slate-200/60 text-xs">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-3 border-t border-slate-200/60 text-xs">
                   {/* Category Filter */}
-                  <div className="flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-slate-400" />
+                  <div className="flex items-center gap-1.5 flex-1 sm:flex-initial min-w-[130px]">
+                    <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <select
                       value={categoryFilter}
                       onChange={e => setCategoryFilter(e.target.value)}
-                      className="px-3 py-1.5 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs focus:outline-none focus:ring-1 focus:ring-red-600"
+                      className="w-full sm:w-auto px-2.5 sm:px-3 py-1.5 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs focus:outline-none focus:ring-1 focus:ring-red-600"
                     >
-                      <option value="all">All Categories</option>
+                      <option value="all">All Categories ({items.length})</option>
                       {ITEM_CATEGORIES.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
+                        <option key={cat} value={cat}>
+                          {cat} ({categoryCounts[cat] || 0})
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   {/* Campus Location Filter */}
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                  <div className="flex items-center gap-1.5 flex-1 sm:flex-initial min-w-[150px]">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <select
                       value={locationFilter}
                       onChange={e => setLocationFilter(e.target.value)}
-                      className="px-3 py-1.5 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 max-w-[200px] shadow-2xs focus:outline-none focus:ring-1 focus:ring-red-600"
+                      className="w-full sm:w-auto px-2.5 sm:px-3 py-1.5 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 sm:max-w-[200px] shadow-2xs focus:outline-none focus:ring-1 focus:ring-red-600"
                     >
-                      <option value="all">All Campus Locations</option>
+                      <option value="all">All Locations</option>
                       {CU_CAMPUS_LOCATIONS.map(loc => (
                         <option key={loc} value={loc.split('(')[0].trim()}>{loc.split('(')[0].trim()}</option>
                       ))}
@@ -478,12 +544,12 @@ function SahayakMain() {
                   </div>
 
                   {/* Status Filter */}
-                  <div className="flex items-center gap-1.5">
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                  <div className="flex items-center gap-1.5 flex-1 sm:flex-initial min-w-[130px]">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <select
                       value={statusFilter}
                       onChange={e => setStatusFilter(e.target.value)}
-                      className="px-3 py-1.5 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs focus:outline-none focus:ring-1 focus:ring-red-600"
+                      className="w-full sm:w-auto px-2.5 sm:px-3 py-1.5 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs focus:outline-none focus:ring-1 focus:ring-red-600"
                     >
                       <option value="all">All Statuses</option>
                       <option value="lost">Lost / Active</option>
@@ -510,18 +576,25 @@ function SahayakMain() {
 
               {/* Items Grid with Glassmorphic Cards */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
                   <div>
-                    <h2 className="text-lg font-black text-slate-950 tracking-tight">
-                      Campus Lost &amp; Found Registry
-                    </h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-black text-slate-950 tracking-tight">
+                        Campus Lost &amp; Found Registry
+                      </h2>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-800 border border-red-200/60">
+                        Public View
+                      </span>
+                    </div>
                     <p className="text-xs text-slate-500 font-medium">
-                      Showing {filteredItems.length} active records from Chandigarh University
+                      Displaying {filteredItems.length} of {items.length} uploaded records • All items accessible without login
                     </p>
                   </div>
-                  <div className="hidden sm:flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span className="text-xs text-slate-500 font-semibold">Live Real-time Synced</span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200/80">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span>Real-time Live Sync</span>
+                    </span>
                   </div>
                 </div>
 

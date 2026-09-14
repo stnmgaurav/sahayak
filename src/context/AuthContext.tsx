@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile } from '../types';
+import { DEMO_USERS } from '../data/mockData';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { 
   onAuthStateChanged, 
@@ -30,6 +31,8 @@ interface AuthContextType {
     role?: 'student' | 'admin';
   }) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  loginAsDemo: (role: 'student' | 'admin') => Promise<void>;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthModalOpen: boolean;
@@ -53,6 +56,17 @@ export const isUserAdmin = (email: string, role?: string): boolean => {
     lower.startsWith('admin.')
   );
 };
+
+// Strips undefined fields to prevent Firestore unsupported field value errors
+function sanitizeProfile(profile: UserProfile): Record<string, any> {
+  const clean: Record<string, any> = {};
+  for (const [key, val] of Object.entries(profile)) {
+    if (val !== undefined) {
+      clean[key] = val;
+    }
+  }
+  return clean;
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
@@ -111,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Attempt to persist profile to Firestore
             try {
-              await setDoc(userDocRef, generatedProfile, { merge: true });
+              await setDoc(userDocRef, sanitizeProfile(generatedProfile), { merge: true });
             } catch (err) {
               console.warn('Could not save profile to Firestore:', err);
             }
@@ -122,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Fallback to basic profile from Firebase User
           if (!currentUser || currentUser.id !== user.uid) {
             const email = user.email || '';
-            setCurrentUser({
+            const fallbackProfile: UserProfile = {
               id: user.uid,
               name: user.displayName || email.split('@')[0],
               email: email,
@@ -131,7 +145,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               department: 'Computer Science & Engineering (CSE)',
               role: isUserAdmin(email) ? 'admin' : 'student',
               joinedDate: new Date().toISOString().split('T')[0],
-            });
+            };
+            setCurrentUser(fallbackProfile);
+            setDoc(doc(db, 'users', user.uid), sanitizeProfile(fallbackProfile), { merge: true }).catch(() => {});
           }
         }
       } else {
@@ -147,7 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const user = credential.user;
     
-    // Fetch profile
+    // Fetch profile from Firestore
     try {
       const userDocRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(userDocRef);
@@ -191,9 +207,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       joinedDate: new Date().toISOString().split('T')[0],
     };
 
-    // Save to Firestore
+    // Save to Firestore users collection
     try {
-      await setDoc(doc(db, 'users', user.uid), newProfile);
+      await setDoc(doc(db, 'users', user.uid), sanitizeProfile(newProfile));
     } catch (err) {
       console.warn('Could not save new profile to Firestore:', err);
     }
@@ -209,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const email = user.email || '';
     const admin = isUserAdmin(email);
     
-    // Check if doc exists
+    // Check if doc exists in Firestore
     try {
       const userDocRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(userDocRef);
@@ -229,13 +245,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           avatarUrl: user.photoURL || undefined,
           joinedDate: new Date().toISOString().split('T')[0],
         };
-        await setDoc(userDocRef, newProfile, { merge: true });
+        await setDoc(userDocRef, sanitizeProfile(newProfile), { merge: true });
         setCurrentUser(newProfile);
       }
     } catch (err) {
       console.warn('Error saving Google user in Firestore:', err);
       // Fallback
-      setCurrentUser({
+      const fallbackGoogle: UserProfile = {
         id: user.uid,
         name: user.displayName || email.split('@')[0],
         email: email,
@@ -245,11 +261,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: admin ? 'admin' : 'student',
         avatarUrl: user.photoURL || undefined,
         joinedDate: new Date().toISOString().split('T')[0],
-      });
+      };
+      setCurrentUser(fallbackGoogle);
+      setDoc(doc(db, 'users', user.uid), sanitizeProfile(fallbackGoogle), { merge: true }).catch(() => {});
     }
 
     setIsAuthModalOpen(false);
   };
+
+  const loginAsDemo = async (role: 'student' | 'admin'): Promise<void> => {
+    const demoProfile = role === 'admin' ? DEMO_USERS[2] : DEMO_USERS[0];
+    setCurrentUser(demoProfile);
+    setIsAuthModalOpen(false);
+
+    // Persist demo user profile to Firestore
+    try {
+      await setDoc(doc(db, 'users', demoProfile.id), sanitizeProfile(demoProfile), { merge: true });
+    } catch (err) {
+      console.warn('Could not save demo user profile to Firestore:', err);
+    }
+  };
+
+  const updateUserProfile = async (updates: Partial<UserProfile>): Promise<void> => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, ...updates };
+    setCurrentUser(updated);
+
+    // Save to Firestore
+    try {
+      await setDoc(doc(db, 'users', updated.id), sanitizeProfile(updated), { merge: true });
+    } catch (err) {
+      console.warn('Could not update user profile in Firestore:', err);
+    }
+  };
+
 
   const resetPassword = async (email: string): Promise<void> => {
     await sendPasswordResetEmail(auth, email);

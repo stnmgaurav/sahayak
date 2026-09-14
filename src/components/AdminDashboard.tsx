@@ -293,19 +293,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
 
                       {/* Admin Decision Actions */}
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap pt-1">
                         {isPending && (
                           <>
                             <button
                               onClick={() => handleVerifyClaim(claim.id)}
-                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs transition-colors flex items-center gap-1.5"
+                              className="px-3.5 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs transition-colors flex items-center gap-1.5"
                             >
                               <ShieldCheck className="w-4 h-4" />
-                              <span>Approve &amp; Mark Verified</span>
+                              <span>Approve &amp; Verify</span>
                             </button>
                             <button
                               onClick={() => handleRejectClaim(claim.id)}
-                              className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors"
+                              className="px-3.5 sm:px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors"
                             >
                               Reject Claim
                             </button>
