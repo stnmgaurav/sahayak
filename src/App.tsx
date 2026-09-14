@@ -241,6 +241,7 @@ function SahayakMain() {
         {currentTab === 'login' && (
           <LoginPage
             onBackToBrowse={() => setCurrentTab('browse')}
+            onOpenDashboard={(role) => setCurrentTab(role === 'admin' ? 'admin-dashboard' : 'student-dashboard')}
           />
         )}
 
@@ -751,7 +752,11 @@ function SahayakMain() {
       />
 
       <AuthModal />
-      <UserProfileCompletionModal />
+      <UserProfileCompletionModal
+        onProfileCompleted={() => {
+          setCurrentTab('student-dashboard');
+        }}
+      />
     </div>
   );
 }

@@ -27,6 +27,7 @@ interface AuthContextType {
     phone: string;
     department: string;
     name?: string;
+    avatarUrl?: string;
   }) => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
   signupWithEmail: (data: {
@@ -66,16 +67,28 @@ export const isUserAdmin = (email: string, role?: string): boolean => {
   );
 };
 
-// Check if a profile requires UID or mobile completion
+// Check if a profile requires student details (name, UID, phone, avatarUrl) completion
 export const checkProfileIncomplete = (profile: UserProfile | null): boolean => {
   if (!profile) return false;
   // Admin & Security Staff never require student profile completion
   if (profile.role === 'admin') return false;
   if (profile.profileCompleted === false) return true;
+  const name = (profile.name || '').trim();
   const uid = (profile.uidOrRoll || '').trim();
   const phone = (profile.phone || '').trim();
-  if (!uid || !phone) return true;
-  if (phone === '+91 98765 00000' || phone === '9876500000' || phone === '0000000000') return true;
+  const avatar = (profile.avatarUrl || '').trim();
+  
+  // Name must be present and valid
+  if (!name || name.length < 2) return true;
+  // UID must be present and at least 3 characters
+  if (!uid || uid.length < 3) return true;
+  // Phone must be a valid 10+ digit number and not dummy/placeholder
+  if (!phone || phone === '+91 98765 00000' || phone === '9876500000' || phone === '0000000000') return true;
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 10) return true;
+  // Avatar / profile photo must be present
+  if (!avatar) return true;
+  
   return false;
 };
 
@@ -342,6 +355,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     phone: string;
     department: string;
     name?: string;
+    avatarUrl?: string;
   }): Promise<void> => {
     const targetUser = currentUser || (firebaseUser ? {
       id: firebaseUser.uid,
@@ -359,12 +373,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const email = targetUser.email || '';
     const admin = isUserAdmin(email, targetUser.role);
+    // If profile was already completed, UID and phone cannot be changed
+    const isLocked = Boolean(targetUser.profileCompleted && targetUser.uidOrRoll && targetUser.phone);
+    const finalUid = isLocked ? targetUser.uidOrRoll : details.uidOrRoll.trim().toUpperCase();
+    const finalPhone = isLocked ? targetUser.phone : details.phone.trim();
+
     const updatedProfile: UserProfile = {
       ...targetUser,
-      name: details.name || targetUser.name,
-      uidOrRoll: details.uidOrRoll.trim().toUpperCase(),
-      phone: details.phone.trim(),
+      name: (details.name || targetUser.name || 'Student').trim(),
+      uidOrRoll: finalUid,
+      phone: finalPhone,
       department: details.department,
+      avatarUrl: details.avatarUrl ? details.avatarUrl.trim() : (targetUser.avatarUrl || firebaseUser?.photoURL || undefined),
       role: admin ? 'admin' : 'student',
       profileCompleted: true,
     };

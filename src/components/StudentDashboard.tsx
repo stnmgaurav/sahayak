@@ -22,7 +22,10 @@ import {
   TrendingUp,
   Compass,
   ArrowUpRight,
-  ArrowLeft
+  ArrowLeft,
+  Edit3,
+  Lock,
+  Camera
 } from 'lucide-react';
 
 interface StudentDashboardProps {
@@ -44,7 +47,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onOpenMatchComparison,
   onViewReceipt,
 }) => {
-  const { currentUser, openAuthModal } = useAuth();
+  const { currentUser, openAuthModal, setNeedsProfileCompletion } = useAuth();
   const [activeTab, setActiveTab] = useState<'lost' | 'found' | 'matches' | 'claims'>('lost');
 
   if (!currentUser) {
@@ -108,21 +111,51 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-red-600/10 via-rose-500/5 to-transparent rounded-full blur-2xl pointer-events-none"></div>
 
         <div className="flex items-center gap-4 sm:gap-5 relative z-10">
-          <div className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-red-700 via-red-800 to-red-950 text-white flex items-center justify-center font-black text-xl sm:text-2xl shadow-md shadow-red-900/20 shrink-0">
-            {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
-          </div>
+          <button
+            type="button"
+            onClick={() => setNeedsProfileCompletion(true)}
+            className="relative group shrink-0 focus:outline-none focus:ring-2 focus:ring-red-600 rounded-2xl"
+            title="Click to view student profile details"
+          >
+            {currentUser.avatarUrl ? (
+              <img
+                src={currentUser.avatarUrl}
+                alt={currentUser.name}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-red-700/60 shadow-md shadow-red-900/20 bg-white group-hover:scale-102 transition-transform"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-red-700 via-red-800 to-red-950 text-white flex items-center justify-center font-black text-xl sm:text-2xl shadow-md shadow-red-900/20 group-hover:scale-102 transition-transform">
+                {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+            )}
+            <div className="absolute -bottom-1 -right-1 bg-white border border-slate-200 text-slate-700 p-1 rounded-full shadow-xs group-hover:text-red-700 group-hover:border-red-600 transition-colors">
+              <Camera className="w-2.5 h-2.5" />
+            </div>
+          </button>
+
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight truncate">{currentUser.name}</h1>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase bg-red-100/90 text-red-800 border border-red-200">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase bg-red-100/90 text-red-800 border border-red-200" title="UID is locked to student profile">
+                <Lock className="w-2.5 h-2.5 text-red-700" />
                 UID: {currentUser.uidOrRoll}
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100/90 text-emerald-800 border border-emerald-200">
                 Verified Student
               </span>
+              <button
+                type="button"
+                onClick={() => setNeedsProfileCompletion(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-slate-600 hover:text-red-800 bg-white hover:bg-slate-100 border border-slate-200 shadow-2xs transition-colors"
+                title="View student profile details (UID & Mobile locked)"
+              >
+                <Edit3 className="w-3 h-3 text-slate-500" />
+                <span>Profile Details</span>
+              </button>
             </div>
             <p className="text-xs text-slate-500 font-medium truncate">
-              {currentUser.department} • {currentUser.email}
+              {currentUser.department} • {currentUser.email} • {currentUser.phone}
             </p>
           </div>
         </div>

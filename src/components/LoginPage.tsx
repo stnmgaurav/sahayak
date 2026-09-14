@@ -60,9 +60,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
 
-  // Auto-navigate if already authenticated
+  // Auto-navigate if already authenticated and profile is complete (or admin)
   React.useEffect(() => {
-    if (isAuthenticated && currentUser) {
+    if (isAuthenticated && currentUser && (currentUser.role === 'admin' || currentUser.profileCompleted)) {
       const timer = setTimeout(() => {
         if (onOpenDashboard) {
           onOpenDashboard(currentUser.role === 'admin' ? 'admin' : 'student');
