@@ -1,0 +1,128 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered Chandigarh University student or campus security personnel profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID matching Firebase Auth UID" },
+        "email": { "type": "string", "format": "email", "description": "University email or personal email address" },
+        "name": { "type": "string", "description": "Full legal name of student or staff member" },
+        "role": { "type": "string", "enum": ["student", "admin"], "description": "Access role: student or admin" },
+        "uidOrRoll": { "type": "string", "description": "Chandigarh University UID or Roll Number" },
+        "department": { "type": "string", "description": "Academic department or faculty unit" },
+        "phone": { "type": "string", "description": "Contact mobile phone number" },
+        "avatarUrl": { "type": "string", "description": "Profile picture URL" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of user registration" },
+        "lastLoginAt": { "type": "string", "description": "ISO timestamp of last activity" },
+        "profileCompleted": { "type": "boolean", "description": "Indicates whether mandatory student profile fields are filled" }
+      },
+      "required": ["id", "email", "name", "role", "uidOrRoll", "department", "phone", "createdAt"]
+    },
+    "ItemReport": {
+      "title": "ItemReport",
+      "description": "Lost or found property registry entry logged across Chandigarh University campus",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique item report identifier" },
+        "type": { "type": "string", "enum": ["lost", "found"], "description": "Report classification" },
+        "title": { "type": "string", "maxLength": 150, "description": "Descriptive title of item" },
+        "description": { "type": "string", "maxLength": 2000, "description": "Full details, brand, color, contents" },
+        "category": { "type": "string", "description": "Item category taxonomy" },
+        "location": { "type": "string", "description": "Campus block, lab, cafeteria or hostel location" },
+        "date": { "type": "string", "description": "Date item was lost or found" },
+        "time": { "type": "string", "description": "Approximate time" },
+        "images": { "type": "array", "description": "Image URLs uploaded to storage" },
+        "status": { "type": "string", "enum": ["lost", "found", "claim_pending", "verified", "returned"], "description": "Workflow lifecycle state" },
+        "reporterName": { "type": "string", "description": "Name of reporter" },
+        "reporterContact": { "type": "string", "description": "Phone number of reporter" },
+        "reporterEmail": { "type": "string", "description": "Email address of reporter" },
+        "reporterUid": { "type": "string", "description": "Auth UID or roll number of reporter" },
+        "reporterDepartment": { "type": "string", "description": "Academic department of reporter" },
+        "securityDepositLocation": { "type": "string", "description": "Security booth where found item was handed over" },
+        "aiKeywords": { "type": "array", "description": "Extracted search keywords" },
+        "createdAt": { "type": "string", "description": "ISO creation timestamp" },
+        "updatedAt": { "type": "string", "description": "ISO update timestamp" },
+        "verifiedByAdmin": { "type": "boolean", "description": "Verified by campus security" }
+      },
+      "required": ["id", "type", "title", "description", "category", "location", "date", "status", "reporterName", "reporterContact", "reporterEmail", "reporterUid", "createdAt"]
+    },
+    "ItemClaim": {
+      "title": "ItemClaim",
+      "description": "Student ownership claim submitted for found item custody recovery",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique claim identifier" },
+        "itemId": { "type": "string", "description": "Target item document identifier" },
+        "claimantName": { "type": "string", "description": "Name of claimant" },
+        "claimantUid": { "type": "string", "description": "UID or roll number of claimant" },
+        "claimantEmail": { "type": "string", "description": "Email of claimant" },
+        "claimantPhone": { "type": "string", "description": "Contact phone of claimant" },
+        "claimantDepartment": { "type": "string", "description": "Department of claimant" },
+        "proofDescription": { "type": "string", "maxLength": 2000, "description": "Proof of ownership description" },
+        "secretIdentifiers": { "type": "string", "maxLength": 1000, "description": "Secret marks, serial numbers, wallpaper description" },
+        "proofImages": { "type": "array", "description": "Uploaded purchase bill or matching photo URLs" },
+        "status": { "type": "string", "enum": ["pending", "verified", "rejected", "returned"], "description": "Claim verification status" },
+        "adminNotes": { "type": "string", "description": "Security officer review remarks" },
+        "createdAt": { "type": "string", "description": "ISO creation timestamp" },
+        "updatedAt": { "type": "string", "description": "ISO update timestamp" }
+      },
+      "required": ["id", "itemId", "claimantName", "claimantUid", "claimantEmail", "claimantPhone", "proofDescription", "status", "createdAt"]
+    },
+    "HandoverReceipt": {
+      "title": "HandoverReceipt",
+      "description": "Official campus security gate pass & item handover custody certificate",
+      "type": "object",
+      "properties": {
+        "receiptNumber": { "type": "string", "description": "Official receipt serial number" },
+        "claimId": { "type": "string", "description": "Associated claim identifier" },
+        "itemId": { "type": "string", "description": "Associated item identifier" },
+        "itemTitle": { "type": "string", "description": "Item title" },
+        "itemCategory": { "type": "string", "description": "Item category" },
+        "claimantName": { "type": "string", "description": "Verified student claimant name" },
+        "claimantUid": { "type": "string", "description": "Verified student claimant UID" },
+        "claimantPhone": { "type": "string", "description": "Claimant mobile number" },
+        "founderName": { "type": "string", "description": "Founder student or staff name" },
+        "founderUid": { "type": "string", "description": "Founder student or staff UID" },
+        "handoverOfficerName": { "type": "string", "description": "Security officer who released the item" },
+        "handoverOfficerId": { "type": "string", "description": "Security officer staff badge ID" },
+        "handoverLocation": { "type": "string", "description": "Campus security desk location" },
+        "timestamp": { "type": "string", "description": "ISO release timestamp" },
+        "qrVerificationCode": { "type": "string", "description": "Cryptographic or signed verification token" }
+      },
+      "required": [
+        "receiptNumber",
+        "claimId",
+        "itemId",
+        "itemTitle",
+        "itemCategory",
+        "claimantName",
+        "claimantUid",
+        "claimantPhone",
+        "handoverOfficerName",
+        "handoverOfficerId",
+        "handoverLocation",
+        "timestamp",
+        "qrVerificationCode"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Student and campus security accounts"
+    },
+    "/items/{itemId}": {
+      "schema": "ItemReport",
+      "description": "Public lost and found items registry"
+    },
+    "/claims/{claimId}": {
+      "schema": "ItemClaim",
+      "description": "Item ownership claims submitted by students"
+    },
+    "/receipts/{receiptId}": {
+      "schema": "HandoverReceipt",
+      "description": "Handover receipts issued by security"
+    }
+  }
+}

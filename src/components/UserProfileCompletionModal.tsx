@@ -460,7 +460,7 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
               {isExistingProfile ? (
                 <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
                   <Lock className="w-2.5 h-2.5" />
-                  Locked (Cannot Change)
+                  Locked
                 </span>
               ) : (
                 <span className="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200/60">

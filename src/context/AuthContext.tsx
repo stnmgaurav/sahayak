@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { DEMO_USERS } from '../data/mockData';
-import { auth, db, googleProvider } from '../lib/firebase';
+import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../lib/firebase';
 import { 
   onAuthStateChanged, 
   signInWithEmailAndPassword, 
@@ -176,12 +176,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
               await setDoc(userDocRef, sanitizeProfile(initialGoogleProfile), { merge: true });
             } catch (err) {
+              handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
               console.warn('Could not initialize profile in Firestore:', err);
             }
             setCurrentUser(initialGoogleProfile);
             setNeedsProfileCompletion(admin ? false : checkProfileIncomplete(initialGoogleProfile));
           }
         } catch (err) {
+          handleFirestoreError(err, OperationType.GET, `users/${user.uid}`);
           console.warn('Error fetching Firestore user profile:', err);
           if (!currentUser || currentUser.id !== user.uid) {
             const email = user.email || '';
@@ -271,6 +273,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await setDoc(doc(db, 'users', user.uid), sanitizeProfile(newProfile));
     } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
       console.warn('Could not save new profile to Firestore:', err);
     }
 
@@ -394,6 +397,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDocRef = doc(db, 'users', updatedProfile.id);
       await setDoc(userDocRef, sanitizeProfile(updatedProfile), { merge: true });
     } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${updatedProfile.id}`);
       console.error('Failed to save profile details to Firestore:', err);
     }
 
@@ -417,6 +421,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await setDoc(doc(db, 'users', fullDemo.id), sanitizeProfile(fullDemo), { merge: true });
     } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${fullDemo.id}`);
       console.warn('Could not save demo user profile to Firestore:', err);
     }
   };
@@ -430,6 +435,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await setDoc(doc(db, 'users', updated.id), sanitizeProfile(updated), { merge: true });
     } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${updated.id}`);
       console.warn('Could not update user profile in Firestore:', err);
     }
   };

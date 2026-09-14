@@ -11,13 +11,11 @@ import {
   LogIn,
   Sparkles,
   ChevronDown,
-  UserCheck,
   Lock,
   Edit3,
   Phone,
   GraduationCap,
-  Building2,
-  User
+  Building2
 } from 'lucide-react';
 
 type NavTab = 'browse' | 'student-dashboard' | 'admin-dashboard' | 'login';
@@ -166,9 +164,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                         onClick={() => setIsProfileDropdownOpen(false)} 
                       />
 
-                      <div className="absolute right-0 mt-2 w-80 sm:w-88 bg-white border border-slate-200/90 rounded-2xl shadow-xl shadow-slate-900/10 p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="absolute right-0 mt-2 w-76 sm:w-80 bg-white border border-slate-200/90 rounded-2xl shadow-xl shadow-slate-900/10 p-2.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                         {/* Profile Header */}
-                        <div className="flex items-center gap-3 p-2.5 bg-slate-50/80 rounded-xl border border-slate-100 mb-2.5">
+                        <div className="flex items-center gap-3 p-2.5 bg-slate-50/90 rounded-xl border border-slate-100 mb-2">
                           {currentUser.avatarUrl ? (
                             <img
                               src={currentUser.avatarUrl}
@@ -194,19 +192,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                           </div>
                         </div>
 
-                        {/* Profile Menu Details & Locked Fields Notice */}
-                        <div className="p-2.5 bg-slate-50/60 rounded-xl border border-slate-200/70 space-y-2 text-xs">
-                          <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                              Profile Menu Details
-                            </span>
-                            <span className="text-[10px] font-bold text-emerald-700 flex items-center gap-1">
-                              <UserCheck className="w-3 h-3" />
-                              Verified
-                            </span>
-                          </div>
-
-                          {/* Student UID - Cannot change */}
+                        {/* Verified Student Credentials */}
+                        <div className="p-2 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-1.5 text-xs mb-2">
+                          {/* Student UID */}
                           <div className="flex items-center justify-between py-1 bg-white px-2.5 rounded-lg border border-slate-200/60">
                             <div className="flex items-center gap-2 min-w-0">
                               <GraduationCap className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -217,13 +205,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 </span>
                               </div>
                             </div>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 shrink-0" title="UID cannot be modified">
-                              <Lock className="w-2.5 h-2.5 text-amber-700" />
-                              Cannot change
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded shrink-0" title="UID is permanent">
+                              <Lock className="w-2.5 h-2.5 text-slate-400" />
                             </span>
                           </div>
 
-                          {/* Contact Mobile - Cannot change */}
+                          {/* Contact Mobile */}
                           <div className="flex items-center justify-between py-1 bg-white px-2.5 rounded-lg border border-slate-200/60">
                             <div className="flex items-center gap-2 min-w-0">
                               <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -234,37 +221,29 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 </span>
                               </div>
                             </div>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 shrink-0" title="Mobile cannot be modified">
-                              <Lock className="w-2.5 h-2.5 text-amber-700" />
-                              Cannot change
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded shrink-0" title="Contact number is permanent">
+                              <Lock className="w-2.5 h-2.5 text-slate-400" />
                             </span>
                           </div>
 
                           {/* Academic Department */}
-                          <div className="flex items-center justify-between py-1 bg-white px-2.5 rounded-lg border border-slate-200/60">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              <div className="min-w-0">
-                                <span className="text-[10px] text-slate-500 block leading-tight">Department</span>
-                                <span className="font-medium text-slate-800 text-xs truncate block max-w-[190px]">
-                                  {currentUser.department || 'Chandigarh University'}
-                                </span>
+                          {currentUser.department && (
+                            <div className="flex items-center justify-between py-1 bg-white px-2.5 rounded-lg border border-slate-200/60">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <div className="min-w-0">
+                                  <span className="text-[10px] text-slate-500 block leading-tight">Department</span>
+                                  <span className="font-medium text-slate-800 text-xs truncate block max-w-[190px]">
+                                    {currentUser.department}
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-
-                          {/* Warning notice */}
-                          <div className="p-2 bg-amber-50/90 rounded-lg border border-amber-200/60 flex items-start gap-1.5 text-[10px] text-amber-900 leading-snug">
-                            <Lock className="w-3 h-3 text-amber-700 shrink-0 mt-0.5" />
-                            <span>
-                              <strong>UID &amp; Mobile are permanent:</strong> They cannot be changed to prevent impersonation during item custody handover.
-                            </span>
-                          </div>
+                          )}
                         </div>
 
                         {/* Navigation & Action Links */}
-                        <div className="pt-2 space-y-1">
-                          {/* Edit Profile button */}
+                        <div className="space-y-0.5">
                           <button
                             onClick={() => {
                               setNeedsProfileCompletion(true);
@@ -272,8 +251,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                             }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-800 hover:text-red-900 hover:bg-red-50/70 rounded-xl transition-colors text-left"
                           >
-                            <Edit3 className="w-4 h-4 text-red-700" />
-                            <span>Edit Profile (Name, Dept, Photo)</span>
+                            <Edit3 className="w-3.5 h-3.5 text-red-700" />
+                            <span>Edit Profile Details</span>
                           </button>
 
                           <button
@@ -283,7 +262,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-colors text-left"
                           >
-                            <LayoutDashboard className="w-4 h-4 text-slate-400" />
+                            <LayoutDashboard className="w-3.5 h-3.5 text-slate-400" />
                             <span>My Dashboard &amp; Claims</span>
                           </button>
 
@@ -295,7 +274,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                               }}
                               className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-red-800 hover:bg-red-50/60 rounded-xl transition-colors text-left"
                             >
-                              <Shield className="w-4 h-4 text-red-700" />
+                              <Shield className="w-3.5 h-3.5 text-red-700" />
                               <span>Campus Security Desk</span>
                             </button>
                           )}
@@ -307,7 +286,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             }}
                             className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors text-left border-t border-slate-100 mt-1 pt-1.5"
                           >
-                            <LogOut className="w-4 h-4" />
+                            <LogOut className="w-3.5 h-3.5" />
                             <span>Sign Out</span>
                           </button>
                         </div>

@@ -7,7 +7,7 @@ import {
   onSnapshot, 
   getDocs 
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, handleFirestoreError, OperationType } from './firebase';
 import { uploadImageToCloudinary } from './cloudinary';
 import { ItemReport, ItemClaim, HandoverReceipt } from '../types';
 import { INITIAL_REPORTS, INITIAL_CLAIMS } from '../data/mockData';
@@ -131,7 +131,8 @@ export function initFirestoreSync() {
         });
       }
     }, (error) => {
-      console.warn('Firestore items onSnapshot error (using local cache):', error);
+      handleFirestoreError(error, OperationType.GET, 'items');
+      console.warn('Firestore items onSnapshot (using local cache while rules deploy):', error);
     });
 
     // 2. Synchronize Claims Collection
@@ -152,12 +153,13 @@ export function initFirestoreSync() {
           try {
             await setDoc(doc(db, 'claims', claim.id), sanitizeForFirestore(claim));
           } catch (err) {
-            console.warn('Could not seed initial claim to Firestore:', err);
+            handleFirestoreError(err, OperationType.CREATE, `claims/${claim.id}`);
           }
         });
       }
     }, (error) => {
-      console.warn('Firestore claims onSnapshot error (using local cache):', error);
+      handleFirestoreError(error, OperationType.GET, 'claims');
+      console.warn('Firestore claims onSnapshot (using local cache while rules deploy):', error);
     });
 
     // 3. Synchronize Receipts Collection
@@ -173,6 +175,7 @@ export function initFirestoreSync() {
         notifyListeners();
       }
     }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'receipts');
       console.warn('Firestore receipts onSnapshot error:', error);
     });
 
@@ -203,10 +206,11 @@ export function saveItem(newItem: ItemReport): ItemReport {
   try {
     const cleanItem = sanitizeForFirestore(newItem);
     setDoc(doc(db, 'items', newItem.id), cleanItem, { merge: true }).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `items/${newItem.id}`);
       console.warn('Failed to save item to Firestore:', err);
     });
   } catch (err) {
-    console.warn('Error writing item to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `items/${newItem.id}`);
   }
 
   return newItem;
@@ -228,10 +232,11 @@ export function updateItemStatus(itemId: string, status: ItemReport['status']): 
       status,
       updatedAt: new Date().toISOString(),
     }).catch(err => {
+      handleFirestoreError(err, OperationType.UPDATE, `items/${itemId}`);
       console.warn('Firestore updateItemStatus failed:', err);
     });
   } catch (err) {
-    console.warn('Error updating item status in Firestore:', err);
+    handleFirestoreError(err, OperationType.UPDATE, `items/${itemId}`);
   }
 }
 
@@ -244,10 +249,11 @@ export function deleteItem(itemId: string): void {
   // Delete from Firestore
   try {
     deleteDoc(doc(db, 'items', itemId)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `items/${itemId}`);
       console.warn('Firestore deleteItem failed:', err);
     });
   } catch (err) {
-    console.warn('Error deleting item from Firestore:', err);
+    handleFirestoreError(err, OperationType.DELETE, `items/${itemId}`);
   }
 }
 
@@ -269,10 +275,11 @@ export function saveClaim(newClaim: ItemClaim): ItemClaim {
   try {
     const cleanClaim = sanitizeForFirestore(newClaim);
     setDoc(doc(db, 'claims', newClaim.id), cleanClaim, { merge: true }).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `claims/${newClaim.id}`);
       console.warn('Firestore saveClaim failed:', err);
     });
   } catch (err) {
-    console.warn('Error writing claim to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `claims/${newClaim.id}`);
   }
 
   return newClaim;
@@ -299,10 +306,11 @@ export function updateClaim(claimId: string, updates: Partial<ItemClaim>): void 
     try {
       const cleanUpdates = sanitizeForFirestore(updates as Record<string, any>);
       updateDoc(doc(db, 'claims', claimId), cleanUpdates).catch(err => {
+        handleFirestoreError(err, OperationType.UPDATE, `claims/${claimId}`);
         console.warn('Firestore updateClaim failed:', err);
       });
     } catch (err) {
-      console.warn('Error updating claim in Firestore:', err);
+      handleFirestoreError(err, OperationType.UPDATE, `claims/${claimId}`);
     }
   }
 }
@@ -320,10 +328,11 @@ export function saveReceipt(receipt: HandoverReceipt): void {
   try {
     const cleanReceipt = sanitizeForFirestore(receipt);
     setDoc(doc(db, 'receipts', receipt.receiptNumber), cleanReceipt, { merge: true }).catch(err => {
+      handleFirestoreError(err, OperationType.WRITE, `receipts/${receipt.receiptNumber}`);
       console.warn('Firestore saveReceipt failed:', err);
     });
   } catch (err) {
-    console.warn('Error writing receipt to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `receipts/${receipt.receiptNumber}`);
   }
 }
 
