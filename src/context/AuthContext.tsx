@@ -20,6 +20,14 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  needsProfileCompletion: boolean;
+  setNeedsProfileCompletion: (val: boolean) => void;
+  saveProfileDetails: (details: {
+    uidOrRoll: string;
+    phone: string;
+    department: string;
+    name?: string;
+  }) => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
   signupWithEmail: (data: {
     name: string;
@@ -36,9 +44,10 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthModalOpen: boolean;
-  openAuthModal: (mode?: 'login' | 'signup') => void;
+  openAuthModal: (mode?: 'login' | 'signup', promptMessage?: string) => void;
   closeAuthModal: () => void;
   authModalMode: 'login' | 'signup';
+  authPromptMessage: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,6 +64,17 @@ export const isUserAdmin = (email: string, role?: string): boolean => {
     lower === 'gauravsinghrajpoot2019@gmail.com' ||
     lower.startsWith('admin.')
   );
+};
+
+// Check if a profile requires UID or mobile completion
+export const checkProfileIncomplete = (profile: UserProfile | null): boolean => {
+  if (!profile) return false;
+  if (profile.profileCompleted === false) return true;
+  const uid = (profile.uidOrRoll || '').trim();
+  const phone = (profile.phone || '').trim();
+  if (!uid || !phone) return true;
+  if (phone === '+91 98765 00000' || phone === '9876500000' || phone === '0000000000') return true;
+  return false;
 };
 
 // Strips undefined fields to prevent Firestore unsupported field value errors
@@ -82,6 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
+  const [authPromptMessage, setAuthPromptMessage] = useState<string | null>(null);
+  const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false);
 
   // Sync current user with localStorage
   useEffect(() => {
@@ -105,53 +127,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (docSnap.exists()) {
             const profileData = docSnap.data() as UserProfile;
             setCurrentUser(profileData);
+            if (checkProfileIncomplete(profileData)) {
+              setNeedsProfileCompletion(true);
+            } else {
+              setNeedsProfileCompletion(false);
+            }
           } else {
-            // Document doesn't exist yet (e.g. fresh Google login)
+            // New user signed in with Google, initialize and immediately request UID + Mobile
             const email = user.email || '';
             const admin = isUserAdmin(email);
-            const generatedProfile: UserProfile = {
+            const initialGoogleProfile: UserProfile = {
               id: user.uid,
               name: user.displayName || email.split('@')[0].replace('.', ' '),
               email: email,
-              uidOrRoll: email.includes('@cuchd.in') 
-                ? email.split('@')[0].toUpperCase() 
-                : '21BCS' + Math.floor(1000 + Math.random() * 9000),
-              phone: user.phoneNumber || '+91 98765 00000',
+              uidOrRoll: '',
+              phone: '',
               department: 'Computer Science & Engineering (CSE)',
               role: admin ? 'admin' : 'student',
               avatarUrl: user.photoURL || undefined,
               joinedDate: new Date().toISOString().split('T')[0],
+              profileCompleted: false,
             };
 
-            // Attempt to persist profile to Firestore
             try {
-              await setDoc(userDocRef, sanitizeProfile(generatedProfile), { merge: true });
+              await setDoc(userDocRef, sanitizeProfile(initialGoogleProfile), { merge: true });
             } catch (err) {
-              console.warn('Could not save profile to Firestore:', err);
+              console.warn('Could not initialize profile in Firestore:', err);
             }
-            setCurrentUser(generatedProfile);
+            setCurrentUser(initialGoogleProfile);
+            setNeedsProfileCompletion(true);
           }
         } catch (err) {
           console.warn('Error fetching Firestore user profile:', err);
-          // Fallback to basic profile from Firebase User
           if (!currentUser || currentUser.id !== user.uid) {
             const email = user.email || '';
             const fallbackProfile: UserProfile = {
               id: user.uid,
               name: user.displayName || email.split('@')[0],
               email: email,
-              uidOrRoll: '21BCS1001',
-              phone: '+91 98765 00000',
+              uidOrRoll: '',
+              phone: '',
               department: 'Computer Science & Engineering (CSE)',
               role: isUserAdmin(email) ? 'admin' : 'student',
               joinedDate: new Date().toISOString().split('T')[0],
+              profileCompleted: false,
             };
             setCurrentUser(fallbackProfile);
-            setDoc(doc(db, 'users', user.uid), sanitizeProfile(fallbackProfile), { merge: true }).catch(() => {});
+            setNeedsProfileCompletion(true);
           }
         }
       } else {
         setCurrentUser(null);
+        setNeedsProfileCompletion(false);
       }
       setLoading(false);
     });
@@ -168,12 +195,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDocRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
-        setCurrentUser(docSnap.data() as UserProfile);
+        const profileData = docSnap.data() as UserProfile;
+        setCurrentUser(profileData);
+        if (checkProfileIncomplete(profileData)) {
+          setNeedsProfileCompletion(true);
+        } else {
+          setNeedsProfileCompletion(false);
+        }
       }
     } catch (err) {
       console.warn('Firestore fetch failed on login, using fallback profile:', err);
     }
     setIsAuthModalOpen(false);
+    setAuthPromptMessage(null);
   };
 
   const signupWithEmail = async (data: {
@@ -200,11 +234,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: user.uid,
       name: data.name,
       email: data.email,
-      uidOrRoll: data.uidOrRoll,
+      uidOrRoll: data.uidOrRoll.trim().toUpperCase(),
       department: data.department,
-      phone: data.phone,
+      phone: data.phone.trim(),
       role: admin ? 'admin' : 'student',
       joinedDate: new Date().toISOString().split('T')[0],
+      profileCompleted: true,
     };
 
     // Save to Firestore users collection
@@ -215,7 +250,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setCurrentUser(newProfile);
+    setNeedsProfileCompletion(false);
     setIsAuthModalOpen(false);
+    setAuthPromptMessage(null);
   };
 
   const loginWithGoogle = async (): Promise<void> => {
@@ -230,53 +267,112 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDocRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
-        setCurrentUser(docSnap.data() as UserProfile);
+        const profileData = docSnap.data() as UserProfile;
+        setCurrentUser(profileData);
+        if (checkProfileIncomplete(profileData)) {
+          setNeedsProfileCompletion(true);
+        } else {
+          setNeedsProfileCompletion(false);
+        }
       } else {
         const newProfile: UserProfile = {
           id: user.uid,
           name: user.displayName || email.split('@')[0],
           email: email,
-          uidOrRoll: email.includes('@cuchd.in') 
-            ? email.split('@')[0].toUpperCase() 
-            : '21BCS' + Math.floor(1000 + Math.random() * 9000),
-          phone: '+91 98765 00000',
+          uidOrRoll: '',
+          phone: '',
           department: 'Computer Science & Engineering (CSE)',
           role: admin ? 'admin' : 'student',
           avatarUrl: user.photoURL || undefined,
           joinedDate: new Date().toISOString().split('T')[0],
+          profileCompleted: false,
         };
         await setDoc(userDocRef, sanitizeProfile(newProfile), { merge: true });
         setCurrentUser(newProfile);
+        setNeedsProfileCompletion(true);
       }
     } catch (err) {
       console.warn('Error saving Google user in Firestore:', err);
-      // Fallback
       const fallbackGoogle: UserProfile = {
         id: user.uid,
         name: user.displayName || email.split('@')[0],
         email: email,
-        uidOrRoll: '21BCS1001',
-        phone: '+91 98765 00000',
+        uidOrRoll: '',
+        phone: '',
         department: 'Computer Science & Engineering (CSE)',
         role: admin ? 'admin' : 'student',
         avatarUrl: user.photoURL || undefined,
         joinedDate: new Date().toISOString().split('T')[0],
+        profileCompleted: false,
       };
       setCurrentUser(fallbackGoogle);
+      setNeedsProfileCompletion(true);
       setDoc(doc(db, 'users', user.uid), sanitizeProfile(fallbackGoogle), { merge: true }).catch(() => {});
     }
 
     setIsAuthModalOpen(false);
+    setAuthPromptMessage(null);
+  };
+
+  const saveProfileDetails = async (details: {
+    uidOrRoll: string;
+    phone: string;
+    department: string;
+    name?: string;
+  }): Promise<void> => {
+    const targetUser = currentUser || (firebaseUser ? {
+      id: firebaseUser.uid,
+      name: firebaseUser.displayName || 'Student',
+      email: firebaseUser.email || '',
+      uidOrRoll: '',
+      phone: '',
+      department: details.department,
+      role: isUserAdmin(firebaseUser.email || '') ? 'admin' : 'student',
+      avatarUrl: firebaseUser.photoURL || undefined,
+      joinedDate: new Date().toISOString().split('T')[0],
+    } as UserProfile : null);
+
+    if (!targetUser) return;
+
+    const email = targetUser.email || '';
+    const admin = isUserAdmin(email, targetUser.role);
+    const updatedProfile: UserProfile = {
+      ...targetUser,
+      name: details.name || targetUser.name,
+      uidOrRoll: details.uidOrRoll.trim().toUpperCase(),
+      phone: details.phone.trim(),
+      department: details.department,
+      role: admin ? 'admin' : 'student',
+      profileCompleted: true,
+    };
+
+    // Save to Firestore
+    try {
+      const userDocRef = doc(db, 'users', updatedProfile.id);
+      await setDoc(userDocRef, sanitizeProfile(updatedProfile), { merge: true });
+    } catch (err) {
+      console.error('Failed to save profile details to Firestore:', err);
+    }
+
+    setCurrentUser(updatedProfile);
+    setNeedsProfileCompletion(false);
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedProfile));
   };
 
   const loginAsDemo = async (role: 'student' | 'admin'): Promise<void> => {
     const demoProfile = role === 'admin' ? DEMO_USERS[2] : DEMO_USERS[0];
-    setCurrentUser(demoProfile);
+    const fullDemo: UserProfile = {
+      ...demoProfile,
+      profileCompleted: true,
+    };
+    setCurrentUser(fullDemo);
+    setNeedsProfileCompletion(false);
     setIsAuthModalOpen(false);
+    setAuthPromptMessage(null);
 
     // Persist demo user profile to Firestore
     try {
-      await setDoc(doc(db, 'users', demoProfile.id), sanitizeProfile(demoProfile), { merge: true });
+      await setDoc(doc(db, 'users', fullDemo.id), sanitizeProfile(fullDemo), { merge: true });
     } catch (err) {
       console.warn('Could not save demo user profile to Firestore:', err);
     }
@@ -295,7 +391,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-
   const resetPassword = async (email: string): Promise<void> => {
     await sendPasswordResetEmail(auth, email);
   };
@@ -303,15 +398,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async (): Promise<void> => {
     await signOut(auth);
     setCurrentUser(null);
+    setNeedsProfileCompletion(false);
   };
 
-  const openAuthModal = (mode: 'login' | 'signup' = 'login') => {
+  const openAuthModal = (mode: 'login' | 'signup' = 'login', promptMessage?: string) => {
     setAuthModalMode(mode);
+    setAuthPromptMessage(promptMessage || null);
     setIsAuthModalOpen(true);
   };
 
   const closeAuthModal = () => {
     setIsAuthModalOpen(false);
+    setAuthPromptMessage(null);
   };
 
   return (
@@ -322,15 +420,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         isAuthenticated: !!currentUser,
         isAdmin: currentUser?.role === 'admin' || (currentUser?.email ? isUserAdmin(currentUser.email) : false),
+        needsProfileCompletion,
+        setNeedsProfileCompletion,
+        saveProfileDetails,
         loginWithEmail,
         signupWithEmail,
         loginWithGoogle,
+        loginAsDemo,
+        updateUserProfile,
         resetPassword,
         logout,
         isAuthModalOpen,
         openAuthModal,
         closeAuthModal,
         authModalMode,
+        authPromptMessage,
       }}
     >
       {children}

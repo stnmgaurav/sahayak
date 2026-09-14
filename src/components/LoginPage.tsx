@@ -29,7 +29,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onBackToBrowse,
   initialMode = 'login',
 }) => {
-  const { loginWithEmail, signupWithEmail, loginWithGoogle, resetPassword, loginAsDemo } = useAuth();
+  const { loginWithEmail, signupWithEmail, loginWithGoogle, resetPassword, authPromptMessage } = useAuth();
   
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
   
@@ -88,19 +88,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setLoading(true);
     try {
       await loginWithEmail(email.trim(), password);
-      onBackToBrowse();
-    } catch (err: any) {
-      setError(getFriendlyErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDemoSignIn = async (role: 'student' | 'admin') => {
-    setError(null);
-    setLoading(true);
-    try {
-      await loginAsDemo(role);
       onBackToBrowse();
     } catch (err: any) {
       setError(getFriendlyErrorMessage(err));
@@ -185,8 +172,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-4xl space-y-6">
+    <div className="min-h-[75vh] flex flex-col justify-start sm:justify-center items-center pt-2 sm:pt-6 pb-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-4xl space-y-4 sm:space-y-5">
         {/* Return Button */}
         <button
           onClick={onBackToBrowse}
@@ -200,7 +187,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
           
           {/* Left Feature Bento Box (Col 1-5) */}
-          <div className="lg:col-span-5 glass-dark text-white rounded-3xl p-7 flex flex-col justify-between relative overflow-hidden shadow-2xl">
+          <div className="lg:col-span-5 order-2 lg:order-1 glass-dark text-white rounded-3xl p-7 flex flex-col justify-between relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 right-0 w-48 h-48 bg-red-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
             <div className="space-y-6 relative z-10">
@@ -248,7 +235,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
 
           {/* Right Frosted Glass Auth Card (Col 6-12) */}
-          <div className="lg:col-span-7 glass-panel rounded-3xl p-6 sm:p-8 shadow-xl border border-white/80 flex flex-col justify-between">
+          <div className="lg:col-span-7 order-1 lg:order-2 glass-panel rounded-3xl p-6 sm:p-8 shadow-xl border border-white/80 flex flex-col justify-between">
             <div>
               {/* Mode Switcher Tabs */}
               {mode !== 'forgot' && (
@@ -275,6 +262,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   >
                     Create Account
                   </button>
+                </div>
+              )}
+
+              {/* Operation Login Requirement Notification */}
+              {authPromptMessage && (
+                <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 font-semibold flex items-start gap-2.5 shadow-2xs">
+                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{authPromptMessage}</span>
                 </div>
               )}
 
@@ -317,7 +312,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         />
                       </svg>
                     )}
-                    <span>Continue with Google Workspace</span>
+                    <span>Continue with Google </span>
                   </button>
 
                   <div className="relative flex items-center justify-center">
@@ -389,42 +384,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       <span>Sign In to SAHAYAK</span>
                     )}
                   </button>
-
-                  {/* 1-Click Demo Profiles for Quick Testing */}
-                  <div className="pt-3 border-t border-slate-200/80 space-y-2">
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider text-center">
-                      Quick Instant Access (No Password Needed)
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleDemoSignIn('student')}
-                        disabled={loading || googleLoading}
-                        className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 hover:border-slate-300 text-left transition-all group"
-                      >
-                        <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500 block">
-                          Student Role
-                        </span>
-                        <span className="text-xs font-bold text-slate-900 group-hover:text-red-700 block truncate">
-                          Arjun Sharma (21BCS)
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDemoSignIn('admin')}
-                        disabled={loading || googleLoading}
-                        className="p-2.5 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-100/70 hover:border-red-300 text-left transition-all group"
-                      >
-                        <span className="text-[10px] font-extrabold uppercase tracking-wide text-red-600 block">
-                          Security Admin
-                        </span>
-                        <span className="text-xs font-bold text-red-950 group-hover:text-red-800 block truncate">
-                          Insp. Satnam Singh
-                        </span>
-                      </button>
-                    </div>
-                  </div>
                 </form>
               )}
 

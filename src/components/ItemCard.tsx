@@ -104,22 +104,23 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           {/* Frosted Glass Gradient Overlay for text contrast */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20 pointer-events-none" />
 
-          {/* Type Badge */}
-          <div className="absolute top-3 left-3 flex items-center gap-1.5">
+          {/* Top Badges Bar - flex row prevents overlapping */}
+          <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between gap-1.5 pointer-events-none z-10">
+            {/* Type Badge */}
             <span
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-sm border ${
+              className={`pointer-events-auto px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-xs border shrink-0 ${
                 isLost
                   ? 'bg-red-800/90 text-white border-red-500/40 shadow-red-900/30'
                   : 'bg-slate-950/85 text-emerald-300 border-white/20'
               }`}
             >
-              {isLost ? 'Lost Item' : 'Found Item'}
+              {isLost ? 'Lost' : 'Found'}
             </span>
-          </div>
 
-          {/* Status Badge */}
-          <div className="absolute top-3 right-3">
-            {getStatusBadge()}
+            {/* Status Badge */}
+            <div className="pointer-events-auto shrink-0 max-w-[65%] truncate">
+              {getStatusBadge()}
+            </div>
           </div>
 
           {/* AI Match Notification Pill */}

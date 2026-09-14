@@ -16,7 +16,8 @@ import {
   HelpCircle,
   Share2,
   PackageCheck,
-  UserCheck
+  UserCheck,
+  ArrowLeft
 } from 'lucide-react';
 
 interface ItemDetailModalProps {
@@ -36,7 +37,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   onClaim,
   onOpenMatchComparison,
 }) => {
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser, isAdmin, isAuthenticated, openAuthModal } = useAuth();
 
   if (!isOpen || !item) return null;
 
@@ -80,14 +81,14 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
       <div className="relative w-full max-w-3xl glass-panel rounded-3xl shadow-2xl border border-white/80 overflow-hidden my-6">
         {/* Header */}
-        <div className={`p-6 sm:p-7 text-white relative ${
+        <div className={`p-5 sm:p-7 pr-16 text-white relative ${
           isLost 
             ? 'bg-gradient-to-r from-red-900 via-red-800 to-red-950' 
             : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950'
         }`}>
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 text-white/80 hover:text-white p-2 rounded-full hover:bg-white/15 transition-colors"
+            className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-white/90 hover:text-white p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
             aria-label="Close details"
           >
             <X className="w-5 h-5" />
@@ -100,19 +101,19 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             <span className="text-white/70 text-xs font-mono">ID: #{item.id.slice(-6)}</span>
           </div>
 
-          <h2 className="text-2xl font-black tracking-tight text-white">{item.title}</h2>
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">{item.title}</h2>
           <p className="text-xs sm:text-sm text-white/80 mt-1">
             Reported by {item.userName} ({item.userUid || 'Student'}) • {item.locationBlock}
           </p>
         </div>
 
         {/* Status Pipeline Tracker */}
-        <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
+        <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-4 overflow-x-auto no-scrollbar">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3 whitespace-nowrap">
             Item Status Pipeline: Lost → Match Found → Claim → Verified → Returned
           </p>
 
-          <div className="relative flex items-center justify-between">
+          <div className="relative flex items-center justify-between min-w-[340px] sm:min-w-0">
             <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-slate-200 w-full z-0"></div>
             <div 
               className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-red-700 transition-all duration-500 z-0"
@@ -300,6 +301,11 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
+                        if (!isAuthenticated) {
+                          onClose();
+                          openAuthModal('login', 'Please sign in with your Chandigarh University ID to compare matches and claim your item.');
+                          return;
+                        }
                         if (isLost) {
                           onOpenMatchComparison(item, match.candidateItem);
                         } else {
@@ -318,25 +324,31 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 border-t border-slate-200 bg-slate-50/70 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-200/70 hover:bg-slate-200 transition-colors"
           >
-            Close Window
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
+            <span>Back to Registry</span>
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             {/* If Found item and not returned, Claim button */}
             {item.type === 'found' && item.status !== 'returned' && (
               <button
                 type="button"
                 onClick={() => {
+                  if (!isAuthenticated) {
+                    onClose();
+                    openAuthModal('login', 'Please sign in with your Chandigarh University ID to file an ownership claim for this found item.');
+                    return;
+                  }
                   onClose();
                   onClaim(item);
                 }}
-                className="flex items-center gap-2 px-5 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>I Own This Item (File Claim)</span>
@@ -347,8 +359,15 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             {item.type === 'lost' && matches.length > 0 && (
               <button
                 type="button"
-                onClick={() => onOpenMatchComparison(item, matches[0].candidateItem)}
-                className="flex items-center gap-2 px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    onClose();
+                    openAuthModal('login', 'Please sign in with your Chandigarh University ID to view AI matched items and claim them.');
+                    return;
+                  }
+                  onOpenMatchComparison(item, matches[0].candidateItem);
+                }}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
               >
                 <Sparkles className="w-4 h-4" />
                 <span>View Top Match ({matches[0].matchScore}%)</span>

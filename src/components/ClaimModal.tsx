@@ -11,7 +11,8 @@ import {
   HelpCircle, 
   AlertCircle,
   Building2,
-  Lock
+  Lock,
+  ArrowLeft
 } from 'lucide-react';
 
 interface ClaimModalProps {
@@ -105,10 +106,10 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
       <div className="relative w-full max-w-2xl glass-panel rounded-3xl shadow-2xl border border-white/80 overflow-hidden my-6">
         {/* Header */}
-        <div className="bg-gradient-to-r from-red-900 via-red-800 to-red-950 text-white p-6 sm:p-7 relative">
+        <div className="bg-gradient-to-r from-red-900 via-red-800 to-red-950 text-white p-5 sm:p-7 pr-16 relative">
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 text-white/80 hover:text-white p-2 rounded-full hover:bg-white/15 transition-colors"
+            className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-white/90 hover:text-white p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
             aria-label="Close claim dialog"
           >
             <X className="w-5 h-5" />
@@ -251,19 +252,20 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
           </div>
 
           {/* Modal Actions */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-between gap-4">
+          <div className="pt-4 border-t border-slate-200 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 transition-colors"
             >
-              Cancel
+              <ArrowLeft className="w-4 h-4 text-slate-500" />
+              <span>Back to Item</span>
             </button>
 
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center gap-2 px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all disabled:opacity-50"
             >
               <ShieldCheck className="w-4 h-4" />
               <span>{submitting ? 'Submitting Verification...' : 'Submit Claim Request'}</span>

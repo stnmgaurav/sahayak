@@ -41,6 +41,7 @@ export interface UserProfile {
   role: 'student' | 'admin';
   avatarUrl?: string;
   joinedDate: string;
+  profileCompleted?: boolean;
 }
 
 export interface ItemReport {

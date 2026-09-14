@@ -11,7 +11,8 @@ import {
   Shield, 
   ArrowRight,
   AlertCircle,
-  Loader2 
+  Loader2,
+  Sparkles 
 } from 'lucide-react';
 
 export const AuthModal: React.FC = () => {
@@ -19,10 +20,10 @@ export const AuthModal: React.FC = () => {
     isAuthModalOpen, 
     closeAuthModal, 
     authModalMode, 
+    authPromptMessage,
     loginWithEmail, 
     signupWithEmail, 
-    loginWithGoogle,
-    loginAsDemo
+    loginWithGoogle
   } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'signup'>(authModalMode);
@@ -115,12 +116,12 @@ export const AuthModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="bg-red-800 text-white p-6 relative">
+        <div className="bg-red-800 text-white p-5 sm:p-6 pr-14 relative shrink-0">
           <button
             onClick={closeAuthModal}
-            className="absolute top-4 right-4 text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors"
+            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-white/90 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors"
             aria-label="Close dialog"
           >
             <X className="w-5 h-5" />
@@ -129,7 +130,7 @@ export const AuthModal: React.FC = () => {
             <Shield className="w-4 h-4" />
             <span>Chandigarh University</span>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
             {mode === 'login' ? 'Sign In to SAHAYAK' : 'Create Student Account'}
           </h2>
           <p className="text-red-100 text-xs sm:text-sm mt-1">
@@ -140,7 +141,14 @@ export const AuthModal: React.FC = () => {
         </div>
 
         {/* Body */}
-        <div className="p-6">
+        <div className="p-5 sm:p-6 overflow-y-auto">
+          {authPromptMessage && (
+            <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs font-semibold flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span className="leading-relaxed">{authPromptMessage}</span>
+            </div>
+          )}
+
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -291,37 +299,6 @@ export const AuthModal: React.FC = () => {
                 </>
               )}
             </button>
-
-            {/* Quick Demo Access */}
-            <div className="pt-2 border-t border-slate-100">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-1.5">
-                Quick 1-Click Access
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await loginAsDemo('student');
-                    closeAuthModal();
-                  }}
-                  className="p-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left transition-all"
-                >
-                  <span className="text-[9px] font-bold text-slate-500 uppercase block">Student Demo</span>
-                  <span className="text-[11px] font-bold text-slate-800 block truncate">Arjun (21BCS)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await loginAsDemo('admin');
-                    closeAuthModal();
-                  }}
-                  className="p-2 rounded-lg border border-red-200 bg-red-50/60 hover:bg-red-100/70 text-left transition-all"
-                >
-                  <span className="text-[9px] font-bold text-red-600 uppercase block">Admin Demo</span>
-                  <span className="text-[11px] font-bold text-red-950 block truncate">Insp. Satnam</span>
-                </button>
-              </div>
-            </div>
           </form>
 
           {/* Toggle between login and signup */}

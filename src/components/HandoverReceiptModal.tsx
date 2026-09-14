@@ -9,7 +9,8 @@ import {
   Building2, 
   CheckCircle2, 
   Calendar, 
-  UserCheck 
+  UserCheck,
+  ArrowLeft
 } from 'lucide-react';
 
 interface HandoverReceiptModalProps {
@@ -144,6 +145,27 @@ export const HandoverReceiptModal: React.FC<HandoverReceiptModalProps> = ({
               <div className="text-[10px] font-semibold text-red-800">Campus Security Cell, CU</div>
             </div>
           </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="bg-slate-50 border-t border-slate-200 p-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-200/80 hover:bg-slate-200 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
+            <span>Back to Dashboard</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-red-800 hover:bg-red-900 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Print Official Pass</span>
+          </button>
         </div>
       </div>
     </div>

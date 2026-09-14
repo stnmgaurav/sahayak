@@ -20,7 +20,10 @@ import {
   CheckCircle2, 
   Image as ImageIcon,
   Building2,
-  AlertTriangle
+  AlertTriangle,
+  Lock,
+  LogIn,
+  ArrowLeft
 } from 'lucide-react';
 
 interface ReportModalProps {
@@ -69,12 +72,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Guest reporter details when not logged in
-  const [guestName, setGuestName] = useState('');
-  const [guestUid, setGuestUid] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
 
   const fileInputId = useId();
 
@@ -135,8 +132,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       return;
     }
 
-    if (!currentUser && !guestName.trim()) {
-      setErrorMessage('Please enter your full name so campus security or finders can contact you.');
+    if (!currentUser) {
+      setErrorMessage('Please sign in to submit a report.');
+      openAuthModal('login', `Please sign in with your Chandigarh University ID to submit a ${type === 'lost' ? 'lost' : 'found'} item report.`);
       return;
     }
 
@@ -145,11 +143,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       const hasHighMatch = instantMatches.length > 0 && instantMatches[0].score >= 60;
       const finalStatus = hasHighMatch ? 'match_found' : type;
 
-      const reporterId = currentUser ? currentUser.id : `usr_guest_${Date.now()}`;
-      const reporterName = currentUser ? currentUser.name : guestName.trim();
-      const reporterEmail = currentUser ? currentUser.email : (guestEmail.trim() || `${guestName.trim().toLowerCase().replace(/[^a-z0-9]/g, '')}@cuchd.in`);
-      const reporterPhone = currentUser ? currentUser.phone : (guestPhone.trim() || '+91 98765 00000');
-      const reporterUid = currentUser ? currentUser.uidOrRoll : (guestUid.trim().toUpperCase() || '24CU_CAMPUS');
+      const reporterId = currentUser.id;
+      const reporterName = currentUser.name;
+      const reporterEmail = currentUser.email;
+      const reporterPhone = currentUser.phone;
+      const reporterUid = currentUser.uidOrRoll;
 
       const newItem: ItemReport = {
         id: `rep_${Date.now()}`,
@@ -190,14 +188,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
       <div className="relative w-full max-w-3xl glass-panel rounded-3xl shadow-2xl border border-white/80 overflow-hidden my-6">
         {/* Header */}
-        <div className={`p-6 sm:p-7 text-white relative transition-colors ${
+        <div className={`p-5 sm:p-7 pr-16 text-white relative transition-colors ${
           type === 'lost' 
             ? 'bg-gradient-to-r from-red-900 via-red-800 to-red-950' 
             : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950'
         }`}>
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 text-white/80 hover:text-white p-2 rounded-full hover:bg-white/15 transition-colors"
+            className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-white/90 hover:text-white p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
             aria-label="Close form"
           >
             <X className="w-5 h-5" />
@@ -566,93 +564,47 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   </span>
                 </div>
               ) : (
-                <div className="space-y-3 p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90">
+                <div className="space-y-3 p-4 bg-amber-50/80 rounded-2xl border border-amber-200/80">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-slate-800">
-                      Submit without login (Guest / Student Reporter)
-                    </p>
+                    <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
+                      <Lock className="w-4 h-4 text-amber-700" />
+                      <span>Student Sign-In Required</span>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => loginAsDemo('student')}
-                      className="text-[11px] font-bold text-red-700 hover:text-red-900 underline"
+                      onClick={() => {
+                        onClose();
+                        openAuthModal('login', `Please sign in with your Chandigarh University ID to submit a ${type === 'lost' ? 'lost' : 'found'} item report.`);
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-red-800 hover:bg-red-900 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
                     >
-                      ⚡ 1-Click Demo Login
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>Sign In with CU ID</span>
                     </button>
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Your Full Name <span className="text-red-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Gurpreet Singh"
-                        value={guestName}
-                        onChange={e => setGuestName(e.target.value)}
-                        required
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-red-600 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        CU UID / Roll Number
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 23BCS10442"
-                        value={guestUid}
-                        onChange={e => setGuestUid(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-red-600 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Phone / WhatsApp Number
-                      </label>
-                      <input
-                        type="tel"
-                        placeholder="+91 98765 43210"
-                        value={guestPhone}
-                        onChange={e => setGuestPhone(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-red-600 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        Email Address (Optional)
-                      </label>
-                      <input
-                        type="email"
-                        placeholder="student@cuchd.in"
-                        value={guestEmail}
-                        onChange={e => setGuestEmail(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-red-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
+                  <p className="text-xs text-amber-800/90 leading-relaxed">
+                    Chandigarh University security policies mandate that all campus reports be associated with a verified student or faculty profile (including University UID and contact mobile number).
+                  </p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Submit Action */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-between gap-4">
+          <div className="pt-4 border-t border-slate-200 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 transition-colors"
             >
-              Cancel
+              <ArrowLeft className="w-4 h-4 text-slate-500" />
+              <span>Back / Cancel</span>
             </button>
 
             <button
               type="submit"
               disabled={submitting}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-sm transition-all disabled:opacity-50 ${
+              className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-sm transition-all disabled:opacity-50 ${
                 type === 'lost'
                   ? 'bg-red-700 hover:bg-red-800'
                   : 'bg-slate-900 hover:bg-slate-800'

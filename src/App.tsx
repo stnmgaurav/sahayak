@@ -14,6 +14,7 @@ import { HandoverReceiptModal } from './components/HandoverReceiptModal';
 import { StudentDashboard } from './components/StudentDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthModal } from './components/AuthModal';
+import { UserProfileCompletionModal } from './components/UserProfileCompletionModal';
 import { SahayakLogo } from './components/SahayakLogo';
 import { ITEM_CATEGORIES, CU_CAMPUS_LOCATIONS } from './data/mockData';
 import { 
@@ -51,7 +52,7 @@ const QUICK_CATEGORIES = [
 ];
 
 function SahayakMain() {
-  const { currentUser, isAuthenticated } = useAuth();
+  const { currentUser, isAuthenticated, openAuthModal } = useAuth();
 
   // Storage State
   const [items, setItems] = useState<ItemReport[]>(() => getStoredItems());
@@ -68,6 +69,14 @@ function SahayakMain() {
 
   // Navigation state
   const [currentTab, setCurrentTab] = useState<'browse' | 'student-dashboard' | 'admin-dashboard' | 'login'>('browse');
+
+  // Guard protected tabs if user is unauthenticated
+  useEffect(() => {
+    if (!isAuthenticated && (currentTab === 'student-dashboard' || currentTab === 'admin-dashboard')) {
+      setCurrentTab('browse');
+      openAuthModal('login', 'Please sign in with your Chandigarh University ID to access your dashboard.');
+    }
+  }, [isAuthenticated, currentTab, openAuthModal]);
 
   // Filter and Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,6 +105,10 @@ function SahayakMain() {
 
   // Handlers
   const handleOpenReportModal = (type: 'lost' | 'found') => {
+    if (!isAuthenticated) {
+      openAuthModal('login', `Please sign in with your Chandigarh University ID to report a ${type === 'lost' ? 'lost item' : 'found item'}.`);
+      return;
+    }
     setReportModalType(type);
     setReportModalOpen(true);
   };
@@ -107,7 +120,7 @@ function SahayakMain() {
 
   const handleInitiateClaim = (item: ItemReport) => {
     if (!isAuthenticated) {
-      setCurrentTab('login');
+      openAuthModal('login', 'Please sign in with your Chandigarh University ID to file an ownership claim for this item.');
       return;
     }
     setClaimTargetItem(item);
@@ -115,12 +128,20 @@ function SahayakMain() {
   };
 
   const handleOpenMatchComparison = (lostItem: ItemReport, foundItem: ItemReport) => {
+    if (!isAuthenticated) {
+      openAuthModal('login', 'Please sign in with your Chandigarh University ID to review AI match candidates and file claims.');
+      return;
+    }
     setMatchLostItem(lostItem);
     setMatchFoundItem(foundItem);
     setMatchModalOpen(true);
   };
 
   const handleViewReceipt = (claim: ItemClaim, item: ItemReport) => {
+    if (!isAuthenticated) {
+      openAuthModal('login', 'Please sign in to inspect and download official handover receipts.');
+      return;
+    }
     setReceiptClaim(claim);
     setReceiptItem(item);
     setReceiptModalOpen(true);
@@ -232,6 +253,7 @@ function SahayakMain() {
             onViewItemDetails={handleViewDetails}
             onOpenMatchComparison={handleOpenMatchComparison}
             onViewReceipt={handleViewReceipt}
+            onBackToBrowse={() => setCurrentTab('browse')}
           />
         )}
 
@@ -242,6 +264,7 @@ function SahayakMain() {
             claims={claims}
             onViewItemDetails={handleViewDetails}
             onViewReceipt={handleViewReceipt}
+            onBackToBrowse={() => setCurrentTab('browse')}
           />
         )}
 
@@ -627,6 +650,10 @@ function SahayakMain() {
                           onViewDetails={handleViewDetails}
                           onClaimItem={handleInitiateClaim}
                           onViewMatch={(target) => {
+                            if (!isAuthenticated) {
+                              openAuthModal('login', 'Please sign in with your Chandigarh University ID to inspect AI match candidate details and initiate verification.');
+                              return;
+                            }
                             if (matchData?.bestCandidate) {
                               if (target.type === 'lost') {
                                 handleOpenMatchComparison(target, matchData.bestCandidate);
@@ -724,6 +751,7 @@ function SahayakMain() {
       />
 
       <AuthModal />
+      <UserProfileCompletionModal />
     </div>
   );
 }

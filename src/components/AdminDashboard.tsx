@@ -22,12 +22,14 @@ import {
   ExternalLink,
   PhoneCall,
   Lock,
-  ArrowUpRight
+  ArrowUpRight,
+  ArrowLeft
 } from 'lucide-react';
 
 interface AdminDashboardProps {
   items: ItemReport[];
   claims: ItemClaim[];
+  onBackToBrowse: () => void;
   onViewItemDetails: (item: ItemReport) => void;
   onViewReceipt: (claim: ItemClaim, item: ItemReport) => void;
 }
@@ -35,6 +37,7 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   items,
   claims,
+  onBackToBrowse,
   onViewItemDetails,
   onViewReceipt,
 }) => {
@@ -100,7 +103,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const sortedHotspots = Object.entries(hotspotCounts).sort((a, b) => b[1] - a[1]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      {/* Back Navigation Button */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onBackToBrowse}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-white/90 hover:bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all active:scale-95"
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-500" />
+          <span>Back to Campus Registry</span>
+        </button>
+      </div>
+
       {/* Admin Dark Glassmorphism Header */}
       <div className="glass-dark text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="absolute -top-12 -right-12 w-64 h-64 bg-red-600/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -458,7 +472,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* Table / List */}
           <div className="glass-panel rounded-3xl overflow-hidden shadow-md">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700">
+              <table className="w-full min-w-[650px] text-left text-xs text-slate-700">
                 <thead className="bg-slate-100/70 border-b border-slate-200/80 font-bold uppercase tracking-wider text-[10px] text-slate-500">
                   <tr>
                     <th className="p-3.5">Item</th>

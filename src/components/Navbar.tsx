@@ -14,9 +14,11 @@ import {
   UserCheck
 } from 'lucide-react';
 
+type NavTab = 'browse' | 'student-dashboard' | 'admin-dashboard' | 'login';
+
 interface NavbarProps {
-  currentTab: 'browse' | 'student-dashboard' | 'admin-dashboard' | 'login';
-  setCurrentTab: (tab: 'browse' | 'student-dashboard' | 'admin-dashboard' | 'login') => void;
+  currentTab: NavTab;
+  setCurrentTab: (tab: NavTab) => void;
   onOpenReportModal?: (type: 'lost' | 'found') => void;
   unreadMatchesCount: number;
   pendingClaimsCount: number;
@@ -29,9 +31,22 @@ export const Navbar: React.FC<NavbarProps> = ({
   unreadMatchesCount,
   pendingClaimsCount,
 }) => {
-  const { currentUser, isAuthenticated, logout } = useAuth();
+  const { currentUser, isAuthenticated, logout, openAuthModal } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+
+  const handleTabClick = (tab: NavTab) => {
+    if (tab === 'student-dashboard' && !isAuthenticated) {
+      openAuthModal('login', 'Please sign in with your Chandigarh University credentials to access your student dashboard.');
+      return;
+    }
+    if (tab === 'admin-dashboard' && !isAuthenticated) {
+      openAuthModal('login', 'Please sign in with authorized campus credentials to access the security custody desk.');
+      return;
+    }
+    setCurrentTab(tab);
+    setIsMobileMenuOpen(false);
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full backdrop-blur-xl bg-white/70 border-b border-slate-200/60 transition-all">
@@ -64,7 +79,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Center Glass Pill Segmented Nav (Desktop) */}
           <nav className="hidden md:flex items-center gap-1 p-1 rounded-2xl glass-panel-subtle shadow-xs">
             <button
-              onClick={() => setCurrentTab('browse')}
+              onClick={() => handleTabClick('browse')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 currentTab === 'browse'
                   ? 'bg-white text-slate-950 shadow-sm border border-slate-200/60'
@@ -76,7 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
-              onClick={() => setCurrentTab('student-dashboard')}
+              onClick={() => handleTabClick('student-dashboard')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all relative ${
                 currentTab === 'student-dashboard'
                   ? 'bg-white text-slate-950 shadow-sm border border-slate-200/60'
@@ -94,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
-              onClick={() => setCurrentTab('admin-dashboard')}
+              onClick={() => handleTabClick('admin-dashboard')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all relative ${
                 currentTab === 'admin-dashboard'
                   ? 'bg-red-800 text-white shadow-sm'
@@ -229,7 +244,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-slate-200/80 bg-white/95 backdrop-blur-xl px-4 py-3 space-y-2">
           <button
-            onClick={() => { setCurrentTab('browse'); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabClick('browse')}
             className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-left ${
               currentTab === 'browse' ? 'bg-slate-100 text-slate-950' : 'text-slate-600'
             }`}
@@ -238,7 +253,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Explore Campus Lost &amp; Found</span>
           </button>
           <button
-            onClick={() => { setCurrentTab('student-dashboard'); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabClick('student-dashboard')}
             className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-left ${
               currentTab === 'student-dashboard' ? 'bg-slate-100 text-slate-950' : 'text-slate-600'
             }`}
@@ -252,7 +267,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </button>
           <button
-            onClick={() => { setCurrentTab('admin-dashboard'); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabClick('admin-dashboard')}
             className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-left ${
               currentTab === 'admin-dashboard' ? 'bg-red-50 text-red-800' : 'text-slate-600'
             }`}

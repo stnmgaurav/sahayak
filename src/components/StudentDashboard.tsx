@@ -21,12 +21,14 @@ import {
   HelpCircle,
   TrendingUp,
   Compass,
-  ArrowUpRight
+  ArrowUpRight,
+  ArrowLeft
 } from 'lucide-react';
 
 interface StudentDashboardProps {
   items: ItemReport[];
   claims: ItemClaim[];
+  onBackToBrowse: () => void;
   onOpenReportModal: (type: 'lost' | 'found') => void;
   onViewItemDetails: (item: ItemReport) => void;
   onOpenMatchComparison: (lostItem: ItemReport, foundItem: ItemReport) => void;
@@ -36,6 +38,7 @@ interface StudentDashboardProps {
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   items,
   claims,
+  onBackToBrowse,
   onOpenReportModal,
   onViewItemDetails,
   onOpenMatchComparison,
@@ -46,7 +49,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
   if (!currentUser) {
     return (
-      <div className="max-w-2xl mx-auto py-16 px-4 text-center">
+      <div className="max-w-2xl mx-auto py-16 px-4 text-center space-y-4">
+        <button
+          onClick={onBackToBrowse}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-white/80 hover:bg-white border border-slate-200 shadow-2xs transition-all"
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-500" />
+          <span>Back to Campus Registry</span>
+        </button>
         <div className="glass-panel rounded-3xl p-10 space-y-4 shadow-xl border border-white/80">
           <div className="w-16 h-16 bg-red-800/10 text-red-700 rounded-2xl flex items-center justify-center mx-auto border border-red-200">
             <ShieldCheck className="w-8 h-8" />
@@ -81,7 +91,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      {/* Back Navigation Button */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onBackToBrowse}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-white/90 hover:bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all active:scale-95"
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-500" />
+          <span>Back to Campus Registry</span>
+        </button>
+      </div>
+
       {/* Student Welcome & Profile Bento Banner */}
       <div className="glass-panel rounded-3xl p-5 sm:p-8 shadow-md relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6">
         <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-red-600/10 via-rose-500/5 to-transparent rounded-full blur-2xl pointer-events-none"></div>
