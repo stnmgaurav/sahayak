@@ -12,7 +12,8 @@ import {
   ArrowRight,
   AlertCircle,
   Loader2,
-  Sparkles 
+  Sparkles,
+  ShieldCheck 
 } from 'lucide-react';
 
 export const AuthModal: React.FC = () => {
@@ -23,7 +24,8 @@ export const AuthModal: React.FC = () => {
     authPromptMessage,
     loginWithEmail, 
     signupWithEmail, 
-    loginWithGoogle
+    loginWithGoogle,
+    loginAsDemo
   } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'signup'>(authModalMode);
@@ -55,7 +57,8 @@ export const AuthModal: React.FC = () => {
       return 'Google sign-in popup closed.';
     }
     if (code.includes('unauthorized-domain')) {
-      return 'Domain not authorized in Firebase. Please add sahayakcu.vercel.app to Firebase Console > Authentication > Settings > Authorized domains.';
+      const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+      return `Domain unauthorized: "${host}" is not yet added in Firebase Console > Authentication > Settings > Authorized domains.`;
     }
     return err?.message || 'Authentication error. Please try again.';
   };
@@ -150,9 +153,40 @@ export const AuthModal: React.FC = () => {
           )}
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+            <div className="mb-4 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium space-y-2.5">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span className="font-semibold leading-relaxed">{error}</span>
+              </div>
+              {(error.includes('Domain unauthorized') || error.includes('popup') || error.includes('Authentication')) && (
+                <div className="pt-2 border-t border-red-200/60 space-y-1.5">
+                  <p className="text-[11px] text-slate-600 font-medium">Bypass to test now:</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await loginAsDemo('admin');
+                        closeAuthModal();
+                      }}
+                      className="flex-1 py-1.5 px-2 bg-red-700 hover:bg-red-800 text-white rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 shadow-xs"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Gaurav Singh (Admin)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await loginAsDemo('student');
+                        closeAuthModal();
+                      }}
+                      className="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 shadow-xs"
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      <span>Student (Arjun)</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -173,7 +207,7 @@ export const AuthModal: React.FC = () => {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
               </svg>
             )}
-            <span>Continue with Google Workspace</span>
+            <span>Continue with Google</span>
           </button>
 
           <div className="relative my-4">

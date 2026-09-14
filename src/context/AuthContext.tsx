@@ -69,6 +69,8 @@ export const isUserAdmin = (email: string, role?: string): boolean => {
 // Check if a profile requires UID or mobile completion
 export const checkProfileIncomplete = (profile: UserProfile | null): boolean => {
   if (!profile) return false;
+  // Admin & Security Staff never require student profile completion
+  if (profile.role === 'admin') return false;
   if (profile.profileCompleted === false) return true;
   const uid = (profile.uidOrRoll || '').trim();
   const phone = (profile.phone || '').trim();
@@ -126,8 +128,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (docSnap.exists()) {
             const profileData = docSnap.data() as UserProfile;
-            setCurrentUser(profileData);
-            if (checkProfileIncomplete(profileData)) {
+            const email = user.email || '';
+            const admin = isUserAdmin(email, profileData.role);
+            const finalizedProfile: UserProfile = {
+              ...profileData,
+              role: admin ? 'admin' : (profileData.role || 'student'),
+              uidOrRoll: profileData.uidOrRoll || (admin ? 'EMP-CU-ADMIN' : ''),
+              department: profileData.department || (admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)'),
+              profileCompleted: admin ? true : profileData.profileCompleted,
+            };
+            setCurrentUser(finalizedProfile);
+            if (!admin && checkProfileIncomplete(finalizedProfile)) {
               setNeedsProfileCompletion(true);
             } else {
               setNeedsProfileCompletion(false);
@@ -140,13 +151,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               id: user.uid,
               name: user.displayName || email.split('@')[0].replace('.', ' '),
               email: email,
-              uidOrRoll: '',
+              uidOrRoll: admin ? 'EMP-CU-ADMIN' : '',
               phone: '',
-              department: 'Computer Science & Engineering (CSE)',
+              department: admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
               role: admin ? 'admin' : 'student',
               avatarUrl: user.photoURL || undefined,
               joinedDate: new Date().toISOString().split('T')[0],
-              profileCompleted: false,
+              profileCompleted: admin ? true : false,
             };
 
             try {
@@ -155,25 +166,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.warn('Could not initialize profile in Firestore:', err);
             }
             setCurrentUser(initialGoogleProfile);
-            setNeedsProfileCompletion(true);
+            setNeedsProfileCompletion(admin ? false : checkProfileIncomplete(initialGoogleProfile));
           }
         } catch (err) {
           console.warn('Error fetching Firestore user profile:', err);
           if (!currentUser || currentUser.id !== user.uid) {
             const email = user.email || '';
+            const admin = isUserAdmin(email);
             const fallbackProfile: UserProfile = {
               id: user.uid,
               name: user.displayName || email.split('@')[0],
               email: email,
-              uidOrRoll: '',
+              uidOrRoll: admin ? 'EMP-CU-ADMIN' : '',
               phone: '',
-              department: 'Computer Science & Engineering (CSE)',
-              role: isUserAdmin(email) ? 'admin' : 'student',
+              department: admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
+              role: admin ? 'admin' : 'student',
               joinedDate: new Date().toISOString().split('T')[0],
-              profileCompleted: false,
+              profileCompleted: admin ? true : false,
             };
             setCurrentUser(fallbackProfile);
-            setNeedsProfileCompletion(true);
+            setNeedsProfileCompletion(admin ? false : checkProfileIncomplete(fallbackProfile));
           }
         }
       } else {
@@ -268,8 +280,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
         const profileData = docSnap.data() as UserProfile;
-        setCurrentUser(profileData);
-        if (checkProfileIncomplete(profileData)) {
+        const finalizedProfile: UserProfile = {
+          ...profileData,
+          role: admin ? 'admin' : (profileData.role || 'student'),
+          uidOrRoll: profileData.uidOrRoll || (admin ? 'EMP-CU-ADMIN' : ''),
+          department: profileData.department || (admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)'),
+          profileCompleted: admin ? true : profileData.profileCompleted,
+        };
+        setCurrentUser(finalizedProfile);
+        if (!admin && checkProfileIncomplete(finalizedProfile)) {
           setNeedsProfileCompletion(true);
         } else {
           setNeedsProfileCompletion(false);
@@ -277,36 +296,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         const newProfile: UserProfile = {
           id: user.uid,
-          name: user.displayName || email.split('@')[0],
+          name: user.displayName || email.split('@')[0].replace('.', ' '),
           email: email,
-          uidOrRoll: '',
+          uidOrRoll: admin ? 'EMP-CU-ADMIN' : '',
           phone: '',
-          department: 'Computer Science & Engineering (CSE)',
+          department: admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
           role: admin ? 'admin' : 'student',
           avatarUrl: user.photoURL || undefined,
           joinedDate: new Date().toISOString().split('T')[0],
-          profileCompleted: false,
+          profileCompleted: admin ? true : false,
         };
-        await setDoc(userDocRef, sanitizeProfile(newProfile), { merge: true });
+        try {
+          await setDoc(userDocRef, sanitizeProfile(newProfile), { merge: true });
+        } catch (writeErr) {
+          console.warn('Could not write new profile to Firestore:', writeErr);
+        }
         setCurrentUser(newProfile);
-        setNeedsProfileCompletion(true);
+        setNeedsProfileCompletion(admin ? false : checkProfileIncomplete(newProfile));
       }
     } catch (err) {
       console.warn('Error saving Google user in Firestore:', err);
       const fallbackGoogle: UserProfile = {
         id: user.uid,
-        name: user.displayName || email.split('@')[0],
+        name: user.displayName || email.split('@')[0].replace('.', ' '),
         email: email,
-        uidOrRoll: '',
+        uidOrRoll: admin ? 'EMP-CU-ADMIN' : '',
         phone: '',
-        department: 'Computer Science & Engineering (CSE)',
+        department: admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
         role: admin ? 'admin' : 'student',
         avatarUrl: user.photoURL || undefined,
         joinedDate: new Date().toISOString().split('T')[0],
-        profileCompleted: false,
+        profileCompleted: admin ? true : false,
       };
       setCurrentUser(fallbackGoogle);
-      setNeedsProfileCompletion(true);
+      setNeedsProfileCompletion(admin ? false : checkProfileIncomplete(fallbackGoogle));
       setDoc(doc(db, 'users', user.uid), sanitizeProfile(fallbackGoogle), { merge: true }).catch(() => {});
     }
 

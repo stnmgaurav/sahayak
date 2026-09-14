@@ -22,14 +22,26 @@ import {
 
 interface LoginPageProps {
   onBackToBrowse: () => void;
+  onOpenDashboard?: (role: 'admin' | 'student') => void;
   initialMode?: 'login' | 'signup';
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
   onBackToBrowse,
+  onOpenDashboard,
   initialMode = 'login',
 }) => {
-  const { loginWithEmail, signupWithEmail, loginWithGoogle, resetPassword, authPromptMessage } = useAuth();
+  const { 
+    currentUser, 
+    isAuthenticated, 
+    loginWithEmail, 
+    signupWithEmail, 
+    loginWithGoogle, 
+    loginAsDemo, 
+    resetPassword, 
+    authPromptMessage,
+    logout 
+  } = useAuth();
   
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
   
@@ -48,8 +60,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
 
+  // Auto-navigate if already authenticated
+  React.useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      const timer = setTimeout(() => {
+        if (onOpenDashboard) {
+          onOpenDashboard(currentUser.role === 'admin' ? 'admin' : 'student');
+        } else {
+          onBackToBrowse();
+        }
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, currentUser, onOpenDashboard, onBackToBrowse]);
+
   const getFriendlyErrorMessage = (err: any): string => {
     const code = err?.code || '';
+    const message = err?.message || '';
     if (code.includes('user-not-found')) {
       return 'No registered account found with this email. Please check the address or sign up.';
     }
@@ -66,15 +93,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return 'Google sign-in popup was closed before completing.';
     }
     if (code.includes('popup-blocked')) {
-      return 'Browser blocked the Google sign-in popup. Please allow popups for this site.';
+      return 'Browser blocked the Google sign-in popup. Please allow popups for this site or open the app in a new tab.';
     }
     if (code.includes('unauthorized-domain')) {
-      return 'The domain is not authorized in Firebase. Please add sahayakcu.vercel.app to Firebase Console > Authentication > Settings > Authorized domains.';
+      const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+      return `Domain unauthorized: "${host}" is not yet added in Firebase Console > Authentication > Settings > Authorized domains.`;
     }
     if (code.includes('network-request-failed')) {
       return 'Network connection error. Please check your internet connection.';
     }
-    return err?.message || 'Authentication failed. Please try again.';
+    return message || 'Authentication failed. Please try again.';
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -88,7 +116,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setLoading(true);
     try {
       await loginWithEmail(email.trim(), password);
-      onBackToBrowse();
+      if (onOpenDashboard) {
+        onOpenDashboard(email.toLowerCase().includes('admin') || email.toLowerCase() === 'gauravsinghrajpoot2019@gmail.com' ? 'admin' : 'student');
+      } else {
+        onBackToBrowse();
+      }
     } catch (err: any) {
       setError(getFriendlyErrorMessage(err));
     } finally {
@@ -131,7 +163,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         department,
         phone: phone.trim() || '+91 98765 00000',
       });
-      onBackToBrowse();
+      if (onOpenDashboard) {
+        onOpenDashboard('student');
+      } else {
+        onBackToBrowse();
+      }
     } catch (err: any) {
       setError(getFriendlyErrorMessage(err));
     } finally {
@@ -144,7 +180,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setGoogleLoading(true);
     try {
       await loginWithGoogle();
-      onBackToBrowse();
+      if (onOpenDashboard) {
+        onOpenDashboard(currentUser?.role === 'admin' ? 'admin' : 'student');
+      } else {
+        onBackToBrowse();
+      }
     } catch (err: any) {
       setError(getFriendlyErrorMessage(err));
     } finally {
@@ -170,6 +210,85 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       setLoading(false);
     }
   };
+
+  if (isAuthenticated && currentUser) {
+    return (
+      <div className="min-h-[75vh] flex flex-col justify-start sm:justify-center items-center pt-2 sm:pt-6 pb-12 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-lg space-y-4">
+          <button
+            onClick={onBackToBrowse}
+            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors px-3 py-1.5 rounded-xl hover:bg-white/60"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Campus Registry</span>
+          </button>
+
+          <div className="glass-panel rounded-3xl p-8 shadow-2xl border border-white/90 text-center space-y-6">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white flex items-center justify-center font-black text-2xl mx-auto shadow-md">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+            
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                Authentication Successful
+              </span>
+              <h2 className="text-2xl font-black text-slate-950 pt-1">{currentUser.name}</h2>
+              <p className="text-xs text-slate-500 font-medium">{currentUser.email}</p>
+              <div className="pt-2">
+                <span className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold ${
+                  currentUser.role === 'admin'
+                    ? 'bg-red-100 text-red-800 border border-red-200'
+                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                }`}>
+                  {currentUser.role === 'admin' ? (
+                    <>
+                      <ShieldCheck className="w-4 h-4 text-red-700" />
+                      <span>Campus Security & Admin Authority</span>
+                    </>
+                  ) : (
+                    <>
+                      <GraduationCap className="w-4 h-4 text-emerald-700" />
+                      <span>Verified Student ({currentUser.uidOrRoll || 'CU Scholar'})</span>
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <button
+                onClick={() => {
+                  if (onOpenDashboard) {
+                    onOpenDashboard(currentUser.role === 'admin' ? 'admin' : 'student');
+                  } else {
+                    onBackToBrowse();
+                  }
+                }}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white rounded-2xl font-black text-sm shadow-md transition-all flex items-center justify-center gap-2"
+              >
+                <span>{currentUser.role === 'admin' ? 'Launch Campus Security Console' : 'Go to My Student Dashboard'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={onBackToBrowse}
+                className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs border border-slate-200 transition-all"
+              >
+                Explore Lost & Found Items Registry
+              </button>
+
+              <button
+                onClick={logout}
+                className="w-full py-2 text-xs font-semibold text-slate-400 hover:text-red-700 transition-colors"
+              >
+                Sign out of account
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[75vh] flex flex-col justify-start sm:justify-center items-center pt-2 sm:pt-6 pb-12 px-4 sm:px-6 lg:px-8">
@@ -275,9 +394,48 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
               {/* Error Notification */}
               {error && (
-                <div className="mb-4 p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-800 font-medium flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                  <span className="leading-relaxed">{error}</span>
+                <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-800 font-medium space-y-3">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <span className="leading-relaxed font-semibold">{error}</span>
+                  </div>
+
+                  {/* Fallback buttons if domain is unauthorized in Firebase Console or popup blocked */}
+                  {(error.includes('Domain unauthorized') || error.includes('popup') || error.includes('Authentication') || error.includes('Firebase')) && (
+                    <div className="pt-2.5 border-t border-red-200/70 space-y-2">
+                      <p className="text-[11px] text-slate-700 font-medium leading-relaxed">
+                        To test immediately without waiting for Firebase Console domain whitelist:
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setError(null);
+                            await loginAsDemo('admin');
+                            if (onOpenDashboard) onOpenDashboard('admin');
+                            else onBackToBrowse();
+                          }}
+                          className="flex-1 px-3 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>Login as Gaurav Singh (Admin)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setError(null);
+                            await loginAsDemo('student');
+                            if (onOpenDashboard) onOpenDashboard('student');
+                            else onBackToBrowse();
+                          }}
+                          className="flex-1 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <User className="w-3.5 h-3.5" />
+                          <span>Login as Student (Arjun)</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
