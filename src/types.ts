@@ -1,6 +1,6 @@
 export type ReportType = 'lost' | 'found';
 
-export type ItemStatus = 'lost' | 'found' | 'match_found' | 'claim_pending' | 'verified' | 'returned' | 'recovered';
+export type ItemStatus = 'lost' | 'found' | 'match_found' | 'claim_pending' | 'claimed' | 'verified' | 'returned' | 'recovered';
 
 export type ItemCategory = 
   | 'Electronics'
@@ -123,3 +123,24 @@ export interface HandoverReceipt {
   handoverLocation: string;
   timestamp: string;
 }
+
+export interface ItemMessage {
+  id: string;
+  itemId: string;
+  itemTitle: string;
+  itemType: ReportType;
+  senderId: string;
+  senderName: string;
+  senderEmail: string;
+  senderPhone: string;
+  senderUid: string;
+  recipientId?: string;
+  recipientEmail?: string;
+  recipientName?: string;
+  messageText: string;
+  currentFoundLocation?: string;
+  proofImageUrl?: string;
+  status: 'unread' | 'read' | 'resolved';
+  createdAt: string;
+}
+

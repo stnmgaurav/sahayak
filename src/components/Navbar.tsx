@@ -15,7 +15,11 @@ import {
   Edit3,
   Phone,
   GraduationCap,
-  Building2
+  Building2,
+  Copy,
+  Check,
+  ChevronRight,
+  BadgeCheck
 } from 'lucide-react';
 
 type NavTab = 'browse' | 'student-dashboard' | 'admin-dashboard' | 'login';
@@ -38,6 +42,16 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { currentUser, isAuthenticated, logout, openAuthModal, setNeedsProfileCompletion } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [copiedUid, setCopiedUid] = useState(false);
+
+  const handleCopyUid = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentUser?.uidOrRoll) {
+      navigator.clipboard.writeText(currentUser.uidOrRoll);
+      setCopiedUid(true);
+      setTimeout(() => setCopiedUid(false), 2000);
+    }
+  };
 
   const handleTabClick = (tab: NavTab) => {
     if (tab === 'student-dashboard' && !isAuthenticated) {
@@ -138,121 +152,141 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div>
                   <button
                     onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                    className="flex items-center gap-2 p-1.5 rounded-xl border border-slate-200/80 bg-white/60 hover:bg-white transition-all shadow-2xs"
+                    className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-full border border-slate-200/90 bg-white/80 hover:bg-white hover:border-slate-300 transition-all shadow-2xs hover:shadow-xs group"
                     aria-label="User profile menu"
                   >
-                    {currentUser.avatarUrl ? (
-                      <img
-                        src={currentUser.avatarUrl}
-                        alt={currentUser.name}
-                        className="w-8 h-8 rounded-lg object-cover border border-slate-200"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-800 to-red-900 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
-                        {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                    )}
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+                    <div className="relative">
+                      {currentUser.avatarUrl ? (
+                        <img
+                          src={currentUser.avatarUrl}
+                          alt={currentUser.name}
+                          className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-1 ring-slate-200"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-red-800 to-red-950 text-white flex items-center justify-center font-bold text-xs ring-1 ring-red-700/50">
+                          {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                      )}
+                      <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+                    </div>
+                    <div className="hidden sm:block text-left min-w-0">
+                      <p className="text-xs font-bold text-slate-800 leading-none truncate max-w-[110px]">
+                        {currentUser.name?.split(' ')[0] || 'Student'}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-mono leading-tight truncate max-w-[110px] mt-0.5">
+                        {currentUser.uidOrRoll || 'Profile'}
+                      </p>
+                    </div>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {isProfileDropdownOpen && (
                     <>
                       {/* Click outside backdrop */}
                       <div 
-                        className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[1px]" 
+                        className="fixed inset-0 z-40 bg-black/15 backdrop-blur-[2px]" 
                         onClick={() => setIsProfileDropdownOpen(false)} 
                       />
 
-                      <div className="absolute right-0 mt-2 w-76 sm:w-80 bg-white border border-slate-200/90 rounded-2xl shadow-xl shadow-slate-900/10 p-2.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                        {/* Profile Header */}
-                        <div className="flex items-center gap-3 p-2.5 bg-slate-50/90 rounded-xl border border-slate-100 mb-2">
-                          {currentUser.avatarUrl ? (
-                            <img
-                              src={currentUser.avatarUrl}
-                              alt={currentUser.name}
-                              className="w-11 h-11 rounded-xl object-cover border-2 border-red-700/80 shadow-2xs shrink-0"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-red-800 to-red-900 text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0">
-                              {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="text-xs font-bold text-slate-950 truncate">{currentUser.name}</p>
-                              <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded ${
-                                currentUser.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
-                              }`}>
-                                {currentUser.role === 'admin' ? 'Security Staff' : 'CU Student'}
+                      {/* Startup Elevated Popover Card */}
+                      <div className="absolute right-0 mt-2.5 w-80 sm:w-88 bg-white/98 backdrop-blur-2xl border border-slate-200/90 rounded-2xl shadow-2xl shadow-slate-950/15 z-50 overflow-hidden ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-150 divide-y divide-slate-100">
+                        {/* Profile Header Hero */}
+                        <div className="p-3.5 sm:p-4 bg-gradient-to-b from-slate-50/90 via-slate-50/40 to-white">
+                          <div className="flex items-start gap-3">
+                            <div className="relative shrink-0">
+                              {currentUser.avatarUrl ? (
+                                <img
+                                  src={currentUser.avatarUrl}
+                                  alt={currentUser.name}
+                                  className="w-12 h-12 rounded-2xl object-cover ring-2 ring-red-700/80 shadow-xs"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-800 via-red-900 to-slate-900 text-white flex items-center justify-center font-black text-base shadow-xs">
+                                  {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                                </div>
+                              )}
+                              <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-white flex items-center justify-center text-white" title="Active Account">
+                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-500 truncate mt-0.5">{currentUser.email}</p>
-                          </div>
-                        </div>
 
-                        {/* Verified Student Credentials */}
-                        <div className="p-2 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-1.5 text-xs mb-2">
-                          {/* Student UID */}
-                          <div className="flex items-center justify-between py-1 bg-white px-2.5 rounded-lg border border-slate-200/60">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <GraduationCap className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-sm font-extrabold text-slate-950 tracking-tight truncate max-w-[155px] sm:max-w-[165px]">
+                                  {currentUser.name}
+                                </p>
+                                <BadgeCheck className="w-4 h-4 text-red-600 shrink-0" />
+                              </div>
+                              <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5">{currentUser.email}</p>
+                              <div className="mt-1.5 flex items-center gap-1.5">
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                  currentUser.role === 'admin' 
+                                    ? 'bg-red-50 text-red-700 border-red-200' 
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${currentUser.role === 'admin' ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                                  {currentUser.role === 'admin' ? 'Security Staff' : 'CU Verified Student'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Quick Credential Strip with One-Tap Copy */}
+                          <div className="mt-3 grid grid-cols-2 gap-1.5 pt-2.5 border-t border-slate-100 text-xs">
+                            <button
+                              type="button"
+                              onClick={handleCopyUid}
+                              className="flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/70 transition-all text-left group"
+                              title="Click to copy CU UID"
+                            >
                               <div className="min-w-0">
-                                <span className="text-[10px] text-slate-500 block leading-tight">CU UID / Roll</span>
-                                <span className="font-mono font-bold text-slate-900 text-xs truncate block">
+                                <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider block leading-tight">CU UID</span>
+                                <span className="text-[11px] font-mono font-bold text-slate-800 truncate block">
                                   {currentUser.uidOrRoll || 'Not Set'}
                                 </span>
                               </div>
-                            </div>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded shrink-0" title="UID is permanent">
-                              <Lock className="w-2.5 h-2.5 text-slate-400" />
-                            </span>
-                          </div>
-
-                          {/* Contact Mobile */}
-                          <div className="flex items-center justify-between py-1 bg-white px-2.5 rounded-lg border border-slate-200/60">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              <div className="min-w-0">
-                                <span className="text-[10px] text-slate-500 block leading-tight">Contact Mobile</span>
-                                <span className="font-semibold text-slate-900 text-xs truncate block">
-                                  {currentUser.phone || 'Not Set'}
-                                </span>
+                              <div className="w-6 h-6 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center text-slate-500 group-hover:text-slate-800 transition-colors shrink-0 ml-1">
+                                {copiedUid ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-slate-400 group-hover:text-slate-600" />}
                               </div>
+                            </button>
+
+                            <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/70 text-left min-w-0 flex flex-col justify-center">
+                              <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider block leading-tight">Contact</span>
+                              <span className="text-[11px] font-medium text-slate-800 truncate block">
+                                {currentUser.phone || 'Not Set'}
+                              </span>
                             </div>
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded shrink-0" title="Contact number is permanent">
-                              <Lock className="w-2.5 h-2.5 text-slate-400" />
-                            </span>
                           </div>
 
-                          {/* Academic Department */}
                           {currentUser.department && (
-                            <div className="flex items-center justify-between py-1 bg-white px-2.5 rounded-lg border border-slate-200/60">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                <div className="min-w-0">
-                                  <span className="text-[10px] text-slate-500 block leading-tight">Department</span>
-                                  <span className="font-medium text-slate-800 text-xs truncate block max-w-[190px]">
-                                    {currentUser.department}
-                                  </span>
-                                </div>
-                              </div>
+                            <div className="mt-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50/80 border border-slate-200/50 flex items-center gap-1.5 text-[11px] text-slate-600">
+                              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate font-medium">{currentUser.department}</span>
                             </div>
                           )}
                         </div>
 
-                        {/* Navigation & Action Links */}
-                        <div className="space-y-0.5">
+                        {/* Action Menu Items */}
+                        <div className="p-1.5 space-y-0.5">
                           <button
                             onClick={() => {
                               setNeedsProfileCompletion(true);
                               setIsProfileDropdownOpen(false);
                             }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-800 hover:text-red-900 hover:bg-red-50/70 rounded-xl transition-colors text-left"
+                            className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-50 transition-all group text-left"
                           >
-                            <Edit3 className="w-3.5 h-3.5 text-red-700" />
-                            <span>Edit Profile Details</span>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-red-50 text-red-700 flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-800 group-hover:text-slate-950 leading-tight">Edit Profile</p>
+                                <p className="text-[10px] text-slate-400 leading-tight truncate">Photo, department &amp; details</p>
+                              </div>
+                            </div>
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all shrink-0" />
                           </button>
 
                           <button
@@ -260,10 +294,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                               setCurrentTab('student-dashboard');
                               setIsProfileDropdownOpen(false);
                             }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-colors text-left"
+                            className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-50 transition-all group text-left"
                           >
-                            <LayoutDashboard className="w-3.5 h-3.5 text-slate-400" />
-                            <span>My Dashboard &amp; Claims</span>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition-colors">
+                                <LayoutDashboard className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-800 group-hover:text-slate-950 leading-tight">My Dashboard</p>
+                                <p className="text-[10px] text-slate-400 leading-tight truncate">Lost reports &amp; active claims</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {unreadMatchesCount > 0 && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-500 text-white rounded-full animate-pulse">
+                                  {unreadMatchesCount}
+                                </span>
+                              )}
+                              <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
+                            </div>
                           </button>
 
                           {currentUser.role === 'admin' && (
@@ -272,22 +321,42 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 setCurrentTab('admin-dashboard');
                                 setIsProfileDropdownOpen(false);
                               }}
-                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:text-red-800 hover:bg-red-50/60 rounded-xl transition-colors text-left"
+                              className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-red-900 hover:bg-red-50/60 transition-all group text-left"
                             >
-                              <Shield className="w-3.5 h-3.5 text-red-700" />
-                              <span>Campus Security Desk</span>
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-7 h-7 rounded-lg bg-red-800 text-white flex items-center justify-center shrink-0">
+                                  <Shield className="w-3.5 h-3.5" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-red-900 leading-tight">Security Custody Desk</p>
+                                  <p className="text-[10px] text-red-600/80 leading-tight truncate">Admin item handovers &amp; logs</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {pendingClaimsCount > 0 && (
+                                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-red-600 text-white rounded-full">
+                                    {pendingClaimsCount}
+                                  </span>
+                                )}
+                                <ChevronRight className="w-3.5 h-3.5 text-red-400 group-hover:translate-x-0.5 transition-all" />
+                              </div>
                             </button>
                           )}
+                        </div>
 
+                        {/* Sign Out Footer */}
+                        <div className="p-1.5 bg-slate-50/70">
                           <button
                             onClick={async () => {
                               await logout();
                               setIsProfileDropdownOpen(false);
                             }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors text-left border-t border-slate-100 mt-1 pt-1.5"
+                            className="w-full flex items-center gap-2.5 p-2 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50/80 rounded-xl transition-colors text-left"
                           >
-                            <LogOut className="w-3.5 h-3.5" />
-                            <span>Sign Out</span>
+                            <div className="w-7 h-7 rounded-lg bg-red-100/60 text-red-600 flex items-center justify-center shrink-0">
+                              <LogOut className="w-3.5 h-3.5" />
+                            </div>
+                            <span className="font-bold">Sign Out</span>
                           </button>
                         </div>
                       </div>

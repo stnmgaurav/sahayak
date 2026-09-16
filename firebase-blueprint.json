@@ -105,6 +105,31 @@
         "timestamp",
         "qrVerificationCode"
       ]
+    },
+    "ItemMessage": {
+      "title": "ItemMessage",
+      "description": "Direct finder-to-owner notification message for lost campus belongings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique message identifier" },
+        "itemId": { "type": "string", "description": "Associated lost item document identifier" },
+        "itemTitle": { "type": "string", "description": "Item title" },
+        "itemType": { "type": "string", "description": "Report type" },
+        "senderId": { "type": "string", "description": "Finder student UID" },
+        "senderName": { "type": "string", "description": "Finder student full name" },
+        "senderEmail": { "type": "string", "description": "Finder email address" },
+        "senderPhone": { "type": "string", "description": "Finder contact number" },
+        "senderUid": { "type": "string", "description": "Finder roll number or university UID" },
+        "recipientId": { "type": "string", "description": "Lost item owner UID" },
+        "recipientEmail": { "type": "string", "description": "Lost item owner email address" },
+        "recipientName": { "type": "string", "description": "Lost item owner name" },
+        "messageText": { "type": "string", "description": "Detailed message on where item was found and where it is deposited" },
+        "currentFoundLocation": { "type": "string", "description": "Campus security desk or block where item is kept" },
+        "proofImageUrl": { "type": "string", "description": "Optional photo of the found item" },
+        "status": { "type": "string", "enum": ["unread", "read", "resolved"], "description": "Message review status" },
+        "createdAt": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["id", "itemId", "itemTitle", "senderName", "messageText", "createdAt"]
     }
   },
   "firestore": {
@@ -123,6 +148,10 @@
     "/receipts/{receiptId}": {
       "schema": "HandoverReceipt",
       "description": "Handover receipts issued by security"
+    },
+    "/messages/{messageId}": {
+      "schema": "ItemMessage",
+      "description": "Direct finder messages for reported lost items"
     }
   }
 }

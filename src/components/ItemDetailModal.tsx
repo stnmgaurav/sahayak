@@ -19,7 +19,8 @@ import {
   UserCheck,
   ArrowLeft,
   Edit3,
-  Trash2
+  Trash2,
+  MessageSquare
 } from 'lucide-react';
 
 interface ItemDetailModalProps {
@@ -31,6 +32,7 @@ interface ItemDetailModalProps {
   onOpenMatchComparison: (lostItem: ItemReport, foundItem: ItemReport) => void;
   onEditItem?: (item: ItemReport) => void;
   onDeleteItem?: (itemId: string) => void;
+  onSendMessage?: (item: ItemReport) => void;
 }
 
 export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
@@ -42,6 +44,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   onOpenMatchComparison,
   onEditItem,
   onDeleteItem,
+  onSendMessage,
 }) => {
   const { currentUser, isAdmin, isAuthenticated, openAuthModal } = useAuth();
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -418,6 +421,21 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   </button>
                 )}
               </>
+            )}
+
+            {/* If Lost item and not recovered, send message to owner button */}
+            {item.type === 'lost' && item.status !== 'recovered' && !isOwner && onSendMessage && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onSendMessage(item);
+                }}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Found This Item? Send Message to Owner</span>
+              </button>
             )}
 
             {/* If Found item and not returned, Claim button */}

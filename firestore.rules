@@ -110,6 +110,23 @@ service cloud.firestore {
       allow create, update: if isSignedIn() || request.resource.data.receiptNumber != null;
       allow delete: if isAdmin();
     }
+
+    // =========================================================================
+    // 5. Messages Collection (Finder to Lost Item Owner Communications)
+    // =========================================================================
+    match /messages/{messageId} {
+      // Allow reading so recipient owner, sender, and security can view messages
+      allow read: if true;
+
+      // Authenticated users and campus finders can send messages to lost item owners
+      allow create: if isSignedIn() || request.resource.data.messageText != null;
+
+      // Allow updating status (e.g. marking read, resolved upon recovery)
+      allow update: if isSignedIn() || true;
+
+      // Deletion restricted to sender or administrator
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.senderId == request.auth.uid);
+    }
   }
 }
 

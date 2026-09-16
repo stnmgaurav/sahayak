@@ -9,6 +9,7 @@ import { ItemCard } from './components/ItemCard';
 import { ReportModal } from './components/ReportModal';
 import { ItemDetailModal } from './components/ItemDetailModal';
 import { ClaimModal } from './components/ClaimModal';
+import { SendMessageModal } from './components/SendMessageModal';
 import { MatchingModal } from './components/MatchingModal';
 import { HandoverReceiptModal } from './components/HandoverReceiptModal';
 import { StudentDashboard } from './components/StudentDashboard';
@@ -97,6 +98,9 @@ function SahayakMain() {
   const [claimModalOpen, setClaimModalOpen] = useState(false);
   const [claimTargetItem, setClaimTargetItem] = useState<ItemReport | null>(null);
 
+  const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [messageTargetItem, setMessageTargetItem] = useState<ItemReport | null>(null);
+
   const [matchModalOpen, setMatchModalOpen] = useState(false);
   const [matchLostItem, setMatchLostItem] = useState<ItemReport | null>(null);
   const [matchFoundItem, setMatchFoundItem] = useState<ItemReport | null>(null);
@@ -147,6 +151,15 @@ function SahayakMain() {
     }
     setClaimTargetItem(item);
     setClaimModalOpen(true);
+  };
+
+  const handleSendMessage = (item: ItemReport) => {
+    if (!isAuthenticated) {
+      openAuthModal('login', 'Please sign in with your Chandigarh University ID to send a message to the owner of this lost item.');
+      return;
+    }
+    setMessageTargetItem(item);
+    setMessageModalOpen(true);
   };
 
   const handleOpenMatchComparison = (lostItem: ItemReport, foundItem: ItemReport) => {
@@ -286,6 +299,8 @@ function SahayakMain() {
             onViewReceipt={handleViewReceipt}
             onEditItem={handleEditItem}
             onDeleteItem={handleDeleteItem}
+            onClaimItem={handleInitiateClaim}
+            onSendMessage={handleSendMessage}
             onBackToBrowse={() => setCurrentTab('browse')}
           />
         )}
@@ -297,6 +312,8 @@ function SahayakMain() {
             claims={claims}
             onViewItemDetails={handleViewDetails}
             onViewReceipt={handleViewReceipt}
+            onEditItem={handleEditItem}
+            onDeleteItem={handleDeleteItem}
             onBackToBrowse={() => setCurrentTab('browse')}
           />
         )}
@@ -682,6 +699,7 @@ function SahayakMain() {
                           matchScore={matchData?.topScore}
                           onViewDetails={handleViewDetails}
                           onClaimItem={handleInitiateClaim}
+                          onSendMessage={handleSendMessage}
                           onViewMatch={(target) => {
                             if (!isAuthenticated) {
                               openAuthModal('login', 'Please sign in with your Chandigarh University ID to inspect AI match candidate details and initiate verification.');
@@ -718,19 +736,6 @@ function SahayakMain() {
               <p className="text-[11px] text-slate-500">Autonomous Student Welfare &amp; Campus Security Handover System</p>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-6 text-[11px] text-slate-600 font-semibold">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              Security Control: Ext 401
-            </span>
-            <span>•</span>
-            <span>Central Library Vault: Ext 214</span>
-            <span>•</span>
-            <span>Block C3 Welfare Desk</span>
-            <span>•</span>
-            <span className="text-red-800 font-bold">Gate 1 NH-95 Entrance</span>
-          </div>
         </div>
       </footer>
 
@@ -757,6 +762,7 @@ function SahayakMain() {
         onClose={() => setDetailModalOpen(false)}
         matches={selectedItem ? findMatchesForItem(selectedItem, items, 45) : []}
         onClaim={handleInitiateClaim}
+        onSendMessage={handleSendMessage}
         onOpenMatchComparison={handleOpenMatchComparison}
         onEditItem={handleEditItem}
         onDeleteItem={handleDeleteItem}
@@ -768,6 +774,18 @@ function SahayakMain() {
         onClose={() => setClaimModalOpen(false)}
         onClaimSubmitted={() => {
           setClaims(getStoredClaims());
+          setItems(getStoredItems());
+        }}
+      />
+
+      <SendMessageModal
+        item={messageTargetItem}
+        isOpen={messageModalOpen}
+        onClose={() => {
+          setMessageModalOpen(false);
+          setMessageTargetItem(null);
+        }}
+        onMessageSent={() => {
           setItems(getStoredItems());
         }}
       />

@@ -1,8 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ItemReport, ItemClaim } from '../types';
-import { updateClaim, updateItemStatus, deleteItem } from '../lib/storage';
+import { ItemReport, ItemClaim, UserProfile, ItemStatus } from '../types';
+import { 
+  updateClaim, 
+  updateItemStatus, 
+  deleteItem, 
+  getStoredUsers, 
+  subscribeToStorage, 
+  updateUser, 
+  deleteUser 
+} from '../lib/storage';
 import { SahayakLogo } from './SahayakLogo';
+import { AdminUserListingsModal } from './AdminUserListingsModal';
+import { AdminEditUserModal } from './AdminEditUserModal';
+import { AdminAddUserModal } from './AdminAddUserModal';
 import { 
   Shield, 
   ShieldCheck, 
@@ -23,7 +34,17 @@ import {
   PhoneCall,
   Lock,
   ArrowUpRight,
-  ArrowLeft
+  ArrowLeft,
+  Edit3,
+  UserPlus,
+  Eye,
+  Mail,
+  GraduationCap,
+  ShieldAlert,
+  Calendar,
+  Sparkles,
+  Check,
+  Tag
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -32,6 +53,8 @@ interface AdminDashboardProps {
   onBackToBrowse: () => void;
   onViewItemDetails: (item: ItemReport) => void;
   onViewReceipt: (claim: ItemClaim, item: ItemReport) => void;
+  onEditItem?: (item: ItemReport) => void;
+  onDeleteItem?: (itemId: string) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -40,19 +63,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onBackToBrowse,
   onViewItemDetails,
   onViewReceipt,
+  onEditItem,
+  onDeleteItem,
 }) => {
   const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'claims' | 'reports' | 'ledger' | 'hotspots'>('claims');
+  const [activeTab, setActiveTab] = useState<'reports' | 'users' | 'claims' | 'ledger' | 'hotspots'>('reports');
+
+  // Listings state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'lost' | 'found'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+
+  // Users state
+  const [users, setUsers] = useState<UserProfile[]>(() => getStoredUsers());
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'student' | 'admin'>('all');
+
+  // Modal states
+  const [selectedUserForListings, setSelectedUserForListings] = useState<UserProfile | null>(null);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+
+  // Sync users list whenever storage updates
+  useEffect(() => {
+    const unsubscribe = subscribeToStorage(() => {
+      setUsers(getStoredUsers());
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Stats calculation
   const totalReports = items.length;
-  const activeLost = items.filter(i => i.type === 'lost' && i.status !== 'returned').length;
-  const itemsInCustody = items.filter(i => i.type === 'found' && i.status !== 'returned').length;
+  const activeLost = items.filter(i => i.type === 'lost' && i.status !== 'returned' && i.status !== 'recovered').length;
+  const itemsInCustody = items.filter(i => i.type === 'found' && i.status !== 'returned' && i.status !== 'recovered').length;
   const pendingClaims = claims.filter(c => c.status === 'pending').length;
-  const returnedItems = items.filter(i => i.status === 'returned').length;
+  const returnedItems = items.filter(i => i.status === 'returned' || i.status === 'recovered').length;
   const recoveryRate = totalReports > 0 ? Math.round((returnedItems / totalReports) * 100) : 0;
 
   // Handlers for Claim Review
@@ -82,17 +128,75 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // Delete item handler
+  const handleDeleteItem = (item: ItemReport) => {
+    if (window.confirm(`Are you sure you want to permanently remove listing "${item.title}" from the platform?`)) {
+      if (onDeleteItem) {
+        onDeleteItem(item.id);
+      } else {
+        deleteItem(item.id, currentUser?.id, true);
+      }
+    }
+  };
+
+  // Toggle role handler
+  const handleToggleRole = (user: UserProfile) => {
+    const newRole = user.role === 'admin' ? 'student' : 'admin';
+    const confirmMsg = newRole === 'admin' 
+      ? `Promote ${user.name} (${user.uidOrRoll}) to Campus Security Admin?`
+      : `Demote ${user.name} from Admin back to Student role?`;
+
+    if (window.confirm(confirmMsg)) {
+      updateUser(user.id, { role: newRole });
+      setUsers(getStoredUsers());
+    }
+  };
+
+  // Delete user handler
+  const handleDeleteUser = (user: UserProfile) => {
+    if (window.confirm(`Are you sure you want to delete user account "${user.name}" (${user.email})?`)) {
+      deleteUser(user.id);
+      setUsers(getStoredUsers());
+    }
+  };
+
   // Filtered reports
-  const filteredReports = items.filter(item => {
-    const matchesSearch = 
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.locationBlock.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = typeFilter === 'all' || item.type === typeFilter;
-    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-    return matchesSearch && matchesType && matchesStatus;
-  });
+  const filteredReports = useMemo(() => {
+    return items.filter(item => {
+      const matchesSearch = 
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.locationBlock.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.userUid && item.userUid.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.userEmail && item.userEmail.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        item.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesType = typeFilter === 'all' || item.type === typeFilter;
+      const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+      const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
+      return matchesSearch && matchesType && matchesStatus && matchesCategory;
+    });
+  }, [items, searchQuery, typeFilter, statusFilter, categoryFilter]);
+
+  // Filtered users
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      const matchesSearch = 
+        user.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+        user.email.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+        (user.uidOrRoll && user.uidOrRoll.toLowerCase().includes(userSearchQuery.toLowerCase())) ||
+        (user.phone && user.phone.toLowerCase().includes(userSearchQuery.toLowerCase())) ||
+        (user.department && user.department.toLowerCase().includes(userSearchQuery.toLowerCase()));
+      const matchesRole = userRoleFilter === 'all' || user.role === userRoleFilter;
+      return matchesSearch && matchesRole;
+    });
+  }, [users, userSearchQuery, userRoleFilter]);
+
+  // Categories list
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach(i => set.add(i.category));
+    return Array.from(set);
+  }, [items]);
 
   // Hotspots calculation
   const hotspotCounts: Record<string, number> = {};
@@ -113,6 +217,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <ArrowLeft className="w-4 h-4 text-slate-500" />
           <span>Back to Campus Registry</span>
         </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsAddUserModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 shadow-2xs transition-all"
+          >
+            <UserPlus className="w-4 h-4 text-slate-600" />
+            <span>Add Campus User</span>
+          </button>
+        </div>
       </div>
 
       {/* Admin Dark Glassmorphism Header */}
@@ -133,84 +247,94 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-1">
-              Chandigarh University Central Lost &amp; Found Registry • Physical Vault Management &amp; Verified Gate Passes
+              Chandigarh University Central Platform Manager • Listings &amp; User Administration • Real-time Sync
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 relative z-10">
+        <div className="flex items-center gap-3 relative z-10 flex-wrap">
           <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/15 text-slate-200 text-xs font-bold backdrop-blur-md">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span>Live Registry Online</span>
+            <span>Live Registry Database</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-red-600/20 border border-red-500/30 text-red-200 text-xs font-bold">
+            <ShieldCheck className="w-3.5 h-3.5 text-red-300" />
+            <span>Administrator Access</span>
           </span>
         </div>
       </div>
 
       {/* Bento Grid KPI Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        <div className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all">
+        <div 
+          onClick={() => setActiveTab('reports')}
+          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-slate-800"
+        >
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-            Total Reports
+            Total Listings
           </span>
           <span className="text-2xl font-black text-slate-950 mt-1 block">{totalReports}</span>
           <span className="text-[10px] text-slate-500 font-medium">Logged on Campus</span>
         </div>
 
-        <div className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all">
+        <div 
+          onClick={() => setActiveTab('users')}
+          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-red-600"
+        >
+          <span className="text-[10px] font-black uppercase tracking-wider text-red-700 block">
+            Platform Users
+          </span>
+          <span className="text-2xl font-black text-red-800 mt-1 block">{users.length}</span>
+          <span className="text-[10px] text-slate-500 font-medium">Students &amp; Staff</span>
+        </div>
+
+        <div 
+          onClick={() => { setActiveTab('reports'); setTypeFilter('lost'); }}
+          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-rose-500"
+        >
           <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 block">
             Active Lost
           </span>
           <span className="text-2xl font-black text-rose-700 mt-1 block">{activeLost}</span>
-          <span className="text-[10px] text-rose-600/80 font-medium">Unrecovered</span>
+          <span className="text-[10px] text-rose-700/80 font-medium">Search Active</span>
         </div>
 
-        <div className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all">
+        <div 
+          onClick={() => { setActiveTab('reports'); setTypeFilter('found'); }}
+          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-emerald-600"
+        >
           <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 block">
-            In Safe Custody
+            Safe Custody
           </span>
           <span className="text-2xl font-black text-emerald-700 mt-1 block">{itemsInCustody}</span>
-          <span className="text-[10px] text-emerald-600/80 font-medium">Inside Campus Vaults</span>
+          <span className="text-[10px] text-emerald-700/80 font-medium">In Vault / Desk</span>
         </div>
 
-        <div className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all">
+        <div 
+          onClick={() => setActiveTab('claims')}
+          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-amber-500"
+        >
           <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 block">
             Pending Claims
           </span>
-          <span className="text-2xl font-black text-amber-600 mt-1 block">{pendingClaims}</span>
+          <span className="text-2xl font-black text-amber-700 mt-1 block">{pendingClaims}</span>
           <span className="text-[10px] text-amber-700/80 font-medium">Awaiting Inspection</span>
         </div>
 
-        <div className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all">
+        <div 
+          onClick={() => setActiveTab('ledger')}
+          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-sky-500"
+        >
           <span className="text-[10px] font-black uppercase tracking-wider text-sky-600 block">
-            Items Returned
+            Recovered / Returned
           </span>
           <span className="text-2xl font-black text-sky-700 mt-1 block">{returnedItems}</span>
-          <span className="text-[10px] text-sky-700/80 font-medium">Signed Over to Students</span>
-        </div>
-
-        <div className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all">
-          <span className="text-[10px] font-black uppercase tracking-wider text-red-700 block">
-            Recovery Rate
-          </span>
-          <span className="text-2xl font-black text-red-800 mt-1 block">{recoveryRate}%</span>
-          <span className="text-[10px] text-emerald-600 font-bold">Campus High</span>
+          <span className="text-[10px] text-emerald-600 font-bold">{recoveryRate}% Recovery Rate</span>
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs Navigation */}
       <div className="glass-panel rounded-2xl p-1.5 shadow-2xs flex items-center gap-1.5 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('claims')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
-            activeTab === 'claims' 
-              ? 'bg-red-800 text-white shadow-xs' 
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>Claims Review Queue ({pendingClaims} Pending)</span>
-        </button>
-
         <button
           onClick={() => setActiveTab('reports')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
@@ -220,7 +344,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }`}
         >
           <FileText className="w-4 h-4" />
-          <span>All Campus Registry Records ({items.length})</span>
+          <span>All Campus Listings ({items.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+            activeTab === 'users' 
+              ? 'bg-red-800 text-white shadow-xs' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Campus Users Directory ({users.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('claims')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+            activeTab === 'claims' 
+              ? 'bg-slate-950 text-white shadow-xs' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          <span>Claims Review Queue ({pendingClaims} Pending)</span>
         </button>
 
         <button
@@ -248,7 +396,407 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </button>
       </div>
 
-      {/* TAB 1: CLAIMS VERIFICATION QUEUE */}
+      {/* ========================================================================= */}
+      {/* TAB 1: ALL LISTINGS MANAGEMENT                                           */}
+      {/* ========================================================================= */}
+      {activeTab === 'reports' && (
+        <div className="space-y-4">
+          {/* Listings Filter Toolbar */}
+          <div className="glass-panel rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Search by title, location, student name, roll number, or phone..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-white/80 border border-slate-200/80 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-600 font-medium"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={typeFilter}
+                onChange={e => setTypeFilter(e.target.value as any)}
+                className="px-3 py-2 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700"
+              >
+                <option value="all">All Types (Lost &amp; Found)</option>
+                <option value="lost">Lost Reports Only</option>
+                <option value="found">Found Reports Only</option>
+              </select>
+
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+                className="px-3 py-2 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700"
+              >
+                <option value="all">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="px-3 py-2 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700"
+              >
+                <option value="all">All Statuses</option>
+                <option value="lost">Lost</option>
+                <option value="found">Found</option>
+                <option value="match_found">Match Found</option>
+                <option value="claim_pending">Claim Pending</option>
+                <option value="claimed">Claimed</option>
+                <option value="verified">Verified</option>
+                <option value="returned">Returned</option>
+                <option value="recovered">Recovered</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Listings Table with Direct Edit and Delete */}
+          <div className="glass-panel rounded-3xl overflow-hidden shadow-md">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[750px] text-left text-xs text-slate-700">
+                <thead className="bg-slate-100/80 border-b border-slate-200/80 font-bold uppercase tracking-wider text-[10px] text-slate-500">
+                  <tr>
+                    <th className="p-3.5">Item Details</th>
+                    <th className="p-3.5">Type</th>
+                    <th className="p-3.5">Category</th>
+                    <th className="p-3.5">Campus Location</th>
+                    <th className="p-3.5">Reported By (Student)</th>
+                    <th className="p-3.5">Status Flow</th>
+                    <th className="p-3.5 text-right">Admin Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredReports.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-slate-500">
+                        No listings match your current filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredReports.map(item => {
+                      // Find user profile for this item
+                      const itemUser = users.find(u => 
+                        u.id === item.userId || 
+                        (u.email && item.userEmail && u.email.toLowerCase() === item.userEmail.toLowerCase()) ||
+                        (u.uidOrRoll && item.userUid && u.uidOrRoll.toLowerCase() === item.userUid.toLowerCase())
+                      );
+
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={item.imageUrl}
+                                alt={item.title}
+                                className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
+                              />
+                              <div>
+                                <span className="font-bold text-slate-900 block truncate max-w-[200px] text-sm">
+                                  {item.title}
+                                </span>
+                                <span className="text-[11px] text-slate-400 block">
+                                  {new Date(item.dateTime).toLocaleDateString()} • Color: {item.color}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="p-3.5">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              item.type === 'lost' ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {item.type}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5 font-semibold text-slate-800">
+                            {item.category}
+                          </td>
+
+                          <td className="p-3.5 text-slate-600 max-w-[170px]">
+                            <span className="font-medium text-slate-900 block truncate">{item.locationBlock}</span>
+                            <span className="text-[10px] text-slate-400 block truncate">{item.specificSpot}</span>
+                          </td>
+
+                          <td className="p-3.5">
+                            <div className="space-y-0.5">
+                              <span className="font-bold text-slate-900 block">{item.userName}</span>
+                              <span className="text-[10px] text-slate-500 block">
+                                UID: {item.userUid || 'N/A'} • {item.userPhone || 'No Phone'}
+                              </span>
+                              {itemUser && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedUserForListings(itemUser)}
+                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 hover:text-red-900 mt-0.5"
+                                  title="View all listings submitted by this student"
+                                >
+                                  <Users className="w-3 h-3" />
+                                  <span>View User's Listings</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="p-3.5">
+                            <select
+                              value={item.status}
+                              onChange={e => updateItemStatus(item.id, e.target.value as ItemStatus, undefined, true)}
+                              className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-600 shadow-2xs"
+                            >
+                              <option value="lost">Lost</option>
+                              <option value="found">Found</option>
+                              <option value="match_found">Match Found</option>
+                              <option value="claim_pending">Claim Pending</option>
+                              <option value="claimed">Claimed</option>
+                              <option value="verified">Verified</option>
+                              <option value="returned">Returned</option>
+                              <option value="recovered">Recovered</option>
+                            </select>
+                          </td>
+
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Edit Listing */}
+                              {onEditItem && (
+                                <button
+                                  type="button"
+                                  onClick={() => onEditItem(item)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-2xs"
+                                  title="Edit full report details"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
+                                </button>
+                              )}
+
+                              {/* View Details */}
+                              <button
+                                type="button"
+                                onClick={() => onViewItemDetails(item)}
+                                className="px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                                title="Inspect details"
+                              >
+                                View
+                              </button>
+
+                              {/* Delete Listing */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(item)}
+                                className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl transition-colors"
+                                title="Permanently delete this report"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 2: USERS & PLATFORM DIRECTORY                                         */}
+      {/* ========================================================================= */}
+      {activeTab === 'users' && (
+        <div className="space-y-4">
+          {/* Users Header Toolbar */}
+          <div className="glass-panel rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="relative flex-1 min-w-[240px]">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Search campus users by name, roll number, email, phone, or department..."
+                value={userSearchQuery}
+                onChange={e => setUserSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-white/80 border border-slate-200/80 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-600 font-medium"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={userRoleFilter}
+                onChange={e => setUserRoleFilter(e.target.value as any)}
+                className="px-3 py-2 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700"
+              >
+                <option value="all">All Roles (Students &amp; Admins)</option>
+                <option value="student">Students Only</option>
+                <option value="admin">Administrators Only</option>
+              </select>
+
+              <button
+                onClick={() => setIsAddUserModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-800 hover:bg-red-900 transition-all shadow-xs"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Add New User</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Users Directory Table */}
+          <div className="glass-panel rounded-3xl overflow-hidden shadow-md">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[750px] text-left text-xs text-slate-700">
+                <thead className="bg-slate-100/80 border-b border-slate-200/80 font-bold uppercase tracking-wider text-[10px] text-slate-500">
+                  <tr>
+                    <th className="p-3.5">Campus Member</th>
+                    <th className="p-3.5">Contact Info</th>
+                    <th className="p-3.5">Academic Dept / Unit</th>
+                    <th className="p-3.5">Role</th>
+                    <th className="p-3.5">Activity &amp; Listings</th>
+                    <th className="p-3.5 text-right">User Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-slate-500">
+                        No registered users match your search criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map(user => {
+                      // Count this user's items
+                      const userItems = items.filter(i => 
+                        i.userId === user.id || 
+                        (user.email && i.userEmail?.toLowerCase() === user.email.toLowerCase()) ||
+                        (user.uidOrRoll && i.userUid?.toLowerCase() === user.uidOrRoll.toLowerCase())
+                      );
+                      const lostCount = userItems.filter(i => i.type === 'lost').length;
+                      const foundCount = userItems.filter(i => i.type === 'found').length;
+                      const userClaimsCount = claims.filter(c => 
+                        c.claimantId === user.id || 
+                        (user.email && c.claimantEmail?.toLowerCase() === user.email.toLowerCase()) ||
+                        (user.uidOrRoll && c.claimantUid?.toLowerCase() === user.uidOrRoll.toLowerCase())
+                      ).length;
+
+                      const isAdminUser = user.role === 'admin';
+
+                      return (
+                        <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-red-700 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                                {user.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <span className="font-bold text-slate-900 block text-sm">
+                                  {user.name}
+                                </span>
+                                <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                                  <GraduationCap className="w-3.5 h-3.5 text-red-600" />
+                                  UID: {user.uidOrRoll || 'Not Provided'}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="p-3.5">
+                            <span className="text-slate-800 font-medium block">{user.email}</span>
+                            <span className="text-[11px] text-slate-500 block">{user.phone || 'No Phone Registered'}</span>
+                          </td>
+
+                          <td className="p-3.5 text-slate-600 max-w-[200px]">
+                            <span className="block truncate font-medium">{user.department || 'Chandigarh University'}</span>
+                            <span className="text-[10px] text-slate-400">Joined: {user.joinedDate}</span>
+                          </td>
+
+                          <td className="p-3.5">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              isAdminUser 
+                                ? 'bg-red-100 text-red-800 border border-red-200' 
+                                : 'bg-slate-100 text-slate-800 border border-slate-200'
+                            }`}>
+                              {isAdminUser && <ShieldCheck className="w-3 h-3 text-red-700" />}
+                              <span>{isAdminUser ? 'Admin' : 'Student'}</span>
+                            </span>
+                          </td>
+
+                          <td className="p-3.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedUserForListings(user)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs transition-all"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-red-700" />
+                              <span>{userItems.length} Listings</span>
+                              <span className="text-[10px] text-slate-400">({lostCount}L / {foundCount}F)</span>
+                            </button>
+                          </td>
+
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Manage User's Listings */}
+                              <button
+                                type="button"
+                                onClick={() => setSelectedUserForListings(user)}
+                                className="px-2.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-950 rounded-xl transition-all shadow-2xs"
+                                title="Manage all listings reported by this user"
+                              >
+                                Manage Listings
+                              </button>
+
+                              {/* Edit Profile */}
+                              <button
+                                type="button"
+                                onClick={() => setEditingUser(user)}
+                                className="p-1.5 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-colors"
+                                title="Edit user details"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+
+                              {/* Toggle Role */}
+                              <button
+                                type="button"
+                                onClick={() => handleToggleRole(user)}
+                                className={`px-2 py-1.5 rounded-xl text-[11px] font-bold transition-colors ${
+                                  isAdminUser 
+                                    ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200' 
+                                    : 'text-red-700 bg-red-50 hover:bg-red-100 border border-red-200'
+                                }`}
+                                title={isAdminUser ? 'Demote to student' : 'Promote to admin'}
+                              >
+                                {isAdminUser ? 'Demote' : 'Make Admin'}
+                              </button>
+
+                              {/* Delete User */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteUser(user)}
+                                className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl transition-colors"
+                                title="Delete user account"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: CLAIMS VERIFICATION QUEUE                                          */}
+      {/* ========================================================================= */}
       {activeTab === 'claims' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -426,140 +974,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* TAB 2: ALL REPORTS REGISTRY */}
-      {activeTab === 'reports' && (
-        <div className="space-y-4">
-          {/* Filter Bar */}
-          <div className="glass-panel rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
-            <div className="relative flex-1 min-w-[220px]">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-              <input
-                type="text"
-                placeholder="Search by title, location, student name, or roll..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-white/80 border border-slate-200/80 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-600"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <select
-                value={typeFilter}
-                onChange={e => setTypeFilter(e.target.value as any)}
-                className="px-3 py-2 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700"
-              >
-                <option value="all">All Types (Lost &amp; Found)</option>
-                <option value="lost">Lost Reports Only</option>
-                <option value="found">Found Reports Only</option>
-              </select>
-
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-                className="px-3 py-2 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700"
-              >
-                <option value="all">All Statuses</option>
-                <option value="lost">Lost</option>
-                <option value="found">Found</option>
-                <option value="match_found">Match Found</option>
-                <option value="claim_pending">Claim Pending</option>
-                <option value="verified">Verified</option>
-                <option value="returned">Returned</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Table / List */}
-          <div className="glass-panel rounded-3xl overflow-hidden shadow-md">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[650px] text-left text-xs text-slate-700">
-                <thead className="bg-slate-100/70 border-b border-slate-200/80 font-bold uppercase tracking-wider text-[10px] text-slate-500">
-                  <tr>
-                    <th className="p-3.5">Item</th>
-                    <th className="p-3.5">Type</th>
-                    <th className="p-3.5">Category</th>
-                    <th className="p-3.5">Campus Location</th>
-                    <th className="p-3.5">Reported By</th>
-                    <th className="p-3.5">Status Flow</th>
-                    <th className="p-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredReports.map(item => (
-                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={item.imageUrl}
-                            alt={item.title}
-                            className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
-                          />
-                          <div>
-                            <span className="font-bold text-slate-900 block truncate max-w-[180px]">
-                              {item.title}
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              {new Date(item.dateTime).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3.5">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                          item.type === 'lost' ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
-                        }`}>
-                          {item.type}
-                        </span>
-                      </td>
-                      <td className="p-3.5 font-semibold text-slate-800">{item.category}</td>
-                      <td className="p-3.5 text-slate-600 max-w-[160px] truncate">{item.locationBlock}</td>
-                      <td className="p-3.5">
-                        <span className="font-bold text-slate-900 block">{item.userName}</span>
-                        <span className="text-[10px] text-slate-400">{item.userUid || item.userEmail}</span>
-                      </td>
-                      <td className="p-3.5">
-                        <select
-                          value={item.status}
-                          onChange={e => updateItemStatus(item.id, e.target.value as any)}
-                          className="px-2.5 py-1 bg-white/90 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800"
-                        >
-                          <option value="lost">Lost</option>
-                          <option value="found">Found</option>
-                          <option value="match_found">Match Found</option>
-                          <option value="claim_pending">Claim Pending</option>
-                          <option value="verified">Verified</option>
-                          <option value="returned">Returned</option>
-                        </select>
-                      </td>
-                      <td className="p-3.5 text-right space-x-2">
-                        <button
-                          onClick={() => onViewItemDetails(item)}
-                          className="px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-200/60 rounded-lg"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Delete report for "${item.title}"?`)) {
-                              deleteItem(item.id);
-                            }
-                          }}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded-lg"
-                          title="Delete report"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: HANDOVER LEDGER */}
+      {/* ========================================================================= */}
+      {/* TAB 4: HANDOVER LEDGER                                                    */}
+      {/* ========================================================================= */}
       {activeTab === 'ledger' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -583,7 +1000,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.filter(i => i.status === 'returned').map(item => {
+                {items.filter(i => i.status === 'returned' || i.status === 'recovered').map(item => {
                   const claim = claims.find(c => c.itemId === item.id) || {
                     id: `claim_${item.id}`,
                     itemId: item.id,
@@ -606,8 +1023,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="p-3.5">{item.category}</td>
                       <td className="p-3.5 text-slate-600">{item.currentHoldingLocation || 'Security Gate 1'}</td>
                       <td className="p-3.5">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-950 text-emerald-400">
-                          RETURNED
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-950 text-emerald-400 uppercase">
+                          {item.status}
                         </span>
                       </td>
                       <td className="p-3.5 text-right">
@@ -628,7 +1045,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* TAB 4: CAMPUS HOTSPOTS & ANALYTICS */}
+      {/* ========================================================================= */}
+      {/* TAB 5: CAMPUS HOTSPOTS & ANALYTICS                                        */}
+      {/* ========================================================================= */}
       {activeTab === 'hotspots' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Hotspots Card */}
@@ -688,6 +1107,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODALS: USER LISTINGS, EDIT USER, ADD USER                                */}
+      {/* ========================================================================= */}
+      {selectedUserForListings && (
+        <AdminUserListingsModal
+          user={selectedUserForListings}
+          items={items}
+          isOpen={Boolean(selectedUserForListings)}
+          onClose={() => setSelectedUserForListings(null)}
+          onEditItem={item => onEditItem?.(item)}
+          onDeleteItem={itemId => {
+            if (onDeleteItem) {
+              onDeleteItem(itemId);
+            } else {
+              deleteItem(itemId, currentUser?.id, true);
+            }
+          }}
+          onViewItemDetails={onViewItemDetails}
+        />
+      )}
+
+      {editingUser && (
+        <AdminEditUserModal
+          user={editingUser}
+          isOpen={Boolean(editingUser)}
+          onClose={() => setEditingUser(null)}
+          onUserUpdated={updated => {
+            setUsers(getStoredUsers());
+          }}
+        />
+      )}
+
+      {isAddUserModalOpen && (
+        <AdminAddUserModal
+          isOpen={isAddUserModalOpen}
+          onClose={() => setIsAddUserModalOpen(false)}
+          onUserCreated={newUser => {
+            setUsers(getStoredUsers());
+          }}
+        />
       )}
     </div>
   );

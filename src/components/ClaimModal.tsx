@@ -37,6 +37,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submittedSuccess, setSubmittedSuccess] = useState(false);
 
   const proofInputId = useId();
 
@@ -93,8 +94,11 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
       };
 
       saveClaim(newClaim);
-      onClaimSubmitted(newClaim);
-      onClose();
+      setSubmittedSuccess(true);
+      setTimeout(() => {
+        onClaimSubmitted(newClaim);
+        onClose();
+      }, 1800);
     } catch (err: any) {
       setError('Error submitting claim: ' + err.message);
     } finally {
@@ -152,7 +156,18 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
           </div>
         </div>
 
-        {/* Form Body */}
+        {submittedSuccess ? (
+          <div className="p-8 text-center space-y-3">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-xs">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-black text-slate-900">Claim Registered Successfully!</h3>
+            <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+              This item has been removed from the public campus dashboard. Your claim is now under review by campus security desk. Track its real-time custody status in your Student Dashboard.
+            </p>
+          </div>
+        ) : (
+        /* Form Body */
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium flex items-center gap-2">
@@ -272,6 +287,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

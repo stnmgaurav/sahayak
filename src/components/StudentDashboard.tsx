@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ItemReport, ItemClaim, MatchSuggestion } from '../types';
+import { ItemReport, ItemClaim, MatchSuggestion, ItemMessage } from '../types';
 import { findMatchesForItem } from '../lib/matching';
-import { updateItemStatus, deleteItem } from '../lib/storage';
+import { updateItemStatus, deleteItem, getStoredMessages, updateMessage } from '../lib/storage';
 import { 
   PlusCircle, 
   HandHeart, 
@@ -26,7 +26,10 @@ import {
   Edit3,
   Trash2,
   Lock,
-  Camera
+  Camera,
+  MessageSquare,
+  Phone,
+  Send
 } from 'lucide-react';
 
 interface StudentDashboardProps {
@@ -39,6 +42,8 @@ interface StudentDashboardProps {
   onViewReceipt: (claim: ItemClaim, item: ItemReport) => void;
   onEditItem?: (item: ItemReport) => void;
   onDeleteItem?: (itemId: string) => void;
+  onClaimItem?: (item: ItemReport) => void;
+  onSendMessage?: (item: ItemReport) => void;
 }
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
@@ -51,9 +56,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onViewReceipt,
   onEditItem,
   onDeleteItem,
+  onClaimItem,
+  onSendMessage,
 }) => {
   const { currentUser, isAdmin, openAuthModal, setNeedsProfileCompletion } = useAuth();
-  const [activeTab, setActiveTab] = useState<'lost' | 'found' | 'matches' | 'claims'>('lost');
+  const [activeTab, setActiveTab] = useState<'lost' | 'found' | 'matches' | 'claims' | 'messages'>('lost');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'recovered'>('all');
 
   if (!currentUser) {
@@ -103,6 +110,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   });
 
   const myClaims = claims.filter(c => c.claimantId === currentUser.id || c.claimantEmail === currentUser.email);
+
+  // Compute all messages received by this user for their reported lost items
+  const allMessages = getStoredMessages();
+  const myReceivedMessages = allMessages.filter(m => 
+    m.recipientId === currentUser.id || 
+    (currentUser.email && m.recipientEmail === currentUser.email) ||
+    userLostAll.some(lost => lost.id === m.itemId)
+  );
+  const unreadMessagesCount = myReceivedMessages.filter(m => m.status === 'unread').length;
 
   // Compute all matches for this student's lost items
   const myMatches: { target: ItemReport; match: MatchSuggestion }[] = [];
@@ -327,6 +343,20 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         >
           My Claims &amp; Verification ({myClaims.length})
         </button>
+        <button
+          onClick={() => setActiveTab('messages')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === 'messages' 
+              ? 'bg-emerald-800 text-white shadow-xs' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+          }`}
+        >
+          <MessageSquare className="w-3.5 h-3.5 text-emerald-300" />
+          <span>Finder Inquiries ({myReceivedMessages.length})</span>
+          {unreadMessagesCount > 0 && (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          )}
+        </button>
       </div>
 
       {/* TAB 1: MY LOST ITEMS */}
@@ -455,11 +485,21 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         {!isRecovered && (
                           <button
                             onClick={() => updateItemStatus(item.id, 'recovered', currentUser?.id, isAdmin)}
-                            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-                            title="Mark item as recovered"
+                            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+                            title="Confirm recovery to remove this item from the campus dashboard"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Mark Recovered</span>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                            <span>Mark Recovered (Remove from Dashboard)</span>
+                          </button>
+                        )}
+
+                        {allMessages.filter(m => m.itemId === item.id).length > 0 && (
+                          <button
+                            onClick={() => setActiveTab('messages')}
+                            className="px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>{allMessages.filter(m => m.itemId === item.id).length} Finder Message(s)</span>
                           </button>
                         )}
 
@@ -834,6 +874,152 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <p className="text-slate-500 text-[11px]">
                           Please carry your physical Chandigarh University Student ID Card (UID: {claim.claimantUid}) for verification.
                         </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 5: FINDER INQUIRIES & DIRECT MESSAGES */}
+      {activeTab === 'messages' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-emerald-700" />
+                <span>Finder Notifications &amp; Inquiries</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Direct messages from students or security personnel who found your misplaced campus belongings.
+              </p>
+            </div>
+            <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold border border-emerald-200">
+              {myReceivedMessages.length} Total Messages
+            </span>
+          </div>
+
+          {myReceivedMessages.length === 0 ? (
+            <div className="glass-panel rounded-3xl p-12 text-center shadow-md">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                <MessageSquare className="w-6 h-6" />
+              </div>
+              <h3 className="font-black text-slate-900 text-lg">No Finder Messages Yet</h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+                When another student or campus authority spots your lost item and sends a verification message with its holding location, it will arrive here in real time.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {myReceivedMessages.map(msg => {
+                const targetItem = items.find(i => i.id === msg.itemId);
+                const isItemRecovered = targetItem?.status === 'recovered' || targetItem?.status === 'returned';
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`glass-card rounded-2xl p-5 shadow-xs space-y-4 border ${
+                      msg.status === 'unread' ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200/80'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      {/* Item Preview */}
+                      <div className="flex items-center gap-3">
+                        {targetItem?.imageUrl && (
+                          <img
+                            src={targetItem.imageUrl}
+                            alt={targetItem.title}
+                            className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0"
+                          />
+                        )}
+                        <div>
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-100 text-rose-800">
+                            Lost Item Report
+                          </span>
+                          <h4 className="text-sm font-bold text-slate-950 mt-1">
+                            {targetItem ? targetItem.title : 'Reported Campus Item'}
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Lost at: {targetItem?.locationBlock || 'Campus Grounds'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Status and Action */}
+                      <div className="flex items-center gap-2">
+                        {isItemRecovered ? (
+                          <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span>Recovered &amp; Closed</span>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              updateItemStatus(msg.itemId, 'recovered', currentUser?.id, isAdmin);
+                              updateMessage(msg.id, { status: 'resolved' });
+                            }}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5"
+                            title="Clicking this marks item recovered and removes it from the public campus dashboard"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Confirm Recovery (Remove from Dashboard)</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Finder's Information Card */}
+                    <div className="p-4 bg-white/80 rounded-xl border border-slate-200 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-slate-100 pb-2.5">
+                        <div>
+                          <span className="text-slate-500 font-medium">Finder Name: </span>
+                          <span className="font-bold text-slate-900">{msg.senderName}</span>
+                          {msg.senderUid && (
+                            <span className="text-slate-500 font-mono text-[11px] ml-1">
+                              (UID: {msg.senderUid})
+                            </span>
+                          )}
+                        </div>
+                        {msg.senderPhone && (
+                          <a
+                            href={`tel:${msg.senderPhone}`}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-bold text-xs transition-colors"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{msg.senderPhone}</span>
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-700 font-bold">
+                          <Building2 className="w-3.5 h-3.5 text-red-700" />
+                          <span>Reported Location / Custody: {msg.currentFoundLocation || 'Campus Security Desk'}</span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-700 font-medium leading-relaxed">
+                        "{msg.messageText}"
+                      </div>
+
+                      {msg.proofImageUrl && (
+                        <div className="pt-2">
+                          <span className="text-[11px] font-bold text-slate-600 block mb-1">
+                            Finder's Verification Snapshot:
+                          </span>
+                          <img
+                            src={msg.proofImageUrl}
+                            alt="Finder proof"
+                            className="w-32 h-32 rounded-xl object-cover border border-slate-200 shadow-2xs"
+                          />
+                        </div>
+                      )}
+
+                      <div className="text-[10px] text-slate-400 pt-1">
+                        Received on {new Date(msg.createdAt).toLocaleString()}
                       </div>
                     </div>
                   </div>

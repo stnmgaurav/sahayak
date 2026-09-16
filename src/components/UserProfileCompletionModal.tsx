@@ -229,119 +229,66 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
       {/* Main Container: Full screen on mobile, elegant rounded card on desktop */}
       <div className="relative w-full sm:max-w-xl bg-white sm:rounded-3xl shadow-2xl flex flex-col min-h-screen sm:min-h-0 sm:max-h-[92vh] overflow-hidden my-0 sm:my-4 border-0 sm:border sm:border-slate-200 animate-in fade-in zoom-in-95 duration-200">
         
-        {/* University Header Ribbon */}
-        <div className="bg-gradient-to-r from-red-950 via-red-900 to-slate-900 text-white p-4 sm:p-6 relative overflow-hidden shrink-0">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
-          
-          <div className="flex items-start justify-between relative z-10 gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white p-1.5 flex items-center justify-center text-red-800 shadow-md shrink-0">
-                <SahayakLogo className="w-8 h-8 sm:w-9 sm:h-9" />
+        {/* University Header Ribbon (Minimized & Enhanced) */}
+        <div className="bg-gradient-to-r from-red-950 via-red-900 to-slate-900 text-white px-4 py-3 sm:px-5 sm:py-3.5 relative overflow-hidden shrink-0 border-b border-red-800/40">
+          <div className="absolute top-0 right-0 w-36 h-36 bg-red-600/10 rounded-full blur-xl pointer-events-none"></div>
+
+          <div className="flex items-center justify-between relative z-10 gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white p-1 flex items-center justify-center text-red-800 shadow-sm shrink-0">
+                <SahayakLogo className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight">
-                    {isExistingProfile ? 'Student Profile Details' : 'Student Identity Setup'}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h3 className="text-sm sm:text-base font-bold tracking-tight text-white leading-tight truncate">
+                    {isExistingProfile ? 'Student Profile' : 'Student Identity'}
                   </h3>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                  <span className={`px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider ${
                     isExistingProfile ? 'bg-emerald-400 text-slate-950' : 'bg-amber-400 text-slate-950'
                   }`}>
-                    {isExistingProfile ? 'Verified Profile' : 'Step 2 of 2'}
+                    {isExistingProfile ? 'Verified' : 'Step 2/2'}
                   </span>
                 </div>
-                <p className="text-xs text-red-200/90 font-medium mt-0.5 truncate">
-                  Chandigarh University Lost &amp; Found Portal
-                </p>
+                <div className="flex items-center gap-1.5 text-[11px] text-red-200/90 font-medium truncate mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                  <span className="truncate">{email || 'Authenticated Student'}</span>
+                </div>
               </div>
             </div>
 
-            {/* If existing profile, provide top-right Close button */}
-            {isExistingProfile && (
-              <button
-                type="button"
-                onClick={() => setNeedsProfileCompletion(false)}
-                className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/30 flex items-center justify-center text-white transition-colors shrink-0 active:scale-95"
-                title="Close Profile Details"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Account & Email Status Strip */}
-          <div className="mt-3 pt-3 border-t border-white/15 flex items-center justify-between text-xs text-slate-200 flex-wrap gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse"></span>
-              <span className="truncate text-xs">
-                Account: <strong className="text-white font-semibold">{email || 'Authenticated Student'}</strong>
-              </span>
+            {/* Right side controls: Progress pill on initial setup, Close button on edit */}
+            <div className="flex items-center gap-2 shrink-0">
+              {!isExistingProfile ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-bold text-white shadow-xs">
+                  <span className="text-amber-300 font-mono">{completedCount}/4</span>
+                  <span className="text-white/70 hidden xs:inline">done</span>
+                  <span className="text-[10px] px-1 py-0.5 rounded bg-emerald-500/80 text-white font-semibold ml-0.5">
+                    {completionPercentage}%
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setNeedsProfileCompletion(false)}
+                  className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 flex items-center justify-center text-white transition-all"
+                  title="Close Profile Details"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
-            <span className="px-2 py-0.5 rounded-md bg-white/15 text-[10px] font-bold text-white shrink-0">
-              {isExistingProfile ? 'CU Digital ID' : 'Required for Campus Safety'}
-            </span>
           </div>
 
-          {/* Live Progress Bar on Initial Setup */}
+          {/* Sleek Bottom Micro Progress Line for Initial Setup */}
           {!isExistingProfile && (
-            <div className="mt-3 pt-2">
-              <div className="flex items-center justify-between text-[11px] font-bold mb-1.5 text-red-200">
-                <span>Profile Completion</span>
-                <span>{completedCount} of 4 completed ({completionPercentage}%)</span>
-              </div>
-              <div className="w-full bg-black/30 rounded-full h-1.5 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-amber-400 to-emerald-400 h-1.5 rounded-full transition-all duration-300"
-                  style={{ width: `${completionPercentage}%` }}
-                />
-              </div>
-
-              {/* Checklist Pills */}
-              <div className="grid grid-cols-4 gap-1.5 mt-2.5">
-                <div className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                  isNameValid ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/40' : 'bg-white/10 text-white/60'
-                }`}>
-                  {isNameValid ? <Check className="w-3 h-3" /> : <span className="w-1.5 h-1.5 rounded-full bg-white/40" />}
-                  <span className="truncate">Name</span>
-                </div>
-                <div className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                  isUidValid ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/40' : 'bg-white/10 text-white/60'
-                }`}>
-                  {isUidValid ? <Check className="w-3 h-3" /> : <span className="w-1.5 h-1.5 rounded-full bg-white/40" />}
-                  <span className="truncate">CU UID</span>
-                </div>
-                <div className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                  isPhoneValid ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/40' : 'bg-white/10 text-white/60'
-                }`}>
-                  {isPhoneValid ? <Check className="w-3 h-3" /> : <span className="w-1.5 h-1.5 rounded-full bg-white/40" />}
-                  <span className="truncate">Phone</span>
-                </div>
-                <div className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                  isAvatarValid ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/40' : 'bg-white/10 text-white/60'
-                }`}>
-                  {isAvatarValid ? <Check className="w-3 h-3" /> : <span className="w-1.5 h-1.5 rounded-full bg-white/40" />}
-                  <span className="truncate">Photo</span>
-                </div>
-              </div>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40">
+              <div 
+                className="bg-gradient-to-r from-amber-400 via-emerald-400 to-emerald-300 h-full transition-all duration-300"
+                style={{ width: `${completionPercentage}%` }}
+              />
             </div>
           )}
         </div>
-
-        {/* Security & Custody Notice */}
-        {isExistingProfile ? (
-          <div className="p-3 sm:p-3.5 bg-amber-50 border-b border-amber-200/80 flex items-start gap-2.5 text-xs text-amber-950 shrink-0">
-            <Lock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-            <p className="leading-relaxed">
-              <strong>University Credentials Locked:</strong> For custody integrity and fraud prevention, your <strong>CU UID</strong> and <strong>Contact Phone</strong> are permanently bound. You may update your Name, Academic Department, and Profile Picture below.
-            </p>
-          </div>
-        ) : (
-          <div className="p-3 sm:p-3.5 bg-red-50/70 border-b border-red-100 flex items-start gap-2.5 text-xs text-slate-700 shrink-0">
-            <ShieldCheck className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
-            <p className="leading-relaxed">
-              <strong>Why is this required?</strong> To protect student belongings and ensure handovers only reach the verified owner, campus security matches items against student UIDs and verified phone numbers.
-            </p>
-          </div>
-        )}
 
         {/* Form Body - Smooth scroll on mobile */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-4 sm:space-y-5 pb-24 sm:pb-6">
