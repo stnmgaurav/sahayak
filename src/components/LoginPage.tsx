@@ -516,14 +516,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       </button>
                     </div>
                     <div className="relative">
-                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 sm:top-3" />
                       <input
                         type="password"
                         required
                         placeholder="••••••••"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2.5 bg-white/80 border border-slate-200/90 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                        className="w-full pl-10 pr-3 py-3 sm:py-2.5 bg-white/80 border border-slate-200/90 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                       />
                     </div>
                   </div>
@@ -531,7 +531,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <button
                     type="submit"
                     disabled={loading || googleLoading}
-                    className="w-full py-2.5 px-4 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 active:bg-red-950 text-white font-bold text-xs sm:text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full py-3.5 sm:py-2.5 px-4 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 active:bg-red-950 text-white font-bold text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 min-h-[44px]"
                   >
                     {loading ? (
                       <>
@@ -553,32 +553,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       Full Student Name <span className="text-red-600">*</span>
                     </label>
                     <div className="relative">
-                      <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                      <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 sm:top-3" />
                       <input
                         type="text"
                         required
                         placeholder="e.g. Arjun Sharma"
                         value={name}
                         onChange={e => setName(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 bg-white/80 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                        className="w-full pl-10 pr-3 py-3 sm:py-2 bg-white/80 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
                         CU UID / Roll <span className="text-red-600">*</span>
                       </label>
                       <div className="relative">
-                        <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                        <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 sm:top-3" />
                         <input
                           type="text"
                           required
                           placeholder="21BCS10482"
                           value={uidOrRoll}
                           onChange={e => setUidOrRoll(e.target.value)}
-                          className="w-full pl-10 pr-3 py-2 bg-white/80 border border-slate-200 rounded-xl text-xs uppercase focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                          className="w-full pl-10 pr-3 py-3 sm:py-2 bg-white/80 border border-slate-200 rounded-xl text-base sm:text-sm uppercase font-mono focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                         />
                       </div>
                     </div>
@@ -588,13 +588,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         Phone Number
                       </label>
                       <div className="relative">
-                        <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                        <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 sm:top-3" />
                         <input
                           type="tel"
+                          inputMode="numeric"
                           placeholder="+91 98765 43210"
                           value={phone}
                           onChange={e => setPhone(e.target.value)}
-                          className="w-full pl-10 pr-3 py-2 bg-white/80 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                          className="w-full pl-10 pr-3 py-3 sm:py-2 bg-white/80 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                         />
                       </div>
                     </div>
@@ -607,7 +608,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     <select
                       value={department}
                       onChange={e => setDepartment(e.target.value)}
-                      className="w-full px-3 py-2 bg-white/80 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-600"
+                      className="w-full px-3 py-3 sm:py-2 bg-white/80 border border-slate-200 rounded-xl text-base sm:text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-600"
                     >
                       {CU_DEPARTMENTS.map(dept => (
                         <option key={dept} value={dept}>{dept}</option>
@@ -627,12 +628,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         placeholder="yourname@cuchd.in"
                         value={email}
                         onChange={e => setEmail(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2 bg-white/80 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                        className="w-full pl-10 pr-3 py-3 sm:py-2 bg-white/80 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
                         Password <span className="text-red-600">*</span>
@@ -643,7 +644,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         placeholder="Min 6 chars"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
-                        className="w-full px-3 py-2 bg-white/80 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                        className="w-full px-3 py-3 sm:py-2 bg-white/80 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                       />
                     </div>
                     <div>
@@ -656,7 +657,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         placeholder="Re-type password"
                         value={confirmPassword}
                         onChange={e => setConfirmPassword(e.target.value)}
-                        className="w-full px-3 py-2 bg-white/80 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                        className="w-full px-3 py-3 sm:py-2 bg-white/80 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                       />
                     </div>
                   </div>
@@ -664,7 +665,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <button
                     type="submit"
                     disabled={loading || googleLoading}
-                    className="w-full py-2.5 px-4 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white font-bold text-xs sm:text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
+                    className="w-full py-3.5 sm:py-2.5 px-4 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white font-bold text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50 min-h-[44px]"
                   >
                     {loading ? (
                       <>

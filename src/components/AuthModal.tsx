@@ -118,10 +118,10 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2.5 sm:p-4 overflow-y-auto">
+      <div className="relative w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[94vh] sm:max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="bg-red-800 text-white p-5 sm:p-6 pr-14 relative shrink-0">
+        <div className="bg-gradient-to-r from-red-800 to-red-900 text-white p-5 sm:p-6 pr-14 relative shrink-0">
           <button
             onClick={closeAuthModal}
             className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-white/90 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors"
@@ -227,43 +227,44 @@ export const AuthModal: React.FC = () => {
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Full Student Name</label>
                   <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 sm:top-3" />
                     <input
                       type="text"
                       required
                       placeholder="e.g. Arjun Sharma"
                       value={name}
                       onChange={e => setName(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                      className="w-full pl-9 pr-3 py-3 sm:py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">CU UID / Roll</label>
                     <div className="relative">
-                      <GraduationCap className="w-4 h-4 text-slate-400 absolute left-2.5 top-3" />
+                      <GraduationCap className="w-4 h-4 text-slate-400 absolute left-2.5 top-3.5 sm:top-3" />
                       <input
                         type="text"
                         required
                         placeholder="21BCS10482"
                         value={uidOrRoll}
                         onChange={e => setUidOrRoll(e.target.value.toUpperCase())}
-                        className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs uppercase focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                        className="w-full pl-8 pr-3 py-3 sm:py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-sm uppercase font-mono focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                       />
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Phone</label>
                     <div className="relative">
-                      <Phone className="w-4 h-4 text-slate-400 absolute left-2.5 top-3" />
+                      <Phone className="w-4 h-4 text-slate-400 absolute left-2.5 top-3.5 sm:top-3" />
                       <input
                         type="tel"
-                        placeholder="+91 98765..."
+                        inputMode="numeric"
+                        placeholder="+91 98765 43210"
                         value={phone}
                         onChange={e => setPhone(e.target.value)}
-                        className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                        className="w-full pl-8 pr-3 py-3 sm:py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                       />
                     </div>
                   </div>
@@ -274,7 +275,7 @@ export const AuthModal: React.FC = () => {
                   <select
                     value={department}
                     onChange={e => setDepartment(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-600"
+                    className="w-full px-3 py-3 sm:py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-600"
                   >
                     {CU_DEPARTMENTS.map(dept => (
                       <option key={dept} value={dept}>{dept}</option>
@@ -289,14 +290,14 @@ export const AuthModal: React.FC = () => {
                 Student Email Address
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 sm:top-3" />
                 <input
                   type="email"
                   required
                   placeholder="student@cuchd.in"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                  className="w-full pl-9 pr-3 py-3 sm:py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                 />
               </div>
             </div>
@@ -304,14 +305,14 @@ export const AuthModal: React.FC = () => {
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Password</label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 sm:top-3" />
                 <input
                   type="password"
                   required
                   placeholder="••••••••"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
+                  className="w-full pl-9 pr-3 py-3 sm:py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"
                 />
               </div>
             </div>
@@ -319,7 +320,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="submit"
               disabled={loading || googleLoading}
-              className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 px-4 bg-red-800 hover:bg-red-900 active:bg-red-950 text-white rounded-xl text-xs sm:text-sm font-bold transition-colors shadow-sm disabled:opacity-50"
+              className="w-full mt-3 flex items-center justify-center gap-2 py-3.5 sm:py-2.5 px-4 bg-red-800 hover:bg-red-900 active:bg-red-950 text-white rounded-xl text-sm font-bold transition-colors shadow-sm disabled:opacity-50 min-h-[44px]"
             >
               {loading ? (
                 <>
