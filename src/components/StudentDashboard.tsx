@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ItemReport, ItemClaim, MatchSuggestion } from '../types';
 import { findMatchesForItem } from '../lib/matching';
-import { updateItemStatus } from '../lib/storage';
+import { updateItemStatus, deleteItem } from '../lib/storage';
 import { 
   PlusCircle, 
   HandHeart, 
@@ -24,6 +24,7 @@ import {
   ArrowUpRight,
   ArrowLeft,
   Edit3,
+  Trash2,
   Lock,
   Camera
 } from 'lucide-react';
@@ -36,6 +37,8 @@ interface StudentDashboardProps {
   onViewItemDetails: (item: ItemReport) => void;
   onOpenMatchComparison: (lostItem: ItemReport, foundItem: ItemReport) => void;
   onViewReceipt: (claim: ItemClaim, item: ItemReport) => void;
+  onEditItem?: (item: ItemReport) => void;
+  onDeleteItem?: (itemId: string) => void;
 }
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
@@ -46,9 +49,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onViewItemDetails,
   onOpenMatchComparison,
   onViewReceipt,
+  onEditItem,
+  onDeleteItem,
 }) => {
-  const { currentUser, openAuthModal, setNeedsProfileCompletion } = useAuth();
+  const { currentUser, isAdmin, openAuthModal, setNeedsProfileCompletion } = useAuth();
   const [activeTab, setActiveTab] = useState<'lost' | 'found' | 'matches' | 'claims'>('lost');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'recovered'>('all');
 
   if (!currentUser) {
     return (
@@ -79,14 +85,28 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     );
   }
 
-  // Filter items for current user
-  const myLostItems = items.filter(i => i.userId === currentUser.id && i.type === 'lost');
-  const myFoundItems = items.filter(i => i.userId === currentUser.id && i.type === 'found');
+  // Filter all items uploaded by current user
+  const userLostAll = items.filter(i => (i.userId === currentUser.id || (currentUser.email && i.userEmail === currentUser.email)) && i.type === 'lost');
+  const userFoundAll = items.filter(i => (i.userId === currentUser.id || (currentUser.email && i.userEmail === currentUser.email)) && i.type === 'found');
+
+  // Filter based on active vs recovered sub-filter
+  const myLostItems = userLostAll.filter(item => {
+    if (statusFilter === 'active') return item.status !== 'recovered' && item.status !== 'returned';
+    if (statusFilter === 'recovered') return item.status === 'recovered' || item.status === 'returned';
+    return true;
+  });
+
+  const myFoundItems = userFoundAll.filter(item => {
+    if (statusFilter === 'active') return item.status !== 'recovered' && item.status !== 'returned';
+    if (statusFilter === 'recovered') return item.status === 'recovered' || item.status === 'returned';
+    return true;
+  });
+
   const myClaims = claims.filter(c => c.claimantId === currentUser.id || c.claimantEmail === currentUser.email);
 
   // Compute all matches for this student's lost items
   const myMatches: { target: ItemReport; match: MatchSuggestion }[] = [];
-  myLostItems.forEach(lostItem => {
+  userLostAll.forEach(lostItem => {
     const matches = findMatchesForItem(lostItem, items, 45);
     matches.forEach(m => {
       myMatches.push({ target: lostItem, match: m });
@@ -312,26 +332,77 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       {/* TAB 1: MY LOST ITEMS */}
       {activeTab === 'lost' && (
         <div className="space-y-4">
+          {/* Sub-filter for Active vs Recovered items */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 p-1 glass-panel-subtle rounded-2xl border border-slate-200/80 shadow-2xs">
+              <button
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  statusFilter === 'all'
+                    ? 'bg-slate-950 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-950'
+                }`}
+              >
+                All ({userLostAll.length})
+              </button>
+              <button
+                onClick={() => setStatusFilter('active')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  statusFilter === 'active'
+                    ? 'bg-red-800 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-950'
+                }`}
+              >
+                Active ({userLostAll.filter(i => i.status !== 'recovered' && i.status !== 'returned').length})
+              </button>
+              <button
+                onClick={() => setStatusFilter('recovered')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  statusFilter === 'recovered'
+                    ? 'bg-emerald-700 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-950'
+                }`}
+              >
+                Recovered ({userLostAll.filter(i => i.status === 'recovered' || i.status === 'returned').length})
+              </button>
+            </div>
+
+            <button
+              onClick={() => onOpenReportModal('lost')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white rounded-xl text-xs font-bold shadow-2xs transition-all"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Report Lost Item</span>
+            </button>
+          </div>
+
           {myLostItems.length === 0 ? (
             <div className="glass-panel rounded-3xl p-12 text-center shadow-md">
               <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
                 <PlusCircle className="w-6 h-6" />
               </div>
-              <h3 className="font-black text-slate-900 text-lg">No Lost Items Reported</h3>
+              <h3 className="font-black text-slate-900 text-lg">
+                {statusFilter === 'recovered' ? 'No Recovered Items Yet' : 'No Lost Items Reported'}
+              </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
-                If you misplace an item anywhere on the Chandigarh University campus, report it here for security and peers to help find it.
+                {statusFilter === 'recovered'
+                  ? 'When your reported lost belongings are found and recovered, they will be archived here in your personal history.'
+                  : 'If you misplace an item anywhere on the Chandigarh University campus, report it here for security and peers to help find it.'}
               </p>
-              <button
-                onClick={() => onOpenReportModal('lost')}
-                className="mt-4 px-5 py-2.5 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white rounded-xl text-xs font-bold shadow-sm"
-              >
-                Report a Lost Belonging
-              </button>
+              {statusFilter !== 'recovered' && (
+                <button
+                  onClick={() => onOpenReportModal('lost')}
+                  className="mt-4 px-5 py-2.5 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white rounded-xl text-xs font-bold shadow-sm"
+                >
+                  Report a Lost Belonging
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
               {myLostItems.map(item => {
                 const matches = findMatchesForItem(item, items, 45);
+                const isRecovered = item.status === 'recovered' || item.status === 'returned';
                 return (
                   <div
                     key={item.id}
@@ -349,9 +420,20 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             <h4 className="font-bold text-slate-950 text-base">
                               {item.title}
                             </h4>
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-100 text-red-800">
-                              {item.status.replace('_', ' ')}
-                            </span>
+                            {item.status === 'recovered' ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                Recovered
+                              </span>
+                            ) : item.status === 'returned' ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-900 text-white">
+                                Returned
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-100 text-red-800">
+                                {item.status.replace('_', ' ')}
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
                             <MapPin className="w-3.5 h-3.5 text-red-700" />
@@ -362,26 +444,57 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           onClick={() => onViewItemDetails(item)}
                           className="px-3.5 py-2 bg-white/80 hover:bg-white border border-slate-200/80 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-2xs"
                         >
                           Details
                         </button>
-                        {item.status !== 'returned' && (
+
+                        {!isRecovered && (
                           <button
-                            onClick={() => updateItemStatus(item.id, 'returned')}
-                            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all"
+                            onClick={() => updateItemStatus(item.id, 'recovered', currentUser?.id, isAdmin)}
+                            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                            title="Mark item as recovered"
                           >
-                            Mark Recovered
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Mark Recovered</span>
                           </button>
                         )}
+
+                        {onEditItem && (
+                          <button
+                            onClick={() => onEditItem(item)}
+                            className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-2xs"
+                            title="Edit this item report"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to permanently delete "${item.title}"?`)) {
+                              if (onDeleteItem) {
+                                onDeleteItem(item.id);
+                              } else {
+                                deleteItem(item.id, currentUser?.id, isAdmin);
+                              }
+                            }
+                          }}
+                          className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+                          title="Delete this report"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
                       </div>
                     </div>
 
                     {/* Matched Banner if candidates exist */}
-                    {matches.length > 0 && (
+                    {!isRecovered && matches.length > 0 && (
                       <div className="p-3.5 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-950">
                         <div className="flex items-center gap-2 min-w-0">
                           <Sparkles className="w-4 h-4 text-amber-600 shrink-0 animate-spin" style={{ animationDuration: '6s' }} />
@@ -408,74 +521,169 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       {/* TAB 2: MY FOUND ITEMS */}
       {activeTab === 'found' && (
         <div className="space-y-4">
+          {/* Sub-filter for Active vs Handed Over / Recovered items */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 p-1 glass-panel-subtle rounded-2xl border border-slate-200/80 shadow-2xs">
+              <button
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  statusFilter === 'all'
+                    ? 'bg-slate-950 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-950'
+                }`}
+              >
+                All ({userFoundAll.length})
+              </button>
+              <button
+                onClick={() => setStatusFilter('active')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  statusFilter === 'active'
+                    ? 'bg-emerald-800 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-950'
+                }`}
+              >
+                Active ({userFoundAll.filter(i => i.status !== 'recovered' && i.status !== 'returned').length})
+              </button>
+              <button
+                onClick={() => setStatusFilter('recovered')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  statusFilter === 'recovered'
+                    ? 'bg-slate-900 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-950'
+                }`}
+              >
+                Recovered / Handed Over ({userFoundAll.filter(i => i.status === 'recovered' || i.status === 'returned').length})
+              </button>
+            </div>
+
+            <button
+              onClick={() => onOpenReportModal('found')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-950 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-2xs transition-all"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Report Found Item</span>
+            </button>
+          </div>
+
           {myFoundItems.length === 0 ? (
             <div className="glass-panel rounded-3xl p-12 text-center shadow-md">
               <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
                 <HandHeart className="w-6 h-6" />
               </div>
-              <h3 className="font-black text-slate-900 text-lg">No Found Items Reported</h3>
+              <h3 className="font-black text-slate-900 text-lg">
+                {statusFilter === 'recovered' ? 'No Handed Over / Recovered Items' : 'No Found Items Reported'}
+              </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
-                Found keys, a student card, or headphones on campus? Report them here to help return them safely to their rightful owner.
+                {statusFilter === 'recovered'
+                  ? 'Items you found and handed back to security or their rightful owners will be stored here in your history.'
+                  : 'Found keys, a student card, or headphones on campus? Report them here to help return them safely to their rightful owner.'}
               </p>
-              <button
-                onClick={() => onOpenReportModal('found')}
-                className="mt-4 px-5 py-2.5 bg-slate-950 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-sm"
-              >
-                Report a Found Belonging
-              </button>
+              {statusFilter !== 'recovered' && (
+                <button
+                  onClick={() => onOpenReportModal('found')}
+                  className="mt-4 px-5 py-2.5 bg-slate-950 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-sm"
+                >
+                  Report a Found Belonging
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
-              {myFoundItems.map(item => (
-                <div
-                  key={item.id}
-                  className="glass-card rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                >
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={item.imageUrl}
-                      alt={item.title}
-                      className="w-16 h-16 rounded-xl object-cover border border-slate-200/80 shrink-0"
-                    />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-slate-950 text-base">{item.title}</h4>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800">
-                          {item.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Found at {item.locationBlock}</span>
-                        <span>•</span>
-                        <span>{new Date(item.dateTime).toLocaleDateString()}</span>
-                      </p>
-                      {item.currentHoldingLocation && (
-                        <p className="text-[11px] text-slate-600 font-semibold mt-1">
-                          Vault: {item.currentHoldingLocation}
+              {myFoundItems.map(item => {
+                const isRecovered = item.status === 'recovered' || item.status === 'returned';
+                return (
+                  <div
+                    key={item.id}
+                    className="glass-card rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={item.imageUrl}
+                        alt={item.title}
+                        className="w-16 h-16 rounded-xl object-cover border border-slate-200/80 shrink-0"
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-slate-950 text-base">{item.title}</h4>
+                          {item.status === 'recovered' ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              Recovered
+                            </span>
+                          ) : item.status === 'returned' ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-900 text-white">
+                              Handed Over
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800">
+                              {item.status.replace('_', ' ')}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Found at {item.locationBlock}</span>
+                          <span>•</span>
+                          <span>{new Date(item.dateTime).toLocaleDateString()}</span>
                         </p>
+                        {item.currentHoldingLocation && (
+                          <p className="text-[11px] text-slate-600 font-semibold mt-1">
+                            Vault: {item.currentHoldingLocation}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => onViewItemDetails(item)}
+                        className="px-3.5 py-2 bg-white/80 hover:bg-white border border-slate-200/80 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-2xs"
+                      >
+                        View Report
+                      </button>
+
+                      {!isRecovered && (
+                        <button
+                          onClick={() => updateItemStatus(item.id, 'recovered', currentUser?.id, isAdmin)}
+                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5"
+                          title="Mark this found item as handed over / recovered"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Mark Handed Over / Recovered</span>
+                        </button>
                       )}
+
+                      {onEditItem && (
+                        <button
+                          onClick={() => onEditItem(item)}
+                          className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-2xs"
+                          title="Edit this report"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to permanently delete "${item.title}"?`)) {
+                            if (onDeleteItem) {
+                              onDeleteItem(item.id);
+                            } else {
+                              deleteItem(item.id, currentUser?.id, isAdmin);
+                            }
+                          }
+                        }}
+                        className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+                        title="Delete this report"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onViewItemDetails(item)}
-                      className="px-3.5 py-2 bg-white/80 hover:bg-white border border-slate-200/80 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-2xs"
-                    >
-                      View Report
-                    </button>
-                    {item.status !== 'returned' && (
-                      <button
-                        onClick={() => updateItemStatus(item.id, 'returned')}
-                        className="px-3.5 py-2 bg-slate-950 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-2xs"
-                      >
-                        Mark Handed Over
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -88,8 +88,14 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const isPermissionError = 
+    errorMessage.includes('Missing or insufficient permissions') ||
+    errorMessage.includes('permission-denied') ||
+    errorMessage.includes('PERMISSION_DENIED');
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errorMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -104,7 +110,13 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+
+  if (isPermissionError) {
+    console.warn(`[Firestore Notice] ${operationType.toUpperCase()} on '${path}' was blocked by Firestore security rules. If you haven't published your rules in the Firebase Console yet, the app is safely running using offline local cache.`);
+  } else {
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+  }
+
   return errInfo;
 }
 

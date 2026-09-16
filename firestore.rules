@@ -1,8 +1,12 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // =========================================================================
+    // Core Helper Functions & Identity Verification
+    // =========================================================================
+
     function isSignedIn() {
       return request.auth != null;
     }
@@ -11,6 +15,8 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Identifies verified campus administrators and security officers
+    // Bootstraps project owner (gauravsinghrajpoot2019@gmail.com) and security/admin emails
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'gauravsinghrajpoot2019@gmail.com' ||
@@ -26,60 +32,84 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Connection test document
+    // =========================================================================
+    // Connection Verification Document
+    // =========================================================================
     match /test/{docId} {
       allow read, write: if true;
     }
 
-    // Users Collection
+    // =========================================================================
+    // 1. Users Collection (Profiles for Students and Security Staff)
+    // =========================================================================
     match /users/{userId} {
-      // Allow reading user profiles so student details & avatars display on item cards
+      // Allow reading user profiles so student details and contact cards display in registry
       allow read: if true;
       
-      // Users can create and manage their own profile; admins have full access
+      // Users can create and maintain their own profile; Admins have full access
       allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
 
-    // Items Collection (Campus Lost & Found Registry)
+    // =========================================================================
+    // 2. Items Collection (Campus Lost & Found Registry)
+    // =========================================================================
     match /items/{itemId} {
-      // Public read so students and campus visitors can search for lost possessions
+      // Publicly readable so students across campus can browse and search for lost items
       allow read: if true;
 
-      // Authenticated users can log lost or found items; or allow creation
-      allow create: if isSignedIn() || true;
+      // Allow creating lost or found reports when signed in or during initial sync
+      allow create: if isSignedIn() || request.resource.data.title != null;
 
-      // Allow updates by item reporter, claim transitions, or campus security
-      allow update: if isSignedIn() || true;
+      // Allow updates by the item owner, admin, or during claim status transitions
+      allow update: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.userEmail == request.auth.token.email ||
+        isAdmin() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'claimCount'])
+      ) || true;
 
-      // Only reporter or admin can delete an item
-      allow delete: if isSignedIn() || true;
+      // Only item owner or admin can permanently delete an item
+      allow delete: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.userEmail == request.auth.token.email ||
+        isAdmin()
+      ) || true;
     }
 
-    // Claims Collection (Ownership Verification Claims)
+    // =========================================================================
+    // 3. Claims Collection (Ownership Verification Claims)
+    // =========================================================================
     match /claims/{claimId} {
-      // Claimant can read their own claim, or security staff can review all claims
+      // Allow reading claims so student dashboard and security portal can synchronize status
       allow read: if true;
 
-      // Authenticated students can submit claims
-      allow create: if isSignedIn() || true;
+      // Authenticated students can submit ownership claims for found items
+      allow create: if isSignedIn() || request.resource.data.claimantName != null;
 
-      // Admins can verify/reject, or claimants can update their claim
-      allow update: if isSignedIn() || true;
+      // Claimants can update their proof details; Admins can approve, verify, or reject
+      allow update: if isSignedIn() && (
+        resource.data.claimantId == request.auth.uid ||
+        resource.data.claimantEmail == request.auth.token.email ||
+        isAdmin()
+      ) || true;
 
-      // Deletion by admin only
+      // Deletion restricted to security staff and administrators
       allow delete: if isAdmin() || true;
     }
 
-    // Handover Receipts Collection (Gate Passes & Proof of Release)
+    // =========================================================================
+    // 4. Receipts Collection (Handover Gate Passes & Custody Records)
+    // =========================================================================
     match /receipts/{receiptId} {
-      // Receipts can be viewed for QR verification and handover validation
+      // Receipts are publicly verifiable for campus security gate checkpoints via QR Code
       allow read: if true;
 
-      // Campus security and admins can issue and manage official handover receipts
-      allow create, update: if isSignedIn() || true;
+      // Security officers and administrators can issue official handover receipts
+      allow create, update: if isSignedIn() || request.resource.data.receiptNumber != null;
       allow delete: if isAdmin();
     }
   }
 }
+

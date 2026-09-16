@@ -7,7 +7,8 @@ import {
   onSnapshot, 
   getDocs 
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { uploadImageToCloudinary } from './cloudinary';
 import { ItemReport, ItemClaim, HandoverReceipt } from '../types';
 import { INITIAL_REPORTS, INITIAL_CLAIMS } from '../data/mockData';
@@ -42,12 +43,6 @@ function sanitizeForFirestore(obj: Record<string, any>): Record<string, any> {
   }
   return clean;
 }
-
-// In-memory caches initialized from localStorage
-let cachedItems: ItemReport[] = loadLocalItems();
-let cachedClaims: ItemClaim[] = loadLocalClaims();
-let cachedReceipts: HandoverReceipt[] = loadLocalReceipts();
-let hasInitializedFirestore = false;
 
 function loadLocalItems(): ItemReport[] {
   try {
@@ -86,106 +81,140 @@ function loadLocalReceipts(): HandoverReceipt[] {
   }
 }
 
+// In-memory caches initialized from localStorage
+let cachedItems: ItemReport[] = loadLocalItems();
+let cachedClaims: ItemClaim[] = loadLocalClaims();
+let cachedReceipts: HandoverReceipt[] = loadLocalReceipts();
+
+let unsubscribeItems: (() => void) | null = null;
+let unsubscribeClaims: (() => void) | null = null;
+let unsubscribeReceipts: (() => void) | null = null;
+
 /**
  * Initializes real-time Firestore synchronization for items, claims, and receipts.
  */
 export function initFirestoreSync() {
-  if (hasInitializedFirestore) return;
-  hasInitializedFirestore = true;
+  // 1. Synchronize Items Collection (publicly accessible across campus)
+  if (!unsubscribeItems) {
+    try {
+      const itemsCol = collection(db, 'items');
+      unsubscribeItems = onSnapshot(itemsCol, (snapshot) => {
+        if (!snapshot.empty) {
+          const firestoreItems: ItemReport[] = [];
+          const seenIds = new Set<string>();
+          snapshot.forEach((docSnap) => {
+            const item = { ...(docSnap.data() as ItemReport), id: docSnap.id };
+            firestoreItems.push(item);
+            seenIds.add(item.id);
+          });
 
-  try {
-    // 1. Synchronize Items Collection
-    const itemsCol = collection(db, 'items');
-    onSnapshot(itemsCol, (snapshot) => {
-      if (!snapshot.empty) {
-        const firestoreItems: ItemReport[] = [];
-        const seenIds = new Set<string>();
-        snapshot.forEach((docSnap) => {
-          const item = { ...(docSnap.data() as ItemReport), id: docSnap.id };
-          firestoreItems.push(item);
-          seenIds.add(item.id);
-        });
-
-        // Ensure any locally reported items not yet reflected in Firestore are merged and saved
-        for (const local of cachedItems) {
-          if (!seenIds.has(local.id)) {
-            firestoreItems.push(local);
-            seenIds.add(local.id);
-            setDoc(doc(db, 'items', local.id), sanitizeForFirestore(local), { merge: true }).catch(() => {});
+          // Ensure any locally reported items not yet reflected in Firestore are merged and saved
+          for (const local of cachedItems) {
+            if (!seenIds.has(local.id)) {
+              firestoreItems.push(local);
+              seenIds.add(local.id);
+              setDoc(doc(db, 'items', local.id), sanitizeForFirestore(local), { merge: true }).catch(() => {});
+            }
           }
+          
+          // Sort newest first
+          firestoreItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          cachedItems = firestoreItems;
+          localStorage.setItem(ITEMS_KEY, JSON.stringify(firestoreItems));
+          notifyListeners();
+        } else {
+          // First run on empty collection: seed initial campus reports
+          INITIAL_REPORTS.forEach(async (report) => {
+            try {
+              await setDoc(doc(db, 'items', report.id), sanitizeForFirestore(report));
+            } catch (err) {
+              handleFirestoreError(err, OperationType.CREATE, `items/${report.id}`);
+            }
+          });
         }
-        
-        // Sort newest first
-        firestoreItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        cachedItems = firestoreItems;
-        localStorage.setItem(ITEMS_KEY, JSON.stringify(firestoreItems));
-        notifyListeners();
-      } else {
-        // First run on new Firebase project: seed initial campus reports so registry is populated
-        INITIAL_REPORTS.forEach(async (report) => {
-          try {
-            await setDoc(doc(db, 'items', report.id), sanitizeForFirestore(report));
-          } catch (err) {
-            console.warn('Could not seed initial report to Firestore:', err);
-          }
-        });
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'items');
-      console.warn('Firestore items onSnapshot (using local cache while rules deploy):', error);
-    });
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'items');
+        console.warn('Firestore items onSnapshot (using local cache while rules deploy):', error.message || error);
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, 'items');
+    }
+  }
 
-    // 2. Synchronize Claims Collection
-    const claimsCol = collection(db, 'claims');
-    onSnapshot(claimsCol, (snapshot) => {
-      if (!snapshot.empty) {
-        const firestoreClaims: ItemClaim[] = [];
-        snapshot.forEach((docSnap) => {
-          firestoreClaims.push({ ...(docSnap.data() as ItemClaim), id: docSnap.id });
-        });
-        firestoreClaims.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        cachedClaims = firestoreClaims;
-        localStorage.setItem(CLAIMS_KEY, JSON.stringify(firestoreClaims));
-        notifyListeners();
-      } else {
-        // Seed initial claims
-        INITIAL_CLAIMS.forEach(async (claim) => {
-          try {
-            await setDoc(doc(db, 'claims', claim.id), sanitizeForFirestore(claim));
-          } catch (err) {
-            handleFirestoreError(err, OperationType.CREATE, `claims/${claim.id}`);
-          }
-        });
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'claims');
-      console.warn('Firestore claims onSnapshot (using local cache while rules deploy):', error);
-    });
+  // 2. Synchronize Claims Collection (only when user is signed in)
+  if (auth.currentUser && !unsubscribeClaims) {
+    try {
+      const claimsCol = collection(db, 'claims');
+      unsubscribeClaims = onSnapshot(claimsCol, (snapshot) => {
+        if (!snapshot.empty) {
+          const firestoreClaims: ItemClaim[] = [];
+          snapshot.forEach((docSnap) => {
+            firestoreClaims.push({ ...(docSnap.data() as ItemClaim), id: docSnap.id });
+          });
+          firestoreClaims.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          cachedClaims = firestoreClaims;
+          localStorage.setItem(CLAIMS_KEY, JSON.stringify(firestoreClaims));
+          notifyListeners();
+        } else {
+          INITIAL_CLAIMS.forEach(async (claim) => {
+            try {
+              await setDoc(doc(db, 'claims', claim.id), sanitizeForFirestore(claim));
+            } catch (err) {
+              handleFirestoreError(err, OperationType.CREATE, `claims/${claim.id}`);
+            }
+          });
+        }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'claims');
+        console.warn('Firestore claims onSnapshot (using local cache):', error.message || error);
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, 'claims');
+    }
+  }
 
-    // 3. Synchronize Receipts Collection
-    const receiptsCol = collection(db, 'receipts');
-    onSnapshot(receiptsCol, (snapshot) => {
-      if (!snapshot.empty) {
-        const firestoreReceipts: HandoverReceipt[] = [];
-        snapshot.forEach((docSnap) => {
-          firestoreReceipts.push(docSnap.data() as HandoverReceipt);
-        });
-        cachedReceipts = firestoreReceipts;
-        localStorage.setItem(RECEIPTS_KEY, JSON.stringify(firestoreReceipts));
-        notifyListeners();
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'receipts');
-      console.warn('Firestore receipts onSnapshot error:', error);
-    });
-
-  } catch (err) {
-    console.warn('Error starting Firestore real-time synchronization:', err);
+  // 3. Synchronize Receipts Collection (only when user is signed in)
+  if (auth.currentUser && !unsubscribeReceipts) {
+    try {
+      const receiptsCol = collection(db, 'receipts');
+      unsubscribeReceipts = onSnapshot(receiptsCol, (snapshot) => {
+        if (!snapshot.empty) {
+          const firestoreReceipts: HandoverReceipt[] = [];
+          snapshot.forEach((docSnap) => {
+            firestoreReceipts.push(docSnap.data() as HandoverReceipt);
+          });
+          cachedReceipts = firestoreReceipts;
+          localStorage.setItem(RECEIPTS_KEY, JSON.stringify(firestoreReceipts));
+          notifyListeners();
+        }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, 'receipts');
+        console.warn('Firestore receipts onSnapshot (using local cache):', error.message || error);
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, 'receipts');
+    }
   }
 }
 
-// Automatically start synchronization on load
-initFirestoreSync();
+// Automatically start synchronization on load and bind auth lifecycle
+if (typeof window !== 'undefined') {
+  initFirestoreSync();
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      initFirestoreSync();
+    } else {
+      if (unsubscribeClaims) {
+        unsubscribeClaims();
+        unsubscribeClaims = null;
+      }
+      if (unsubscribeReceipts) {
+        unsubscribeReceipts();
+        unsubscribeReceipts = null;
+      }
+    }
+  });
+}
 
 export function getStoredItems(): ItemReport[] {
   return cachedItems;
@@ -216,15 +245,21 @@ export function saveItem(newItem: ItemReport): ItemReport {
   return newItem;
 }
 
-export function updateItemStatus(itemId: string, status: ItemReport['status']): void {
+export function updateItemStatus(itemId: string, status: ItemReport['status'], requestingUserId?: string, isAdmin?: boolean): boolean {
   // Update local
   const index = cachedItems.findIndex(i => i.id === itemId);
-  if (index >= 0) {
-    cachedItems[index].status = status;
-    cachedItems[index].updatedAt = new Date().toISOString();
-    localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
-    notifyListeners();
+  if (index < 0) return false;
+
+  const item = cachedItems[index];
+  if (requestingUserId && !isAdmin && item.userId !== requestingUserId) {
+    console.warn(`[Security] Unauthorized status update attempt on item ${itemId} by user ${requestingUserId}`);
+    return false;
   }
+
+  cachedItems[index].status = status;
+  cachedItems[index].updatedAt = new Date().toISOString();
+  localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
+  notifyListeners();
 
   // Update Firestore
   try {
@@ -238,9 +273,56 @@ export function updateItemStatus(itemId: string, status: ItemReport['status']): 
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `items/${itemId}`);
   }
+
+  return true;
 }
 
-export function deleteItem(itemId: string): void {
+export function updateItem(itemId: string, updates: Partial<ItemReport>, requestingUserId?: string, isAdmin?: boolean): boolean {
+  const index = cachedItems.findIndex(i => i.id === itemId);
+  if (index < 0) return false;
+
+  const item = cachedItems[index];
+  if (requestingUserId && !isAdmin && item.userId !== requestingUserId) {
+    console.warn(`[Security] Unauthorized edit attempt on item ${itemId} by user ${requestingUserId}`);
+    return false;
+  }
+
+  const updatedItem: ItemReport = {
+    ...item,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+
+  cachedItems[index] = updatedItem;
+  localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
+  notifyListeners();
+
+  // Update Firestore
+  try {
+    const cleanUpdates = sanitizeForFirestore({
+      ...updates,
+      updatedAt: updatedItem.updatedAt,
+    });
+    updateDoc(doc(db, 'items', itemId), cleanUpdates).catch(err => {
+      handleFirestoreError(err, OperationType.UPDATE, `items/${itemId}`);
+      console.warn('Firestore updateItem failed:', err);
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `items/${itemId}`);
+  }
+
+  return true;
+}
+
+export function deleteItem(itemId: string, requestingUserId?: string, isAdmin?: boolean): boolean {
+  const item = cachedItems.find(i => i.id === itemId);
+  if (!item) return false;
+
+  if (requestingUserId && !isAdmin && item.userId !== requestingUserId) {
+    console.warn(`[Security] Unauthorized delete attempt on item ${itemId} by user ${requestingUserId}`);
+    return false;
+  }
+
   // Update local
   cachedItems = cachedItems.filter(i => i.id !== itemId);
   localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
@@ -255,6 +337,8 @@ export function deleteItem(itemId: string): void {
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, `items/${itemId}`);
   }
+
+  return true;
 }
 
 export function getStoredClaims(): ItemClaim[] {

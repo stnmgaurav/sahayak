@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ItemReport, MatchSuggestion } from '../types';
 import { updateItemStatus } from '../lib/storage';
@@ -17,7 +17,9 @@ import {
   Share2,
   PackageCheck,
   UserCheck,
-  ArrowLeft
+  ArrowLeft,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 
 interface ItemDetailModalProps {
@@ -27,6 +29,8 @@ interface ItemDetailModalProps {
   matches: MatchSuggestion[];
   onClaim: (item: ItemReport) => void;
   onOpenMatchComparison: (lostItem: ItemReport, foundItem: ItemReport) => void;
+  onEditItem?: (item: ItemReport) => void;
+  onDeleteItem?: (itemId: string) => void;
 }
 
 export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
@@ -36,12 +40,22 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   matches,
   onClaim,
   onOpenMatchComparison,
+  onEditItem,
+  onDeleteItem,
 }) => {
   const { currentUser, isAdmin, isAuthenticated, openAuthModal } = useAuth();
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   if (!isOpen || !item) return null;
 
   const isLost = item.type === 'lost';
+  const isOwner = Boolean(
+    currentUser && (
+      currentUser.id === item.userId || 
+      (currentUser.email && currentUser.email === item.userEmail) || 
+      isAdmin
+    )
+  );
 
   // Status Flow Pipeline Steps
   const steps = [
@@ -49,7 +63,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     { key: 'match_found', label: 'Match Found' },
     { key: 'claim_pending', label: 'Claim Submitted' },
     { key: 'verified', label: 'Verified by Security' },
-    { key: 'returned', label: 'Returned to Owner' },
+    { key: 'recovered', label: 'Recovered / Handed Over' },
   ];
 
   const getStepIndex = (status: ItemReport['status']) => {
@@ -64,6 +78,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
       case 'verified':
         return 3;
       case 'returned':
+      case 'recovered':
         return 4;
       default:
         return 0;
@@ -71,6 +86,26 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   };
 
   const currentStepIdx = getStepIndex(item.status);
+
+  const handleMarkRecovered = () => {
+    const success = updateItemStatus(item.id, 'recovered', currentUser?.id, isAdmin);
+    if (success) {
+      setActionSuccess('Item successfully marked as Recovered! It will now be archived from public search and listings.');
+      setTimeout(() => {
+        setActionSuccess(null);
+        onClose();
+      }, 1500);
+    }
+  };
+
+  const handleDelete = () => {
+    if (window.confirm(`Are you sure you want to permanently delete "${item.title}"? This cannot be undone.`)) {
+      if (onDeleteItem) {
+        onDeleteItem(item.id);
+        onClose();
+      }
+    }
+  };
 
   const formattedDate = new Date(item.dateTime).toLocaleString('en-IN', {
     dateStyle: 'full',
@@ -106,6 +141,14 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             Reported by {item.userName} ({item.userUid || 'Student'}) • {item.locationBlock}
           </p>
         </div>
+
+        {/* Action feedback notification */}
+        {actionSuccess && (
+          <div className="bg-emerald-500/15 border-b border-emerald-500/30 px-6 py-3 flex items-center gap-2 text-xs font-bold text-emerald-950">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+        )}
 
         {/* Status Pipeline Tracker */}
         <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-4 overflow-x-auto no-scrollbar">
@@ -334,9 +377,51 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             <span>Back to Registry</span>
           </button>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Owner Actions: Edit & Delete only for item owner */}
+            {isOwner && (
+              <>
+                {item.status !== 'recovered' && item.status !== 'returned' && (
+                  <button
+                    type="button"
+                    onClick={handleMarkRecovered}
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Mark Recovered</span>
+                  </button>
+                )}
+
+                {onEditItem && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onEditItem(item);
+                    }}
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    <span>Edit Report</span>
+                  </button>
+                )}
+
+                {onDeleteItem && (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-red-100 hover:bg-red-200 text-red-800 rounded-xl text-xs font-bold transition-all"
+                    title="Delete your uploaded item report"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete</span>
+                  </button>
+                )}
+              </>
+            )}
+
             {/* If Found item and not returned, Claim button */}
-            {item.type === 'found' && item.status !== 'returned' && (
+            {item.type === 'found' && item.status !== 'returned' && item.status !== 'recovered' && !isOwner && (
               <button
                 type="button"
                 onClick={() => {
@@ -356,7 +441,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             )}
 
             {/* If Lost item and has matches, button to view matches */}
-            {item.type === 'lost' && matches.length > 0 && (
+            {item.type === 'lost' && item.status !== 'recovered' && matches.length > 0 && (
               <button
                 type="button"
                 onClick={() => {

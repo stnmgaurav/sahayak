@@ -1,6 +1,6 @@
 export type ReportType = 'lost' | 'found';
 
-export type ItemStatus = 'lost' | 'found' | 'match_found' | 'claim_pending' | 'verified' | 'returned';
+export type ItemStatus = 'lost' | 'found' | 'match_found' | 'claim_pending' | 'verified' | 'returned' | 'recovered';
 
 export type ItemCategory = 
   | 'Electronics'

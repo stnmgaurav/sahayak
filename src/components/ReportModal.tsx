@@ -1,4 +1,4 @@
-import React, { useState, useId } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ItemReport, ReportType, ItemCategory, ItemColor } from '../types';
 import { 
@@ -6,7 +6,7 @@ import {
   ITEM_CATEGORIES, 
   ITEM_COLORS 
 } from '../data/mockData';
-import { saveItem, uploadImageFile } from '../lib/storage';
+import { saveItem, updateItem, uploadImageFile } from '../lib/storage';
 import { evaluateMatch } from '../lib/matching';
 import { 
   X, 
@@ -32,6 +32,7 @@ interface ReportModalProps {
   initialType: ReportType;
   existingItems: ItemReport[];
   onItemCreated: (item: ItemReport) => void;
+  editingItem?: ItemReport | null;
 }
 
 const PRESET_PHOTOS = [
@@ -51,8 +52,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   initialType,
   existingItems,
   onItemCreated,
+  editingItem,
 }) => {
-  const { currentUser, openAuthModal, loginAsDemo } = useAuth();
+  const { currentUser, isAdmin, openAuthModal, loginAsDemo } = useAuth();
   const [type, setType] = useState<ReportType>(initialType);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<ItemCategory>('Electronics');
@@ -75,6 +77,40 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   const fileInputId = useId();
 
+  // Populate fields when editing or resetting
+  useEffect(() => {
+    if (editingItem) {
+      setType(editingItem.type);
+      setTitle(editingItem.title);
+      setCategory(editingItem.category);
+      setColor(editingItem.color);
+      setBrandOrModel(editingItem.brandOrModel || '');
+      setDescription(editingItem.description);
+      setLocationBlock(editingItem.locationBlock);
+      setSpecificSpot(editingItem.specificSpot);
+      setDateTime(editingItem.dateTime.slice(0, 16));
+      setImageUrl(editingItem.imageUrl);
+      setIdentifyingMark(editingItem.identifyingMark || '');
+      if (editingItem.currentHoldingLocation) setCurrentHoldingLocation(editingItem.currentHoldingLocation);
+      if (editingItem.secretVerificationQuestion) setSecretVerificationQuestion(editingItem.secretVerificationQuestion);
+    } else {
+      setType(initialType);
+      setTitle('');
+      setCategory('Electronics');
+      setColor('Black');
+      setBrandOrModel('');
+      setDescription('');
+      setLocationBlock(CU_CAMPUS_LOCATIONS[0]);
+      setSpecificSpot('');
+      setDateTime(new Date().toISOString().slice(0, 16));
+      setImageUrl(PRESET_PHOTOS[0].url);
+      setIdentifyingMark('');
+      setCurrentHoldingLocation('Main Security Gate 1 (NH-95 Entrance) Lost & Found Cupboard');
+      setSecretVerificationQuestion('');
+    }
+    setErrorMessage(null);
+  }, [editingItem, isOpen, initialType]);
+
   if (!isOpen) return null;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,7 +132,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   // Find instant potential matches as user types
   const oppositeType = type === 'lost' ? 'found' : 'lost';
   const instantMatches = existingItems
-    .filter(i => i.type === oppositeType && i.status !== 'returned')
+    .filter(i => i.type === oppositeType && i.status !== 'returned' && i.status !== 'recovered')
     .map(candidate => {
       const dummyReport: ItemReport = {
         id: 'draft',
@@ -138,8 +174,41 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       return;
     }
 
+    // Check ownership if editing
+    if (editingItem && editingItem.userId !== currentUser.id && !isAdmin) {
+      setErrorMessage('You can only edit items that you have uploaded.');
+      return;
+    }
+
     setSubmitting(true);
     try {
+      if (editingItem) {
+        // Update existing item in database
+        const updates: Partial<ItemReport> = {
+          title: title.trim(),
+          category,
+          color,
+          brandOrModel: brandOrModel.trim() || undefined,
+          description: description.trim(),
+          locationBlock,
+          specificSpot: specificSpot.trim() || 'Not specified',
+          dateTime,
+          imageUrl: imageUrl || editingItem.imageUrl,
+          identifyingMark: identifyingMark.trim() || undefined,
+          currentHoldingLocation: type === 'found' ? currentHoldingLocation : undefined,
+          secretVerificationQuestion: type === 'found' ? secretVerificationQuestion.trim() : undefined,
+        };
+
+        const success = updateItem(editingItem.id, updates, currentUser.id, isAdmin);
+        if (success) {
+          onItemCreated({ ...editingItem, ...updates, updatedAt: new Date().toISOString() });
+          onClose();
+        } else {
+          setErrorMessage('Failed to update item: You can only edit your own items.');
+        }
+        return;
+      }
+
       const hasHighMatch = instantMatches.length > 0 && instantMatches[0].score >= 60;
       const finalStatus = hasHighMatch ? 'match_found' : type;
 
@@ -228,10 +297,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           </div>
 
           <h2 className="text-2xl font-black tracking-tight text-white">
-            {type === 'lost' ? 'Report a Lost Item on Campus' : 'Report a Found Belonging'}
+            {editingItem 
+              ? (type === 'lost' ? 'Edit Lost Item Report' : 'Edit Found Belonging Report')
+              : (type === 'lost' ? 'Report a Lost Item on Campus' : 'Report a Found Belonging')}
           </h2>
           <p className="text-xs sm:text-sm text-white/80 mt-1">
-            {type === 'lost'
+            {editingItem
+              ? 'Update the details for your reported item. Changes will immediately sync to the campus database.'
+              : type === 'lost'
               ? 'Provide clear details to help Chandigarh University security and finders identify your property.'
               : 'Help return this belonging to a fellow student by registering it with the campus lost & found desk.'}
           </p>
@@ -613,7 +686,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <CheckCircle2 className="w-4 h-4" />
               <span>
                 {submitting
-                  ? 'Publishing...'
+                  ? (editingItem ? 'Saving Changes...' : 'Publishing...')
+                  : editingItem
+                  ? 'Save Changes'
                   : type === 'lost'
                   ? 'Publish Lost Report'
                   : 'Register Found Item'}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider, useAuth, isUserAdmin } from './context/AuthContext';
 import { ItemReport, ItemClaim, ReportType } from './types';
-import { getStoredItems, getStoredClaims, subscribeToStorage } from './lib/storage';
+import { getStoredItems, getStoredClaims, subscribeToStorage, deleteItem } from './lib/storage';
 import { findMatchesForItem } from './lib/matching';
 import { Navbar } from './components/Navbar';
 import { LoginPage } from './components/LoginPage';
@@ -53,6 +53,7 @@ const QUICK_CATEGORIES = [
 
 function SahayakMain() {
   const { currentUser, isAuthenticated, openAuthModal } = useAuth();
+  const isAdmin = currentUser ? isUserAdmin(currentUser.email, currentUser.role) : false;
 
   // Storage State
   const [items, setItems] = useState<ItemReport[]>(() => getStoredItems());
@@ -88,6 +89,7 @@ function SahayakMain() {
   // Modals state
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportModalType, setReportModalType] = useState<ReportType>('lost');
+  const [editingItem, setEditingItem] = useState<ItemReport | null>(null);
 
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemReport | null>(null);
@@ -109,8 +111,28 @@ function SahayakMain() {
       openAuthModal('login', `Please sign in with your Chandigarh University ID to report a ${type === 'lost' ? 'lost item' : 'found item'}.`);
       return;
     }
+    setEditingItem(null);
     setReportModalType(type);
     setReportModalOpen(true);
+  };
+
+  const handleEditItem = (item: ItemReport) => {
+    if (!isAuthenticated) {
+      openAuthModal('login', 'Please sign in to edit your reported item.');
+      return;
+    }
+    setEditingItem(item);
+    setReportModalType(item.type);
+    setReportModalOpen(true);
+  };
+
+  const handleDeleteItem = (itemId: string) => {
+    deleteItem(itemId, currentUser?.id, isAdmin);
+    if (selectedItem?.id === itemId) {
+      setSelectedItem(null);
+      setDetailModalOpen(false);
+    }
+    setItems(getStoredItems());
   };
 
   const handleViewDetails = (item: ItemReport) => {
@@ -164,35 +186,43 @@ function SahayakMain() {
   }, [items]);
 
   const pendingClaimsCount = claims.filter(c => c.status === 'pending').length;
-  const returnedCount = items.filter(i => i.status === 'returned').length;
-  const matchFoundCount = items.filter(i => i.status === 'match_found' || (matchesMap.get(i.id)?.count || 0) > 0).length;
-  const lostCount = items.filter(i => i.type === 'lost').length;
-  const foundCount = items.filter(i => i.type === 'found').length;
+  const returnedCount = items.filter(i => i.status === 'returned' || i.status === 'recovered').length;
+
+  // Active items for home page listings, search, and category counts (excluding recovered and returned)
+  const activeItems = useMemo(() => {
+    return items.filter(i => i.status !== 'recovered' && i.status !== 'returned');
+  }, [items]);
+
+  const matchFoundCount = activeItems.filter(i => i.status === 'match_found' || (matchesMap.get(i.id)?.count || 0) > 0).length;
+  const lostCount = activeItems.filter(i => i.type === 'lost').length;
+  const foundCount = activeItems.filter(i => i.type === 'found').length;
   
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    items.forEach(it => {
+    activeItems.forEach(it => {
       counts[it.category] = (counts[it.category] || 0) + 1;
     });
     return counts;
-  }, [items]);
+  }, [activeItems]);
 
-  const userLostItems = currentUser ? items.filter(i => i.userId === currentUser.id && i.type === 'lost') : [];
+  const userLostItems = currentUser ? items.filter(i => (i.userId === currentUser.id || (currentUser.email && i.userEmail === currentUser.email)) && i.type === 'lost') : [];
   const unreadMatchesCount = userLostItems.reduce((acc, lost) => {
     return acc + (matchesMap.get(lost.id)?.count || 0);
   }, 0);
 
-  // Filter items for browse view
+  // Filter items for browse view:
+  // Recovered items must automatically disappear from the Home Page, active listings, and search results.
+  // Search matches user's text with item name, category, description, and location.
   const filteredItems = useMemo(() => {
-    return items.filter(item => {
+    return activeItems.filter(item => {
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch = 
         !q ||
         item.title.toLowerCase().includes(q) ||
+        item.category.toLowerCase().includes(q) ||
         item.description.toLowerCase().includes(q) ||
         item.locationBlock.toLowerCase().includes(q) ||
         item.specificSpot.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q) ||
         item.color.toLowerCase().includes(q) ||
         (item.brandOrModel && item.brandOrModel.toLowerCase().includes(q)) ||
         (item.identifyingMark && item.identifyingMark.toLowerCase().includes(q));
@@ -209,7 +239,7 @@ function SahayakMain() {
 
       return matchesSearch && matchesType && matchesCategory && matchesLocation && matchesStatus;
     });
-  }, [items, searchQuery, typeFilter, categoryFilter, locationFilter, statusFilter, matchesMap]);
+  }, [activeItems, searchQuery, typeFilter, categoryFilter, locationFilter, statusFilter, matchesMap]);
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -254,6 +284,8 @@ function SahayakMain() {
             onViewItemDetails={handleViewDetails}
             onOpenMatchComparison={handleOpenMatchComparison}
             onViewReceipt={handleViewReceipt}
+            onEditItem={handleEditItem}
+            onDeleteItem={handleDeleteItem}
             onBackToBrowse={() => setCurrentTab('browse')}
           />
         )}
@@ -438,7 +470,7 @@ function SahayakMain() {
               <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none no-scrollbar">
                 {QUICK_CATEGORIES.map(cat => {
                   const isSelected = categoryFilter === cat.id;
-                  const count = cat.id === 'all' ? items.length : (categoryCounts[cat.id] || 0);
+                  const count = cat.id === 'all' ? activeItems.length : (categoryCounts[cat.id] || 0);
                   return (
                     <button
                       key={cat.id}
@@ -497,7 +529,7 @@ function SahayakMain() {
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      All ({items.length})
+                      All ({activeItems.length})
                     </button>
                     <button
                       onClick={() => setTypeFilter('lost')}
@@ -543,7 +575,7 @@ function SahayakMain() {
                       onChange={e => setCategoryFilter(e.target.value)}
                       className="w-full sm:w-auto px-2.5 sm:px-3 py-1.5 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs focus:outline-none focus:ring-1 focus:ring-red-600"
                     >
-                      <option value="all">All Categories ({items.length})</option>
+                      <option value="all">All Categories ({activeItems.length})</option>
                       {ITEM_CATEGORIES.map(cat => (
                         <option key={cat} value={cat}>
                           {cat} ({categoryCounts[cat] || 0})
@@ -705,11 +737,16 @@ function SahayakMain() {
       {/* 4. Modals System with Glass Backdrops */}
       <ReportModal
         isOpen={reportModalOpen}
-        onClose={() => setReportModalOpen(false)}
+        onClose={() => {
+          setReportModalOpen(false);
+          setEditingItem(null);
+        }}
         initialType={reportModalType}
         existingItems={items}
+        editingItem={editingItem}
         onItemCreated={(newItem) => {
           setItems(getStoredItems());
+          setEditingItem(null);
           handleViewDetails(newItem);
         }}
       />
@@ -721,6 +758,8 @@ function SahayakMain() {
         matches={selectedItem ? findMatchesForItem(selectedItem, items, 45) : []}
         onClaim={handleInitiateClaim}
         onOpenMatchComparison={handleOpenMatchComparison}
+        onEditItem={handleEditItem}
+        onDeleteItem={handleDeleteItem}
       />
 
       <ClaimModal

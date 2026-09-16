@@ -42,6 +42,13 @@ export const ItemCard: React.FC<ItemCardProps> = ({
 
   const getStatusBadge = () => {
     switch (item.status) {
+      case 'recovered':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white backdrop-blur-md border border-white/20 shadow-xs">
+            <CheckCircle2 className="w-3 h-3 text-white" />
+            <span>Recovered</span>
+          </span>
+        );
       case 'returned':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-slate-900/90 text-white backdrop-blur-md border border-white/20 shadow-xs">
