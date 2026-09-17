@@ -14,12 +14,20 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
+export const ADMIN_SECURITY_PASSWORD = 'sahayak@1Cu';
+export const ADMIN_SESSION_KEY = 'sahayak_admin_verified_session';
+
 interface AuthContextType {
   currentUser: UserProfile | null;
   firebaseUser: User | null;
   loading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isAdminVerified: boolean;
+  verifyAdminPassword: (passcode: string) => boolean;
+  isAdminVerificationModalOpen: boolean;
+  openAdminVerificationModal: () => void;
+  closeAdminVerificationModal: () => void;
   needsProfileCompletion: boolean;
   setNeedsProfileCompletion: (val: boolean) => void;
   saveProfileDetails: (details: {
@@ -55,16 +63,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_STORAGE_KEY = 'sahayak_auth_user_v1';
 
-// Helper to determine if an email belongs to Campus Admin / Security
-export const isUserAdmin = (email: string, role?: string): boolean => {
-  if (role === 'admin') return true;
-  const lower = (email || '').toLowerCase();
-  return (
-    lower.includes('admin') || 
-    lower.includes('security') || 
-    lower === 'gauravsinghrajpoot2019@gmail.com' ||
-    lower.startsWith('admin.')
-  );
+export const AUTHORIZED_ADMIN_EMAILS = [
+  'gauravsinghrajpoot2019@gmail.com',
+];
+
+// Helper to determine if an email belongs strictly to authorized Campus Admin
+export const isUserAdmin = (email?: string | null, _role?: string): boolean => {
+  if (!email) return false;
+  const lower = email.toLowerCase().trim();
+  return AUTHORIZED_ADMIN_EMAILS.includes(lower);
 };
 
 // Check if a profile requires student details (name, UID, phone, avatarUrl) completion
@@ -120,6 +127,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authPromptMessage, setAuthPromptMessage] = useState<string | null>(null);
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false);
 
+  // Admin secondary verification state
+  const [isAdminVerified, setIsAdminVerified] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [isAdminVerificationModalOpen, setIsAdminVerificationModalOpen] = useState(false);
+
+  const openAdminVerificationModal = () => setIsAdminVerificationModalOpen(true);
+  const closeAdminVerificationModal = () => setIsAdminVerificationModalOpen(false);
+
+  const verifyAdminPassword = (passcode: string): boolean => {
+    if (passcode === ADMIN_SECURITY_PASSWORD) {
+      setIsAdminVerified(true);
+      try {
+        sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+      } catch {}
+      if (currentUser) {
+        const updated: UserProfile = {
+          ...currentUser,
+          role: 'admin',
+          profileCompleted: true,
+        };
+        setCurrentUser(updated);
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
+      }
+      setIsAdminVerificationModalOpen(false);
+      return true;
+    }
+    return false;
+  };
+
   // Sync current user with localStorage
   useEffect(() => {
     if (currentUser) {
@@ -134,6 +175,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
       if (user) {
+        const email = user.email || '';
+        const adminCandidate = isUserAdmin(email);
+        const verifiedInSession = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+
         try {
           // Fetch user profile from Firestore
           const userDocRef = doc(db, 'users', user.uid);
@@ -141,36 +186,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (docSnap.exists()) {
             const profileData = docSnap.data() as UserProfile;
-            const email = user.email || '';
-            const admin = isUserAdmin(email, profileData.role);
+            const hasAdminRights = adminCandidate && verifiedInSession;
             const finalizedProfile: UserProfile = {
               ...profileData,
-              role: admin ? 'admin' : (profileData.role || 'student'),
-              uidOrRoll: profileData.uidOrRoll || (admin ? 'EMP-CU-ADMIN' : ''),
-              department: profileData.department || (admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)'),
-              profileCompleted: admin ? true : profileData.profileCompleted,
+              role: hasAdminRights ? 'admin' : (adminCandidate ? 'student' : (profileData.role || 'student')),
+              uidOrRoll: profileData.uidOrRoll || (adminCandidate ? 'EMP-CU-ADMIN' : ''),
+              department: profileData.department || (adminCandidate ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)'),
+              profileCompleted: adminCandidate ? true : profileData.profileCompleted,
             };
             setCurrentUser(finalizedProfile);
-            if (!admin && checkProfileIncomplete(finalizedProfile)) {
+            if (!adminCandidate && checkProfileIncomplete(finalizedProfile)) {
               setNeedsProfileCompletion(true);
             } else {
               setNeedsProfileCompletion(false);
             }
           } else {
-            // New user signed in with Google, initialize and immediately request UID + Mobile
-            const email = user.email || '';
-            const admin = isUserAdmin(email);
+            // New user signed in with Google
+            const hasAdminRights = adminCandidate && verifiedInSession;
             const initialGoogleProfile: UserProfile = {
               id: user.uid,
               name: user.displayName || email.split('@')[0].replace('.', ' '),
               email: email,
-              uidOrRoll: admin ? 'EMP-CU-ADMIN' : '',
+              uidOrRoll: adminCandidate ? 'EMP-CU-ADMIN' : '',
               phone: '',
-              department: admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
-              role: admin ? 'admin' : 'student',
+              department: adminCandidate ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
+              role: hasAdminRights ? 'admin' : 'student',
               avatarUrl: user.photoURL || undefined,
               joinedDate: new Date().toISOString().split('T')[0],
-              profileCompleted: admin ? true : false,
+              profileCompleted: adminCandidate ? true : false,
             };
 
             try {
@@ -180,32 +223,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.warn('Could not initialize profile in Firestore:', err);
             }
             setCurrentUser(initialGoogleProfile);
-            setNeedsProfileCompletion(admin ? false : checkProfileIncomplete(initialGoogleProfile));
+            setNeedsProfileCompletion(adminCandidate ? false : checkProfileIncomplete(initialGoogleProfile));
           }
         } catch (err) {
           handleFirestoreError(err, OperationType.GET, `users/${user.uid}`);
           console.warn('Error fetching Firestore user profile:', err);
           if (!currentUser || currentUser.id !== user.uid) {
-            const email = user.email || '';
-            const admin = isUserAdmin(email);
+            const hasAdminRights = adminCandidate && verifiedInSession;
             const fallbackProfile: UserProfile = {
               id: user.uid,
               name: user.displayName || email.split('@')[0],
               email: email,
-              uidOrRoll: admin ? 'EMP-CU-ADMIN' : '',
+              uidOrRoll: adminCandidate ? 'EMP-CU-ADMIN' : '',
               phone: '',
-              department: admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
-              role: admin ? 'admin' : 'student',
+              department: adminCandidate ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
+              role: hasAdminRights ? 'admin' : 'student',
               joinedDate: new Date().toISOString().split('T')[0],
-              profileCompleted: admin ? true : false,
+              profileCompleted: adminCandidate ? true : false,
             };
             setCurrentUser(fallbackProfile);
-            setNeedsProfileCompletion(admin ? false : checkProfileIncomplete(fallbackProfile));
+            setNeedsProfileCompletion(adminCandidate ? false : checkProfileIncomplete(fallbackProfile));
           }
         }
       } else {
         setCurrentUser(null);
         setNeedsProfileCompletion(false);
+        setIsAdminVerified(false);
       }
       setLoading(false);
     });
@@ -214,6 +257,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loginWithEmail = async (email: string, password: string): Promise<void> => {
+    const lower = (email || '').toLowerCase().trim();
+    // Admins CANNOT use standard email/password login. Must use Google + sahayak@1Cu
+    if (isUserAdmin(lower) || lower.includes('admin') || lower.includes('security') || lower.includes('gauravsinghrajpoot2019')) {
+      throw new Error('Administrative Security Protocol: Campus administrator accounts cannot be accessed via standard email/password login. Administrators must authenticate exclusively via Google Verification and secondary master security passcode (sahayak@1Cu).');
+    }
+
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const user = credential.user;
     
@@ -223,8 +272,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const docSnap = await getDoc(userDocRef);
       if (docSnap.exists()) {
         const profileData = docSnap.data() as UserProfile;
-        setCurrentUser(profileData);
-        if (checkProfileIncomplete(profileData)) {
+        const finalized: UserProfile = {
+          ...profileData,
+          authProvider: 'password',
+          role: 'student', // Any email/password login is always restricted to student role
+        };
+        setCurrentUser(finalized);
+        if (checkProfileIncomplete(finalized)) {
           setNeedsProfileCompletion(true);
         } else {
           setNeedsProfileCompletion(false);
@@ -246,6 +300,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     phone: string;
     role?: 'student' | 'admin';
   }): Promise<void> => {
+    const lower = (data.email || '').toLowerCase().trim();
+    if (isUserAdmin(lower) || lower.includes('admin') || lower.includes('security') || data.uidOrRoll.toUpperCase().includes('ADMIN')) {
+      throw new Error('Administrative Security Protocol: Administrative accounts cannot be registered via public email forms. Campus administrators must authenticate exclusively via Google verification.');
+    }
+
     const credential = await createUserWithEmailAndPassword(auth, data.email, data.password);
     const user = credential.user;
 
@@ -256,7 +315,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Could not update profile name in Firebase Auth:', err);
     }
 
-    const admin = data.role === 'admin' || isUserAdmin(data.email, data.role);
     const newProfile: UserProfile = {
       id: user.uid,
       name: data.name,
@@ -264,7 +322,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       uidOrRoll: data.uidOrRoll.trim().toUpperCase(),
       department: data.department,
       phone: data.phone.trim(),
-      role: admin ? 'admin' : 'student',
+      role: 'student',
+      authProvider: 'password',
       joinedDate: new Date().toISOString().split('T')[0],
       profileCompleted: true,
     };
@@ -288,7 +347,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const user = credential.user;
     
     const email = user.email || '';
-    const admin = isUserAdmin(email);
+    const adminCandidate = isUserAdmin(email);
+    const verifiedInSession = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
     
     // Check if doc exists in Firestore
     try {
@@ -298,13 +358,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const profileData = docSnap.data() as UserProfile;
         const finalizedProfile: UserProfile = {
           ...profileData,
-          role: admin ? 'admin' : (profileData.role || 'student'),
-          uidOrRoll: profileData.uidOrRoll || (admin ? 'EMP-CU-ADMIN' : ''),
-          department: profileData.department || (admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)'),
-          profileCompleted: admin ? true : profileData.profileCompleted,
+          role: (adminCandidate && verifiedInSession) ? 'admin' : (adminCandidate ? 'student' : (profileData.role || 'student')),
+          uidOrRoll: profileData.uidOrRoll || (adminCandidate ? 'EMP-CU-ADMIN' : ''),
+          department: profileData.department || (adminCandidate ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)'),
+          profileCompleted: adminCandidate ? true : profileData.profileCompleted,
         };
         setCurrentUser(finalizedProfile);
-        if (!admin && checkProfileIncomplete(finalizedProfile)) {
+        if (!adminCandidate && checkProfileIncomplete(finalizedProfile)) {
           setNeedsProfileCompletion(true);
         } else {
           setNeedsProfileCompletion(false);
@@ -314,13 +374,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: user.uid,
           name: user.displayName || email.split('@')[0].replace('.', ' '),
           email: email,
-          uidOrRoll: admin ? 'EMP-CU-ADMIN' : '',
+          uidOrRoll: adminCandidate ? 'EMP-CU-ADMIN' : '',
           phone: '',
-          department: admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
-          role: admin ? 'admin' : 'student',
+          department: adminCandidate ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
+          role: (adminCandidate && verifiedInSession) ? 'admin' : 'student',
           avatarUrl: user.photoURL || undefined,
           joinedDate: new Date().toISOString().split('T')[0],
-          profileCompleted: admin ? true : false,
+          profileCompleted: adminCandidate ? true : false,
         };
         try {
           await setDoc(userDocRef, sanitizeProfile(newProfile), { merge: true });
@@ -328,7 +388,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('Could not write new profile to Firestore:', writeErr);
         }
         setCurrentUser(newProfile);
-        setNeedsProfileCompletion(admin ? false : checkProfileIncomplete(newProfile));
+        setNeedsProfileCompletion(adminCandidate ? false : checkProfileIncomplete(newProfile));
       }
     } catch (err) {
       console.warn('Error saving Google user in Firestore:', err);
@@ -336,17 +396,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: user.uid,
         name: user.displayName || email.split('@')[0].replace('.', ' '),
         email: email,
-        uidOrRoll: admin ? 'EMP-CU-ADMIN' : '',
+        uidOrRoll: adminCandidate ? 'EMP-CU-ADMIN' : '',
         phone: '',
-        department: admin ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
-        role: admin ? 'admin' : 'student',
+        department: adminCandidate ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
+        role: (adminCandidate && verifiedInSession) ? 'admin' : 'student',
         avatarUrl: user.photoURL || undefined,
         joinedDate: new Date().toISOString().split('T')[0],
-        profileCompleted: admin ? true : false,
+        profileCompleted: adminCandidate ? true : false,
       };
       setCurrentUser(fallbackGoogle);
-      setNeedsProfileCompletion(admin ? false : checkProfileIncomplete(fallbackGoogle));
+      setNeedsProfileCompletion(adminCandidate ? false : checkProfileIncomplete(fallbackGoogle));
       setDoc(doc(db, 'users', user.uid), sanitizeProfile(fallbackGoogle), { merge: true }).catch(() => {});
+    }
+
+    // If an administrator account was authenticated with Google, prompt for the secondary security passcode
+    if (adminCandidate && !verifiedInSession) {
+      setIsAdminVerificationModalOpen(true);
     }
 
     setIsAuthModalOpen(false);
@@ -367,7 +432,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       uidOrRoll: '',
       phone: '',
       department: details.department,
-      role: isUserAdmin(firebaseUser.email || '') ? 'admin' : 'student',
+      role: (isUserAdmin(firebaseUser.email || '') && isAdminVerified) ? 'admin' : 'student',
       avatarUrl: firebaseUser.photoURL || undefined,
       joinedDate: new Date().toISOString().split('T')[0],
     } as UserProfile : null);
@@ -375,7 +440,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!targetUser) return;
 
     const email = targetUser.email || '';
-    const admin = isUserAdmin(email, targetUser.role);
+    const admin = isUserAdmin(email, targetUser.role) && isAdminVerified;
     // If profile was already completed, UID and phone cannot be changed
     const isLocked = Boolean(targetUser.profileCompleted && targetUser.uidOrRoll && targetUser.phone);
     const finalUid = isLocked ? targetUser.uidOrRoll : details.uidOrRoll.trim().toUpperCase();
@@ -407,7 +472,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginAsDemo = async (role: 'student' | 'admin'): Promise<void> => {
-    const demoProfile = role === 'admin' ? DEMO_USERS[2] : DEMO_USERS[0];
+    if (role === 'admin') {
+      throw new Error('Admin bypass disabled for security. Administrators must authenticate via Google verification and administrator security passcode.');
+    }
+    const demoProfile = DEMO_USERS[0];
     const fullDemo: UserProfile = {
       ...demoProfile,
       profileCompleted: true,
@@ -447,7 +515,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async (): Promise<void> => {
     await signOut(auth);
     setCurrentUser(null);
+    setIsAdminVerified(false);
+    try {
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    } catch {}
     setNeedsProfileCompletion(false);
+    setIsAdminVerificationModalOpen(false);
   };
 
   const openAuthModal = (mode: 'login' | 'signup' = 'login', promptMessage?: string) => {
@@ -461,6 +534,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthPromptMessage(null);
   };
 
+  // Active admin check: Requires user account to have authorized admin email AND to have authenticated via Google AND to be verified with sahayak@1Cu in session
+  const isEmailAdmin = currentUser ? isUserAdmin(currentUser.email) : false;
+  const isGoogleVerified = Boolean(
+    currentUser?.authProvider === 'google' ||
+    (firebaseUser?.providerData && firebaseUser.providerData.some(p => p.providerId === 'google.com'))
+  );
+  const activeIsAdmin = Boolean(isEmailAdmin && isGoogleVerified && isAdminVerified);
+
   return (
     <AuthContext.Provider
       value={{
@@ -468,7 +549,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         firebaseUser,
         loading,
         isAuthenticated: !!currentUser,
-        isAdmin: currentUser?.role === 'admin' || (currentUser?.email ? isUserAdmin(currentUser.email) : false),
+        isAdmin: activeIsAdmin,
+        isAdminVerified,
+        verifyAdminPassword,
+        isAdminVerificationModalOpen,
+        openAdminVerificationModal,
+        closeAdminVerificationModal,
         needsProfileCompletion,
         setNeedsProfileCompletion,
         saveProfileDetails,

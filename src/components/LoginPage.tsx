@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isUserAdmin } from '../context/AuthContext';
 import { CU_DEPARTMENTS } from '../data/mockData';
 import { SahayakLogo } from './SahayakLogo';
 import { 
@@ -34,12 +34,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const { 
     currentUser, 
     isAuthenticated, 
+    isAdmin,
     loginWithEmail, 
     signupWithEmail, 
     loginWithGoogle, 
-    loginAsDemo, 
     resetPassword, 
     authPromptMessage,
+    openAdminVerificationModal,
     logout 
   } = useAuth();
   
@@ -62,17 +63,36 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
   // Auto-navigate if already authenticated and profile is complete (or admin)
   React.useEffect(() => {
-    if (isAuthenticated && currentUser && (currentUser.role === 'admin' || currentUser.profileCompleted)) {
-      const timer = setTimeout(() => {
-        if (onOpenDashboard) {
-          onOpenDashboard(currentUser.role === 'admin' ? 'admin' : 'student');
+    if (isAuthenticated && currentUser) {
+      if (isUserAdmin(currentUser.email)) {
+        if (isAdmin) {
+          const timer = setTimeout(() => {
+            if (onOpenDashboard) {
+              onOpenDashboard('admin');
+            } else {
+              onBackToBrowse();
+            }
+          }, 500);
+          return () => clearTimeout(timer);
         } else {
-          onBackToBrowse();
+          // Administrator needs to verify with sahayak@1Cu
+          openAdminVerificationModal();
         }
-      }, 600);
-      return () => clearTimeout(timer);
+        return;
+      }
+
+      if (currentUser.profileCompleted) {
+        const timer = setTimeout(() => {
+          if (onOpenDashboard) {
+            onOpenDashboard('student');
+          } else {
+            onBackToBrowse();
+          }
+        }, 500);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [isAuthenticated, currentUser, onOpenDashboard, onBackToBrowse]);
+  }, [isAuthenticated, currentUser, isAdmin, onOpenDashboard, onBackToBrowse, openAdminVerificationModal]);
 
   const getFriendlyErrorMessage = (err: any): string => {
     const code = err?.code || '';
@@ -93,7 +113,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return 'Google sign-in popup was closed before completing.';
     }
     if (code.includes('popup-blocked')) {
-      return 'Browser blocked the Google sign-in popup. Please allow popups for this site or open the app in a new tab.';
+      return 'Browser blocked the Google sign-in popup. Please allow popups for this site in your browser bar and retry.';
     }
     if (code.includes('unauthorized-domain')) {
       const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
@@ -113,11 +133,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
+    if (isUserAdmin(email)) {
+      setError('Administrator accounts must authenticate via Google Verification + Master Security Key (sahayak@1Cu). Direct email/password sign-in is disabled.');
+      return;
+    }
+
     setLoading(true);
     try {
       await loginWithEmail(email.trim(), password);
       if (onOpenDashboard) {
-        onOpenDashboard(email.toLowerCase().includes('admin') || email.toLowerCase() === 'gauravsinghrajpoot2019@gmail.com' ? 'admin' : 'student');
+        onOpenDashboard('student');
       } else {
         onBackToBrowse();
       }
@@ -394,47 +419,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
               {/* Error Notification */}
               {error && (
-                <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-800 font-medium space-y-3">
+                <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-xs text-red-800 font-medium space-y-2">
                   <div className="flex items-start gap-2.5">
                     <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                     <span className="leading-relaxed font-semibold">{error}</span>
                   </div>
 
-                  {/* Fallback buttons if domain is unauthorized in Firebase Console or popup blocked */}
-                  {(error.includes('Domain unauthorized') || error.includes('popup') || error.includes('Authentication') || error.includes('Firebase')) && (
-                    <div className="pt-2.5 border-t border-red-200/70 space-y-2">
-                      <p className="text-[11px] text-slate-700 font-medium leading-relaxed">
-                        To test immediately without waiting for Firebase Console domain whitelist:
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            setError(null);
-                            await loginAsDemo('admin');
-                            if (onOpenDashboard) onOpenDashboard('admin');
-                            else onBackToBrowse();
-                          }}
-                          className="flex-1 px-3 py-2 bg-red-700 hover:bg-red-800 text-white rounded-xl font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5"
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5" />
-                          <span>Login as Gaurav Singh (Admin)</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            setError(null);
-                            await loginAsDemo('student');
-                            if (onOpenDashboard) onOpenDashboard('student');
-                            else onBackToBrowse();
-                          }}
-                          className="flex-1 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5"
-                        >
-                          <User className="w-3.5 h-3.5" />
-                          <span>Login as Student (Arjun)</span>
-                        </button>
-                      </div>
-                    </div>
+                  {error.includes('popup') && (
+                    <p className="text-[11px] text-slate-600 pl-6.5">
+                      Tip: If the popup was blocked by your browser, look for the popup icon in your URL address bar to allow popups, or open the app in a new tab.
+                    </p>
                   )}
                 </div>
               )}

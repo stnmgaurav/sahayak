@@ -20,7 +20,10 @@ import {
   ArrowLeft,
   Edit3,
   Trash2,
-  MessageSquare
+  MessageSquare,
+  Phone,
+  EyeOff,
+  Lock
 } from 'lucide-react';
 
 interface ItemDetailModalProps {
@@ -55,10 +58,10 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   const isOwner = Boolean(
     currentUser && (
       currentUser.id === item.userId || 
-      (currentUser.email && currentUser.email === item.userEmail) || 
-      isAdmin
+      (currentUser.email && item.userEmail && currentUser.email.toLowerCase() === item.userEmail.toLowerCase())
     )
   );
+  const canModify = Boolean(isAdmin || isOwner);
 
   // Status Flow Pipeline Steps
   const steps = [
@@ -304,6 +307,62 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             </p>
           </div>
 
+          {/* Reporter Profile & Contact */}
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-800 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                {item.userName.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-900 text-sm">{item.userName}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-800">
+                    CU Student
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-500 block">UID: {item.userUid || 'Registered'}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {/* Phone privacy check */}
+              {item.hidePhone ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 font-semibold text-xs">
+                  <EyeOff className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Phone Kept Private</span>
+                </span>
+              ) : item.userPhone ? (
+                <a
+                  href={`tel:${item.userPhone}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-slate-950 font-bold hover:bg-slate-50 transition-colors shadow-2xs"
+                >
+                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{item.userPhone}</span>
+                </a>
+              ) : null}
+
+              {/* In-app chat button if not owner */}
+              {!isOwner && onSendMessage && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      onClose();
+                      openAuthModal('login', `Please sign in with your Chandigarh University ID to message ${item.userName}.`);
+                      return;
+                    }
+                    onClose();
+                    onSendMessage(item);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded-xl font-bold shadow-2xs transition-colors"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Chat with {item.userName.split(' ')[0]}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Suggested Matches Section */}
           {matches.length > 0 && (
             <div className="border border-amber-200 bg-amber-50/50 rounded-2xl p-4 space-y-3">
@@ -381,8 +440,8 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
           </button>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Owner Actions: Edit & Delete only for item owner */}
-            {isOwner && (
+            {/* Owner/Admin Actions: Edit & Delete strictly restricted to listing owner or admin */}
+            {canModify && (
               <>
                 {item.status !== 'recovered' && item.status !== 'returned' && (
                   <button
@@ -403,6 +462,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                       onEditItem(item);
                     }}
                     className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                    title="Edit listing details"
                   >
                     <Edit3 className="w-4 h-4" />
                     <span>Edit Report</span>
@@ -428,13 +488,38 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  if (!isAuthenticated) {
+                    onClose();
+                    openAuthModal('login', `Please sign in with your Chandigarh University ID to message ${item.userName}.`);
+                    return;
+                  }
                   onClose();
                   onSendMessage(item);
                 }}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
               >
                 <MessageSquare className="w-4 h-4" />
-                <span>Found This Item? Send Message to Owner</span>
+                <span>Found This Item? Message Owner</span>
+              </button>
+            )}
+
+            {/* If Found item and not returned, message finder option */}
+            {item.type === 'found' && item.status !== 'returned' && item.status !== 'recovered' && !isOwner && onSendMessage && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    onClose();
+                    openAuthModal('login', `Please sign in with your Chandigarh University ID to message ${item.userName}.`);
+                    return;
+                  }
+                  onClose();
+                  onSendMessage(item);
+                }}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Message Finder</span>
               </button>
             )}
 
@@ -455,6 +540,21 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>I Own This Item (File Claim)</span>
+              </button>
+            )}
+
+            {/* If Owner, option to open Item Chat / Discussion thread */}
+            {isOwner && onSendMessage && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onSendMessage(item);
+                }}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-800 hover:to-teal-900 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Open Item Chat &amp; Replies</span>
               </button>
             )}
 

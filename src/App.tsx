@@ -16,6 +16,7 @@ import { StudentDashboard } from './components/StudentDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileCompletionModal } from './components/UserProfileCompletionModal';
+import { AdminVerificationModal } from './components/AdminVerificationModal';
 import { SahayakLogo } from './components/SahayakLogo';
 import { ITEM_CATEGORIES, CU_CAMPUS_LOCATIONS } from './data/mockData';
 import { 
@@ -53,8 +54,13 @@ const QUICK_CATEGORIES = [
 ];
 
 function SahayakMain() {
-  const { currentUser, isAuthenticated, openAuthModal } = useAuth();
-  const isAdmin = currentUser ? isUserAdmin(currentUser.email, currentUser.role) : false;
+  const { 
+    currentUser, 
+    isAuthenticated, 
+    isAdmin, 
+    openAuthModal, 
+    openAdminVerificationModal 
+  } = useAuth();
 
   // Storage State
   const [items, setItems] = useState<ItemReport[]>(() => getStoredItems());
@@ -72,13 +78,20 @@ function SahayakMain() {
   // Navigation state
   const [currentTab, setCurrentTab] = useState<'browse' | 'student-dashboard' | 'admin-dashboard' | 'login'>('browse');
 
-  // Guard protected tabs if user is unauthenticated
+  // Guard protected tabs if user is unauthenticated or unauthorized
   useEffect(() => {
     if (!isAuthenticated && (currentTab === 'student-dashboard' || currentTab === 'admin-dashboard')) {
       setCurrentTab('browse');
       openAuthModal('login', 'Please sign in with your Chandigarh University ID to access your dashboard.');
+    } else if (isAuthenticated && currentTab === 'admin-dashboard' && !isAdmin) {
+      if (currentUser && isUserAdmin(currentUser.email)) {
+        openAdminVerificationModal();
+      } else {
+        setCurrentTab('browse');
+        openAuthModal('login', 'Access Restricted: Campus administrator Google verification and master security key (sahayak@1Cu) required.');
+      }
     }
-  }, [isAuthenticated, currentTab, openAuthModal]);
+  }, [isAuthenticated, currentTab, isAdmin, currentUser, openAuthModal, openAdminVerificationModal]);
 
   // Filter and Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -809,6 +822,7 @@ function SahayakMain() {
       />
 
       <AuthModal />
+      <AdminVerificationModal onSuccess={() => setCurrentTab('admin-dashboard')} />
       <UserProfileCompletionModal
         onProfileCompleted={() => {
           setCurrentTab('student-dashboard');

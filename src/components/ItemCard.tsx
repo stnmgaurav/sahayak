@@ -42,8 +42,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   const isOwner = Boolean(
     currentUser && (
       currentUser.id === item.userId || 
-      (currentUser.email && currentUser.email === item.userEmail) || 
-      isAdmin
+      (currentUser.email && item.userEmail && currentUser.email.toLowerCase() === item.userEmail.toLowerCase())
     )
   );
 

@@ -42,6 +42,8 @@ export interface UserProfile {
   avatarUrl?: string;
   joinedDate: string;
   profileCompleted?: boolean;
+  hidePhone?: boolean; // Privacy setting: hide contact mobile number across listings
+  authProvider?: 'google' | 'password';
 }
 
 export interface ItemReport {
@@ -62,6 +64,7 @@ export interface ItemReport {
   userEmail: string;
   userPhone?: string;
   userUid?: string;
+  hidePhone?: boolean; // Feature: Hide mobile number from public view (use in-app chat)
   // For found items:
   currentHoldingLocation?: string; // e.g. "Security Gate 1 Helpdesk" or "With Finder in B3-304"
   identifyingMark?: string; // e.g. "Sticker of Pikachu on back"
@@ -134,6 +137,7 @@ export interface ItemMessage {
   senderEmail: string;
   senderPhone: string;
   senderUid: string;
+  senderRole?: 'student' | 'admin';
   recipientId?: string;
   recipientEmail?: string;
   recipientName?: string;
@@ -142,5 +146,8 @@ export interface ItemMessage {
   proofImageUrl?: string;
   status: 'unread' | 'read' | 'resolved';
   createdAt: string;
+  threadId?: string;
+  replyToId?: string;
+  hideSenderPhone?: boolean;
 }
 

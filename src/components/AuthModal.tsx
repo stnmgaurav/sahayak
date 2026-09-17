@@ -24,8 +24,7 @@ export const AuthModal: React.FC = () => {
     authPromptMessage,
     loginWithEmail, 
     signupWithEmail, 
-    loginWithGoogle,
-    loginAsDemo
+    loginWithGoogle
   } = useAuth();
 
   const [mode, setMode] = useState<'login' | 'signup'>(authModalMode);
@@ -53,8 +52,11 @@ export const AuthModal: React.FC = () => {
     if (code.includes('weak-password')) {
       return 'Password must be at least 6 characters.';
     }
+    if (code.includes('popup-blocked')) {
+      return 'Google sign-in popup was blocked by your browser. Please allow popups for this window and retry. Administrator accounts must authenticate exclusively via Google verification.';
+    }
     if (code.includes('popup-closed-by-user')) {
-      return 'Google sign-in popup closed.';
+      return 'Google sign-in popup was closed before completing verification.';
     }
     if (code.includes('unauthorized-domain')) {
       const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
@@ -153,39 +155,15 @@ export const AuthModal: React.FC = () => {
           )}
 
           {error && (
-            <div className="mb-4 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium space-y-2.5">
+            <div className="mb-4 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium space-y-2">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
                 <span className="font-semibold leading-relaxed">{error}</span>
               </div>
-              {(error.includes('Domain unauthorized') || error.includes('popup') || error.includes('Authentication')) && (
-                <div className="pt-2 border-t border-red-200/60 space-y-1.5">
-                  <p className="text-[11px] text-slate-600 font-medium">Bypass to test now:</p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await loginAsDemo('admin');
-                        closeAuthModal();
-                      }}
-                      className="flex-1 py-1.5 px-2 bg-red-700 hover:bg-red-800 text-white rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 shadow-xs"
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>Gaurav Singh (Admin)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await loginAsDemo('student');
-                        closeAuthModal();
-                      }}
-                      className="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-bold text-[11px] flex items-center justify-center gap-1 shadow-xs"
-                    >
-                      <User className="w-3.5 h-3.5" />
-                      <span>Student (Arjun)</span>
-                    </button>
-                  </div>
-                </div>
+              {error.includes('popup') && (
+                <p className="text-[11px] text-slate-600 pl-6">
+                  Tip: Browser popup was blocked. Please enable popups for this page in your address bar and retry Google verification.
+                </p>
               )}
             </div>
           )}

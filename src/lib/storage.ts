@@ -372,15 +372,27 @@ export function saveItem(newItem: ItemReport): ItemReport {
   return newItem;
 }
 
-export function updateItemStatus(itemId: string, status: ItemReport['status'], requestingUserId?: string, isAdmin?: boolean): boolean {
+export function updateItemStatus(
+  itemId: string, 
+  status: ItemReport['status'], 
+  requestingUserId?: string, 
+  isAdmin?: boolean,
+  requestingUserEmail?: string
+): boolean {
   // Update local
   const index = cachedItems.findIndex(i => i.id === itemId);
   if (index < 0) return false;
 
   const item = cachedItems[index];
-  if (requestingUserId && !isAdmin && item.userId !== requestingUserId) {
-    console.warn(`[Security] Unauthorized status update attempt on item ${itemId} by user ${requestingUserId}`);
-    return false;
+  if (!isAdmin && (requestingUserId || requestingUserEmail)) {
+    const isOwner = Boolean(
+      (requestingUserId && item.userId === requestingUserId) ||
+      (requestingUserEmail && item.userEmail && requestingUserEmail.trim().toLowerCase() === item.userEmail.trim().toLowerCase())
+    );
+    if (!isOwner) {
+      console.warn(`[Security] Unauthorized status update attempt on item ${itemId} by user ${requestingUserId || requestingUserEmail}`);
+      return false;
+    }
   }
 
   cachedItems[index].status = status;
@@ -404,14 +416,28 @@ export function updateItemStatus(itemId: string, status: ItemReport['status'], r
   return true;
 }
 
-export function updateItem(itemId: string, updates: Partial<ItemReport>, requestingUserId?: string, isAdmin?: boolean): boolean {
+export function updateItem(
+  itemId: string, 
+  updates: Partial<ItemReport>, 
+  requestingUserId?: string, 
+  isAdmin?: boolean,
+  requestingUserEmail?: string
+): boolean {
   const index = cachedItems.findIndex(i => i.id === itemId);
   if (index < 0) return false;
 
   const item = cachedItems[index];
-  if (requestingUserId && !isAdmin && item.userId !== requestingUserId) {
-    console.warn(`[Security] Unauthorized edit attempt on item ${itemId} by user ${requestingUserId}`);
-    return false;
+
+  // Enforce security: Only the original listing owner or verified admin can edit
+  if (!isAdmin) {
+    const isOwner = Boolean(
+      (requestingUserId && item.userId === requestingUserId) ||
+      (requestingUserEmail && item.userEmail && requestingUserEmail.trim().toLowerCase() === item.userEmail.trim().toLowerCase())
+    );
+    if (!isOwner) {
+      console.warn(`[Security] Blocked unauthorized edit on item ${itemId}. Requesting user: ${requestingUserId || requestingUserEmail}. Listing owner: ${item.userId} (${item.userEmail})`);
+      return false;
+    }
   }
 
   const updatedItem: ItemReport = {
@@ -441,13 +467,25 @@ export function updateItem(itemId: string, updates: Partial<ItemReport>, request
   return true;
 }
 
-export function deleteItem(itemId: string, requestingUserId?: string, isAdmin?: boolean): boolean {
+export function deleteItem(
+  itemId: string, 
+  requestingUserId?: string, 
+  isAdmin?: boolean,
+  requestingUserEmail?: string
+): boolean {
   const item = cachedItems.find(i => i.id === itemId);
   if (!item) return false;
 
-  if (requestingUserId && !isAdmin && item.userId !== requestingUserId) {
-    console.warn(`[Security] Unauthorized delete attempt on item ${itemId} by user ${requestingUserId}`);
-    return false;
+  // Enforce security: Only the original listing owner or verified admin can delete
+  if (!isAdmin) {
+    const isOwner = Boolean(
+      (requestingUserId && item.userId === requestingUserId) ||
+      (requestingUserEmail && item.userEmail && requestingUserEmail.trim().toLowerCase() === item.userEmail.trim().toLowerCase())
+    );
+    if (!isOwner) {
+      console.warn(`[Security] Blocked unauthorized delete on item ${itemId}. Requesting user: ${requestingUserId || requestingUserEmail}. Listing owner: ${item.userId} (${item.userEmail})`);
+      return false;
+    }
   }
 
   // Update local
@@ -575,6 +613,10 @@ export function updateMessage(messageId: string, updates: Partial<ItemMessage>):
   }
 }
 
+export function markMessageAsRead(messageId: string): void {
+  updateMessage(messageId, { status: 'read' });
+}
+
 export function deleteMessage(messageId: string): void {
   cachedMessages = cachedMessages.filter(m => m.id !== messageId);
   localStorage.setItem(MESSAGES_KEY, JSON.stringify(cachedMessages));
@@ -587,6 +629,39 @@ export function deleteMessage(messageId: string): void {
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, `messages/${messageId}`);
   }
+}
+
+/**
+ * Retrieve all messages linked to a specific item report
+ */
+export function getItemMessages(itemId: string): ItemMessage[] {
+  return cachedMessages
+    .filter(m => m.itemId === itemId)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+/**
+ * Retrieve all chat messages exchanged between current user and an item reporter or other student
+ */
+export function getItemChatThread(itemId: string, userAIdentifier: string, userBIdentifier: string): ItemMessage[] {
+  const a = userAIdentifier.toLowerCase().trim();
+  const b = userBIdentifier.toLowerCase().trim();
+  return cachedMessages
+    .filter(m => {
+      if (m.itemId !== itemId) return false;
+      const sId = (m.senderId || '').toLowerCase();
+      const sEmail = (m.senderEmail || '').toLowerCase();
+      const rId = (m.recipientId || '').toLowerCase();
+      const rEmail = (m.recipientEmail || '').toLowerCase();
+
+      const fromA = sId === a || sEmail === a;
+      const toA = rId === a || rEmail === a;
+      const fromB = sId === b || sEmail === b;
+      const toB = rId === b || rEmail === b;
+
+      return (fromA && toB) || (fromB && toA);
+    })
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
 export function getStoredReceipts(): HandoverReceipt[] {

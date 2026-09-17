@@ -23,7 +23,9 @@ import {
   AlertTriangle,
   Lock,
   LogIn,
-  ArrowLeft
+  ArrowLeft,
+  EyeOff,
+  PhoneOff
 } from 'lucide-react';
 
 interface ReportModalProps {
@@ -71,6 +73,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [identifyingMark, setIdentifyingMark] = useState('');
   const [currentHoldingLocation, setCurrentHoldingLocation] = useState('Main Security Gate 1 (NH-95 Entrance) Lost & Found Cupboard');
   const [secretVerificationQuestion, setSecretVerificationQuestion] = useState('');
+  const [hidePhone, setHidePhone] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -91,6 +94,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       setDateTime(editingItem.dateTime.slice(0, 16));
       setImageUrl(editingItem.imageUrl);
       setIdentifyingMark(editingItem.identifyingMark || '');
+      setHidePhone(editingItem.hidePhone || false);
       if (editingItem.currentHoldingLocation) setCurrentHoldingLocation(editingItem.currentHoldingLocation);
       if (editingItem.secretVerificationQuestion) setSecretVerificationQuestion(editingItem.secretVerificationQuestion);
     } else {
@@ -105,11 +109,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       setDateTime(new Date().toISOString().slice(0, 16));
       setImageUrl(PRESET_PHOTOS[0].url);
       setIdentifyingMark('');
+      setHidePhone(currentUser?.hidePhone || false);
       setCurrentHoldingLocation('Main Security Gate 1 (NH-95 Entrance) Lost & Found Cupboard');
       setSecretVerificationQuestion('');
     }
     setErrorMessage(null);
-  }, [editingItem, isOpen, initialType]);
+  }, [editingItem, isOpen, initialType, currentUser]);
 
   if (!isOpen) return null;
 
@@ -174,9 +179,15 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       return;
     }
 
-    // Check ownership if editing
-    if (editingItem && editingItem.userId !== currentUser.id && !isAdmin) {
-      setErrorMessage('You can only edit items that you have uploaded.');
+    // Check ownership if editing: only listing owner or admin can edit
+    const isOwner = Boolean(
+      currentUser && (
+        editingItem?.userId === currentUser.id ||
+        (currentUser.email && editingItem?.userEmail && currentUser.email.toLowerCase() === editingItem.userEmail.toLowerCase())
+      )
+    );
+    if (editingItem && !isOwner && !isAdmin) {
+      setErrorMessage("Access Denied: Security protocol requires you to be the original creator or a verified campus administrator to edit this listing.");
       return;
     }
 
@@ -195,11 +206,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           dateTime,
           imageUrl: imageUrl || editingItem.imageUrl,
           identifyingMark: identifyingMark.trim() || undefined,
+          hidePhone,
           currentHoldingLocation: type === 'found' ? currentHoldingLocation : undefined,
           secretVerificationQuestion: type === 'found' ? secretVerificationQuestion.trim() : undefined,
         };
 
-        const success = updateItem(editingItem.id, updates, currentUser.id, isAdmin);
+        const success = updateItem(editingItem.id, updates, currentUser.id, isAdmin, currentUser.email);
         if (success) {
           onItemCreated({ ...editingItem, ...updates, updatedAt: new Date().toISOString() });
           onClose();
@@ -237,6 +249,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         userPhone: reporterPhone,
         userUid: reporterUid,
         identifyingMark: identifyingMark.trim() || undefined,
+        hidePhone,
         currentHoldingLocation: type === 'found' ? currentHoldingLocation : undefined,
         secretVerificationQuestion: type === 'found' ? secretVerificationQuestion.trim() : undefined,
         createdAt: new Date().toISOString(),
@@ -620,21 +633,57 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               </h3>
 
               {currentUser ? (
-                <div className="p-3.5 bg-slate-100/90 rounded-2xl border border-slate-200 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-red-800 text-white flex items-center justify-center font-bold text-xs">
-                      {currentUser.name.charAt(0).toUpperCase()}
+                <div className="space-y-2.5">
+                  <div className="p-3.5 bg-slate-100/90 rounded-2xl border border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-red-800 text-white flex items-center justify-center font-bold text-xs">
+                        {currentUser.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">{currentUser.name}</p>
+                        <p className="text-[11px] text-slate-500">
+                          UID: {currentUser.uidOrRoll} • {hidePhone ? '(Phone Hidden)' : (currentUser.phone || currentUser.email)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">{currentUser.name}</p>
-                      <p className="text-[11px] text-slate-500">
-                        UID: {currentUser.uidOrRoll} • {currentUser.phone || currentUser.email}
-                      </p>
-                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">
+                      Verified Student
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">
-                    Verified Student
-                  </span>
+
+                  {/* Privacy Toggle: Hide Own Mobile Number */}
+                  <div className="p-3 bg-white border border-slate-200 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        hidePhone ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {hidePhone ? <EyeOff className="w-4 h-4" /> : <PhoneOff className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-900">Hide My Mobile Number</span>
+                          {hidePhone && (
+                            <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[9px] font-black uppercase">
+                              Private
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          Keep phone number hidden from public listing. Other students will contact you via secure in-app chat.
+                        </p>
+                      </div>
+                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={hidePhone}
+                        onChange={e => setHidePhone(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-700"></div>
+                    </label>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3 p-4 bg-amber-50/80 rounded-2xl border border-amber-200/80">

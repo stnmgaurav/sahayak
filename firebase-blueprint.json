@@ -15,7 +15,8 @@
         "avatarUrl": { "type": "string", "description": "Profile picture URL" },
         "createdAt": { "type": "string", "description": "ISO timestamp of user registration" },
         "lastLoginAt": { "type": "string", "description": "ISO timestamp of last activity" },
-        "profileCompleted": { "type": "boolean", "description": "Indicates whether mandatory student profile fields are filled" }
+        "profileCompleted": { "type": "boolean", "description": "Indicates whether mandatory student profile fields are filled" },
+        "hidePhone": { "type": "boolean", "description": "User preference to conceal mobile phone number across public reports" }
       },
       "required": ["id", "email", "name", "role", "uidOrRoll", "department", "phone", "createdAt"]
     },
@@ -39,6 +40,7 @@
         "reporterEmail": { "type": "string", "description": "Email address of reporter" },
         "reporterUid": { "type": "string", "description": "Auth UID or roll number of reporter" },
         "reporterDepartment": { "type": "string", "description": "Academic department of reporter" },
+        "hidePhone": { "type": "boolean", "description": "Whether reporter chose to conceal their contact number from public view" },
         "securityDepositLocation": { "type": "string", "description": "Security booth where found item was handed over" },
         "aiKeywords": { "type": "array", "description": "Extracted search keywords" },
         "createdAt": { "type": "string", "description": "ISO creation timestamp" },
@@ -127,6 +129,9 @@
         "currentFoundLocation": { "type": "string", "description": "Campus security desk or block where item is kept" },
         "proofImageUrl": { "type": "string", "description": "Optional photo of the found item" },
         "status": { "type": "string", "enum": ["unread", "read", "resolved"], "description": "Message review status" },
+        "threadId": { "type": "string", "description": "Grouped conversation thread ID" },
+        "replyToId": { "type": "string", "description": "Parent message ID being replied to" },
+        "hideSenderPhone": { "type": "boolean", "description": "Conceal sender phone number in chat thread" },
         "createdAt": { "type": "string", "description": "ISO timestamp" }
       },
       "required": ["id", "itemId", "itemTitle", "senderName", "messageText", "createdAt"]

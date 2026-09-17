@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { UserProfile, ItemReport, ItemStatus } from '../types';
 import { updateItemStatus } from '../lib/storage';
 import { 
@@ -16,7 +17,8 @@ import {
   GraduationCap,
   Mail,
   Phone,
-  Tag
+  Tag,
+  Lock
 } from 'lucide-react';
 
 interface AdminUserListingsModalProps {
@@ -38,6 +40,7 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
   onDeleteItem,
   onViewItemDetails,
 }) => {
+  const { currentUser, isAdmin } = useAuth();
   const [filterType, setFilterType] = useState<'all' | 'lost' | 'found'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -232,59 +235,90 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
 
                   {/* Right: Status selector and Admin Actions */}
                   <div className="flex items-center gap-2.5 sm:border-l sm:border-slate-100 sm:pl-4 shrink-0 flex-wrap justify-end">
-                    {/* Status Dropdown */}
-                    <div className="flex flex-col">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Status</label>
-                      <select
-                        value={item.status}
-                        onChange={e => updateItemStatus(item.id, e.target.value as ItemStatus, undefined, true)}
-                        className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-red-600"
-                      >
-                        <option value="lost">Lost</option>
-                        <option value="found">Found</option>
-                        <option value="match_found">Match Found</option>
-                        <option value="claim_pending">Claim Pending</option>
-                        <option value="claimed">Claimed</option>
-                        <option value="verified">Verified</option>
-                        <option value="returned">Returned</option>
-                        <option value="recovered">Recovered</option>
-                      </select>
-                    </div>
+                    {(() => {
+                      const isItemOwner = Boolean(
+                        currentUser && (
+                          currentUser.id === item.userId || 
+                          (currentUser.email && item.userEmail && currentUser.email.toLowerCase() === item.userEmail.toLowerCase())
+                        )
+                      );
+                      const canModify = Boolean(isAdmin || isItemOwner);
 
-                    {/* View Details */}
-                    <button
-                      onClick={() => onViewItemDetails(item)}
-                      className="p-2 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-colors"
-                      title="Inspect full item details"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
+                      return (
+                        <>
+                          {/* Status Dropdown */}
+                          <div className="flex flex-col">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Status</label>
+                            {canModify ? (
+                              <select
+                                value={item.status}
+                                onChange={e => updateItemStatus(item.id, e.target.value as ItemStatus, currentUser?.id, isAdmin, currentUser?.email)}
+                                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-red-600"
+                              >
+                                <option value="lost">Lost</option>
+                                <option value="found">Found</option>
+                                <option value="match_found">Match Found</option>
+                                <option value="claim_pending">Claim Pending</option>
+                                <option value="claimed">Claimed</option>
+                                <option value="verified">Verified</option>
+                                <option value="returned">Returned</option>
+                                <option value="recovered">Recovered</option>
+                              </select>
+                            ) : (
+                              <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 capitalize">
+                                {item.status.replace('_', ' ')}
+                              </span>
+                            )}
+                          </div>
 
-                    {/* Edit Item */}
-                    <button
-                      onClick={() => {
-                        onClose();
-                        onEditItem(item);
-                      }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-2xs"
-                      title="Edit this listing"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Edit</span>
-                    </button>
+                          {/* View Details */}
+                          <button
+                            onClick={() => onViewItemDetails(item)}
+                            className="p-2 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-colors"
+                            title="Inspect full item details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
 
-                    {/* Delete Item */}
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Are you sure you want to delete listing "${item.title}"? This cannot be undone.`)) {
-                          onDeleteItem(item.id);
-                        }
-                      }}
-                      className="p-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors"
-                      title="Permanently delete this report"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                          {/* Edit Item - Owner or Admin only */}
+                          {canModify && (
+                            <button
+                              onClick={() => {
+                                onClose();
+                                onEditItem(item);
+                              }}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-2xs"
+                              title="Edit this listing"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </button>
+                          )}
+
+                          {/* Delete Item - Owner or Admin only */}
+                          {canModify ? (
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to delete listing "${item.title}"? This cannot be undone.`)) {
+                                  onDeleteItem(item.id);
+                                }
+                              }}
+                              className="p-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors"
+                              title="Permanently delete this report"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <span 
+                              className="p-2 text-slate-400 cursor-not-allowed inline-flex items-center" 
+                              title="Protected: Only listing owner or admin can edit or delete"
+                            >
+                              <Lock className="w-4 h-4 text-slate-300" />
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}

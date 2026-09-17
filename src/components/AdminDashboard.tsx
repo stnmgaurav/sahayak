@@ -66,7 +66,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onEditItem,
   onDeleteItem,
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'reports' | 'users' | 'claims' | 'ledger' | 'hotspots'>('reports');
 
   // Listings state
@@ -130,12 +130,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Delete item handler
   const handleDeleteItem = (item: ItemReport) => {
+    const isItemOwner = Boolean(
+      currentUser && (
+        currentUser.id === item.userId || 
+        (currentUser.email && item.userEmail && currentUser.email.toLowerCase() === item.userEmail.toLowerCase())
+      )
+    );
+    if (!isAdmin && !isItemOwner) {
+      alert("Access Denied: Security protocol requires you to be the original listing owner or a verified campus administrator to delete this report.");
+      return;
+    }
+
     if (window.confirm(`Are you sure you want to permanently remove listing "${item.title}" from the platform?`)) {
       if (onDeleteItem) {
         onDeleteItem(item.id);
       } else {
-        deleteItem(item.id, currentUser?.id, true);
+        deleteItem(item.id, currentUser?.id, isAdmin, currentUser?.email);
       }
+    }
+  };
+
+  // Safe edit handler
+  const handleEditClick = (item: ItemReport) => {
+    const isItemOwner = Boolean(
+      currentUser && (
+        currentUser.id === item.userId || 
+        (currentUser.email && item.userEmail && currentUser.email.toLowerCase() === item.userEmail.toLowerCase())
+      )
+    );
+    if (!isAdmin && !isItemOwner) {
+      alert("Access Denied: Security protocol requires you to be the original listing owner or an authorized administrator to edit this report.");
+      return;
+    }
+    if (onEditItem) {
+      onEditItem(item);
     }
   };
 
@@ -485,6 +513,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         (u.uidOrRoll && item.userUid && u.uidOrRoll.toLowerCase() === item.userUid.toLowerCase())
                       );
 
+                      // Security logic: only the original owner or administrator can edit or delete
+                      const isItemOwner = Boolean(
+                        currentUser && (
+                          currentUser.id === item.userId || 
+                          (currentUser.email && item.userEmail && currentUser.email.toLowerCase() === item.userEmail.toLowerCase())
+                        )
+                      );
+                      const canModify = Boolean(isAdmin || isItemOwner);
+
                       return (
                         <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="p-3.5">
@@ -526,7 +563,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <div className="space-y-0.5">
                               <span className="font-bold text-slate-900 block">{item.userName}</span>
                               <span className="text-[10px] text-slate-500 block">
-                                UID: {item.userUid || 'N/A'} • {item.userPhone || 'No Phone'}
+                                UID: {item.userUid || 'N/A'} • {item.hidePhone ? '(Phone Hidden)' : (item.userPhone || 'No Phone')}
                               </span>
                               {itemUser && (
                                 <button
@@ -543,31 +580,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </td>
 
                           <td className="p-3.5">
-                            <select
-                              value={item.status}
-                              onChange={e => updateItemStatus(item.id, e.target.value as ItemStatus, undefined, true)}
-                              className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-600 shadow-2xs"
-                            >
-                              <option value="lost">Lost</option>
-                              <option value="found">Found</option>
-                              <option value="match_found">Match Found</option>
-                              <option value="claim_pending">Claim Pending</option>
-                              <option value="claimed">Claimed</option>
-                              <option value="verified">Verified</option>
-                              <option value="returned">Returned</option>
-                              <option value="recovered">Recovered</option>
-                            </select>
+                            {canModify ? (
+                              <select
+                                value={item.status}
+                                onChange={e => updateItemStatus(item.id, e.target.value as ItemStatus, currentUser?.id, isAdmin, currentUser?.email)}
+                                className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-600 shadow-2xs"
+                              >
+                                <option value="lost">Lost</option>
+                                <option value="found">Found</option>
+                                <option value="match_found">Match Found</option>
+                                <option value="claim_pending">Claim Pending</option>
+                                <option value="claimed">Claimed</option>
+                                <option value="verified">Verified</option>
+                                <option value="returned">Returned</option>
+                                <option value="recovered">Recovered</option>
+                              </select>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 capitalize">
+                                {item.status.replace('_', ' ')}
+                              </span>
+                            )}
                           </td>
 
                           <td className="p-3.5 text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              {/* Edit Listing */}
-                              {onEditItem && (
+                              {/* Edit Listing: strictly restricted to owner or admin */}
+                              {canModify && onEditItem && (
                                 <button
                                   type="button"
-                                  onClick={() => onEditItem(item)}
+                                  onClick={() => handleEditClick(item)}
                                   className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-2xs"
-                                  title="Edit full report details"
+                                  title="Edit full report details (Owner / Admin only)"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
                                   <span>Edit</span>
@@ -584,15 +627,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 View
                               </button>
 
-                              {/* Delete Listing */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteItem(item)}
-                                className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl transition-colors"
-                                title="Permanently delete this report"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {/* Delete Listing: strictly restricted to owner or admin */}
+                              {canModify ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteItem(item)}
+                                  className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl transition-colors"
+                                  title="Permanently delete this report (Owner / Admin only)"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <span 
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-slate-400 bg-slate-50 border border-slate-200/70 rounded-lg cursor-not-allowed"
+                                  title="Protected: Only the listing owner or administrator can edit or delete this report"
+                                >
+                                  <Lock className="w-3 h-3 text-slate-400" />
+                                  <span>Locked</span>
+                                </span>
+                              )}
                             </div>
                           </td>
                         </tr>
