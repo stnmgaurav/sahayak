@@ -83,12 +83,12 @@ function SahayakMain() {
     if (!isAuthenticated && (currentTab === 'student-dashboard' || currentTab === 'admin-dashboard')) {
       setCurrentTab('browse');
       openAuthModal('login', 'Please sign in with your Chandigarh University ID to access your dashboard.');
-    } else if (isAuthenticated && currentTab === 'admin-dashboard' && !isAdmin) {
-      if (currentUser && isUserAdmin(currentUser.email)) {
-        openAdminVerificationModal();
-      } else {
+    } else if (isAuthenticated && currentTab === 'admin-dashboard') {
+      if (!currentUser || !isUserAdmin(currentUser.email)) {
         setCurrentTab('browse');
-        openAuthModal('login', 'Access Restricted: Campus administrator Google verification and master security key (sahayak@1Cu) required.');
+        openAuthModal('login', 'Access Restricted: Campus Security Desk is strictly reserved for campus administrator (gauravsinghrajpoot2019@gmail.com).');
+      } else if (!isAdmin) {
+        openAdminVerificationModal();
       }
     }
   }, [isAuthenticated, currentTab, isAdmin, currentUser, openAuthModal, openAdminVerificationModal]);
@@ -297,7 +297,7 @@ function SahayakMain() {
         {currentTab === 'login' && (
           <LoginPage
             onBackToBrowse={() => setCurrentTab('browse')}
-            onOpenDashboard={(role) => setCurrentTab(role === 'admin' ? 'admin-dashboard' : 'student-dashboard')}
+            onOpenDashboard={(role) => setCurrentTab(role === 'admin' && currentUser && isUserAdmin(currentUser.email) ? 'admin-dashboard' : 'student-dashboard')}
           />
         )}
 
@@ -315,6 +315,13 @@ function SahayakMain() {
             onClaimItem={handleInitiateClaim}
             onSendMessage={handleSendMessage}
             onBackToBrowse={() => setCurrentTab('browse')}
+            onOpenSecurityDesk={() => {
+              if (!isAdmin) {
+                openAdminVerificationModal();
+              } else {
+                setCurrentTab('admin-dashboard');
+              }
+            }}
           />
         )}
 
@@ -359,7 +366,7 @@ function SahayakMain() {
                     </p>
 
                     <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-2xl">
-                      Real-time AI matching, verified student authentication, and automated security desk custody for over 30,000+ campus members across 14 academic blocks.
+                      Real-time AI matching, verified student authentication, and automated security desk custody for over full campus across all academic blocks.
                     </p>
                   </div>
 

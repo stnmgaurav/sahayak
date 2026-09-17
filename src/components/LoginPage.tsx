@@ -75,7 +75,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           }, 500);
           return () => clearTimeout(timer);
         } else {
-          // Administrator needs to verify with sahayak@1Cu
+          // Administrator needs to verify
           openAdminVerificationModal();
         }
         return;
@@ -134,7 +134,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
 
     if (isUserAdmin(email)) {
-      setError('Administrator accounts must authenticate via Google Verification + Master Security Key (sahayak@1Cu). Direct email/password sign-in is disabled.');
+      setError('Administrator accounts must authenticate via Google Sign-In with an Admin Passcode. Direct email/password sign-in is disabled.');
       return;
     }
 

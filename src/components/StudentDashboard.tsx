@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, isUserAdmin } from '../context/AuthContext';
 import { ItemReport, ItemClaim, MatchSuggestion, ItemMessage } from '../types';
 import { findMatchesForItem } from '../lib/matching';
 import { updateItemStatus, deleteItem, getStoredMessages, updateMessage } from '../lib/storage';
@@ -8,6 +8,7 @@ import {
   HandHeart, 
   Sparkles, 
   ShieldCheck, 
+  Shield,
   Clock, 
   CheckCircle2, 
   AlertCircle, 
@@ -44,6 +45,7 @@ interface StudentDashboardProps {
   onDeleteItem?: (itemId: string) => void;
   onClaimItem?: (item: ItemReport) => void;
   onSendMessage?: (item: ItemReport) => void;
+  onOpenSecurityDesk?: () => void;
 }
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
@@ -58,6 +60,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   onDeleteItem,
   onClaimItem,
   onSendMessage,
+  onOpenSecurityDesk,
 }) => {
   const { currentUser, isAdmin, openAuthModal, setNeedsProfileCompletion } = useAuth();
   const [activeTab, setActiveTab] = useState<'lost' | 'found' | 'matches' | 'claims' | 'messages'>('lost');
@@ -204,6 +207,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
         {/* Quick Report Actions */}
         <div className="flex items-center gap-2 sm:gap-3 relative z-10 w-full md:w-auto">
+          {currentUser && isUserAdmin(currentUser.email) && onOpenSecurityDesk && (
+            <button
+              type="button"
+              onClick={onOpenSecurityDesk}
+              className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-red-800 to-red-950 hover:from-red-900 hover:to-black text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/20 hover:shadow-md"
+              title="Open Campus Security Desk Admin Console"
+            >
+              <Shield className="w-4 h-4 text-red-200 shrink-0" />
+              <span>Security Desk</span>
+            </button>
+          )}
           <button
             onClick={() => onOpenReportModal('lost')}
             className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/10 hover:shadow-md"

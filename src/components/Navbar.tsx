@@ -67,18 +67,13 @@ export const Navbar: React.FC<NavbarProps> = ({
       return;
     }
     if (tab === 'admin-dashboard') {
-      if (!isAuthenticated) {
-        openAuthModal('login', 'Please sign in with your authorized campus Google account to access the security custody desk.');
+      if (!isAuthenticated || !currentUser || !isUserAdmin(currentUser.email)) {
+        openAuthModal('login', 'Access Restricted: Campus Security Desk is reserved strictly for campus administrator (gauravsinghrajpoot2019@gmail.com).');
         return;
       }
       if (!isAdmin) {
-        if (currentUser && isUserAdmin(currentUser.email)) {
-          openAdminVerificationModal();
-          return;
-        } else {
-          openAuthModal('login', 'Access Restricted: Campus administrator Google verification and master security key (sahayak@1Cu) required.');
-          return;
-        }
+        openAdminVerificationModal();
+        return;
       }
     }
     setCurrentTab(tab);
@@ -145,22 +140,25 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
-            <button
-              onClick={() => handleTabClick('admin-dashboard')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all relative ${
-                currentTab === 'admin-dashboard'
-                  ? 'bg-red-800 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-red-800 hover:bg-white/40'
-              }`}
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>Security Desk</span>
-              {pendingClaimsCount > 0 && (
-                <span className="px-1.5 py-0.2 text-[10px] font-bold bg-red-600 text-white rounded-full">
-                  {pendingClaimsCount}
-                </span>
-              )}
-            </button>
+            {/* Security Desk tab - strictly visible ONLY to authorized campus admin: gauravsinghrajpoot2019@gmail.com */}
+            {currentUser && isUserAdmin(currentUser.email) && (
+              <button
+                onClick={() => handleTabClick('admin-dashboard')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all relative ${
+                  currentTab === 'admin-dashboard'
+                    ? 'bg-red-800 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-red-800 hover:bg-white/40'
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Security Desk</span>
+                {pendingClaimsCount > 0 && (
+                  <span className="px-1.5 py-0.2 text-[10px] font-bold bg-red-600 text-white rounded-full">
+                    {pendingClaimsCount}
+                  </span>
+                )}
+              </button>
+            )}
           </nav>
 
           {/* Right: Glass Actions & Profile */}
@@ -334,7 +332,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             </div>
                           </button>
 
-                          {isAdmin && (
+                          {currentUser && isUserAdmin(currentUser.email) && isAdmin && (
                             <button
                               onClick={() => {
                                 setCurrentTab('admin-dashboard');
@@ -362,7 +360,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             </button>
                           )}
 
-                          {isUserAdmin(currentUser.email) && !isAdmin && (
+                          {currentUser && isUserAdmin(currentUser.email) && !isAdmin && (
                             <button
                               onClick={() => {
                                 openAdminVerificationModal();
@@ -376,7 +374,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-xs font-bold text-amber-950 leading-tight">Unlock Admin Console</p>
-                                  <p className="text-[10px] text-amber-700 leading-tight truncate">Passcode sahayak@1Cu required</p>
+                                  <p className="text-[10px] text-amber-700 leading-tight truncate">Passcode required</p>
                                 </div>
                               </div>
                               <ChevronRight className="w-3.5 h-3.5 text-amber-500 group-hover:translate-x-0.5 transition-all shrink-0" />
@@ -463,20 +461,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             )}
           </button>
-          <button
-            onClick={() => handleTabClick('admin-dashboard')}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-left ${
-              currentTab === 'admin-dashboard' ? 'bg-red-50 text-red-800' : 'text-slate-600'
-            }`}
-          >
-            <Shield className="w-4 h-4 text-red-700" />
-            <span>Campus Security Admin Desk</span>
-            {pendingClaimsCount > 0 && (
-              <span className="ml-auto text-[10px] font-bold bg-red-600 text-white px-2 py-0.5 rounded-full">
-                {pendingClaimsCount} Pending
-              </span>
-            )}
-          </button>
+          {currentUser && isUserAdmin(currentUser.email) && (
+            <button
+              onClick={() => handleTabClick('admin-dashboard')}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-bold text-left ${
+                currentTab === 'admin-dashboard' ? 'bg-red-50 text-red-800' : 'text-slate-600'
+              }`}
+            >
+              <Shield className="w-4 h-4 text-red-700" />
+              <span>Campus Security Admin Desk</span>
+              {pendingClaimsCount > 0 && (
+                <span className="ml-auto text-[10px] font-bold bg-red-600 text-white px-2 py-0.5 rounded-full">
+                  {pendingClaimsCount} Pending
+                </span>
+              )}
+            </button>
+          )}
 
           {!isAuthenticated && (
             <button

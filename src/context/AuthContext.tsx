@@ -258,9 +258,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithEmail = async (email: string, password: string): Promise<void> => {
     const lower = (email || '').toLowerCase().trim();
-    // Admins CANNOT use standard email/password login. Must use Google + sahayak@1Cu
+    // Admins CANNOT use standard email/password login. Must use Google + Admin Passcode
     if (isUserAdmin(lower) || lower.includes('admin') || lower.includes('security') || lower.includes('gauravsinghrajpoot2019')) {
-      throw new Error('Administrative Security Protocol: Campus administrator accounts cannot be accessed via standard email/password login. Administrators must authenticate exclusively via Google Verification and secondary master security passcode (sahayak@1Cu).');
+      throw new Error('Administrative Security Protocol: Campus administrator accounts cannot be accessed via standard email/password login. Administrators must authenticate exclusively via Google Verification and secondary master security passcode.');
     }
 
     const credential = await signInWithEmailAndPassword(auth, email, password);
