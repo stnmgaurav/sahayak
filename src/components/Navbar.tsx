@@ -19,8 +19,11 @@ import {
   Copy,
   Check,
   ChevronRight,
-  BadgeCheck
+  BadgeCheck,
+  Bell
 } from 'lucide-react';
+import { NotificationSettingsModal } from './NotificationSettingsModal';
+import { getNotificationPermission, NotificationPermissionState } from '../lib/notifications';
 
 type NavTab = 'browse' | 'student-dashboard' | 'admin-dashboard' | 'login';
 
@@ -30,6 +33,7 @@ interface NavbarProps {
   onOpenReportModal?: (type: 'lost' | 'found') => void;
   unreadMatchesCount: number;
   pendingClaimsCount: number;
+  onOpenNotificationModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -38,6 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenReportModal,
   unreadMatchesCount,
   pendingClaimsCount,
+  onOpenNotificationModal,
 }) => {
   const { 
     currentUser, 
@@ -50,7 +55,17 @@ export const Navbar: React.FC<NavbarProps> = ({
   } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionState>(() => getNotificationPermission());
   const [copiedUid, setCopiedUid] = useState(false);
+
+  const handleOpenNotificationModal = () => {
+    if (onOpenNotificationModal) {
+      onOpenNotificationModal();
+    } else {
+      setIsNotificationModalOpen(true);
+    }
+  };
 
   const handleCopyUid = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -109,31 +124,31 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Center Glass Pill Segmented Nav (Desktop) */}
-          <nav className="hidden md:flex items-center gap-1 p-1 rounded-2xl glass-panel-subtle shadow-xs">
+          <nav className="hidden md:flex items-center gap-1 p-1 rounded-full border border-slate-100 bg-white/95 shadow-2xs">
             <button
               onClick={() => handleTabClick('browse')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 currentTab === 'browse'
-                  ? 'bg-white text-slate-950 shadow-sm border border-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              <Compass className="w-3.5 h-3.5 text-slate-500" />
+              <Compass className="w-3.5 h-3.5 text-slate-400" />
               <span>Explore Items</span>
             </button>
 
             <button
               onClick={() => handleTabClick('student-dashboard')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all relative ${
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all relative cursor-pointer ${
                 currentTab === 'student-dashboard'
-                  ? 'bg-white text-slate-950 shadow-sm border border-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              <LayoutDashboard className="w-3.5 h-3.5 text-slate-500" />
+              <LayoutDashboard className="w-3.5 h-3.5 text-slate-400" />
               <span>My Dashboard</span>
               {unreadMatchesCount > 0 && (
-                <span className="flex items-center gap-1 px-1.5 py-0.2 bg-amber-500/15 border border-amber-500/40 text-amber-800 text-[10px] font-extrabold rounded-full animate-pulse">
+                <span className="flex items-center gap-1 px-1.5 py-0.2 bg-amber-500/20 border border-amber-500/40 text-amber-900 text-[10px] font-extrabold rounded-full animate-pulse">
                   <Sparkles className="w-2.5 h-2.5 text-amber-600" />
                   {unreadMatchesCount}
                 </span>
@@ -144,10 +159,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             {currentUser && isUserAdmin(currentUser.email) && (
               <button
                 onClick={() => handleTabClick('admin-dashboard')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all relative ${
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all relative cursor-pointer ${
                   currentTab === 'admin-dashboard'
-                    ? 'bg-red-800 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-red-800 hover:bg-white/40'
+                    ? 'bg-red-800 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-red-800 hover:bg-red-50'
                 }`}
               >
                 <Shield className="w-3.5 h-3.5" />
@@ -163,6 +178,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right: Glass Actions & Profile */}
           <div className="flex items-center gap-2">
+            {/* Browser Push Notifications Bell */}
+            <button
+              type="button"
+              onClick={handleOpenNotificationModal}
+              className="relative p-2 rounded-full border border-slate-200/90 bg-white/80 hover:bg-white text-slate-700 hover:text-red-800 transition-all shadow-2xs hover:shadow-xs group cursor-pointer"
+              title={notificationPermission === 'granted' ? 'Push Notifications: Active (Click to manage)' : 'Enable Browser Push Notifications for Item Chats'}
+              aria-label="Push notifications settings"
+            >
+              <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-600 group-hover:text-red-800 transition-colors" />
+              {notificationPermission === 'granted' ? (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+              ) : (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white animate-pulse" />
+              )}
+            </button>
+
             {/* Profile / Login Menu */}
             <div className="relative">
               {isAuthenticated && currentUser ? (
@@ -202,15 +233,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <>
                       {/* Click outside backdrop */}
                       <div 
-                        className="fixed inset-0 z-40 bg-black/15 backdrop-blur-[2px]" 
+                        className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]" 
                         onClick={() => setIsProfileDropdownOpen(false)} 
                       />
 
                       {/* Startup Elevated Popover Card */}
-                      <div className="absolute right-0 mt-2.5 w-80 sm:w-88 bg-white/98 backdrop-blur-2xl border border-slate-200/90 rounded-2xl shadow-2xl shadow-slate-950/15 z-50 overflow-hidden ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-150 divide-y divide-slate-100">
+                      <div className="absolute right-0 mt-2.5 w-84 sm:w-92 bg-white border border-slate-100 rounded-2xl shadow-2xl shadow-slate-950/15 z-50 overflow-hidden ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-150 divide-y divide-slate-100">
                         {/* Profile Header Hero */}
-                        <div className="p-3.5 sm:p-4 bg-gradient-to-b from-slate-50/90 via-slate-50/40 to-white">
-                          <div className="flex items-start gap-3">
+                        <div className="p-4 bg-gradient-to-b from-slate-50 via-slate-50/50 to-white relative">
+                          {/* Close Cross Button */}
+                          <button
+                            type="button"
+                            onClick={() => setIsProfileDropdownOpen(false)}
+                            className="absolute top-3.5 right-3.5 w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                            aria-label="Close profile menu"
+                            title="Close"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+
+                          <div className="flex items-start gap-3 pr-7">
                             <div className="relative shrink-0">
                               {currentUser.avatarUrl ? (
                                 <img
@@ -231,7 +273,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <p className="text-sm font-extrabold text-slate-950 tracking-tight truncate max-w-[155px] sm:max-w-[165px]">
+                                <p className="text-sm font-extrabold text-slate-950 tracking-tight truncate max-w-[145px] sm:max-w-[160px]">
                                   {currentUser.name}
                                 </p>
                                 <BadgeCheck className="w-4 h-4 text-red-600 shrink-0" />
@@ -255,7 +297,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <button
                               type="button"
                               onClick={handleCopyUid}
-                              className="flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/70 transition-all text-left group"
+                              className="flex items-center justify-between p-2 rounded-xl bg-slate-50 hover:bg-slate-100/80 border border-slate-200/70 transition-all text-left group cursor-pointer"
                               title="Click to copy CU UID"
                             >
                               <div className="min-w-0">
@@ -292,7 +334,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                               setNeedsProfileCompletion(true);
                               setIsProfileDropdownOpen(false);
                             }}
-                            className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-50 transition-all group text-left"
+                            className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-50 transition-all group text-left cursor-pointer"
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="w-7 h-7 rounded-lg bg-red-50 text-red-700 flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
@@ -311,7 +353,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                               setCurrentTab('student-dashboard');
                               setIsProfileDropdownOpen(false);
                             }}
-                            className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-50 transition-all group text-left"
+                            className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-50 transition-all group text-left cursor-pointer"
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition-colors">
@@ -332,13 +374,38 @@ export const Navbar: React.FC<NavbarProps> = ({
                             </div>
                           </button>
 
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleOpenNotificationModal();
+                              setIsProfileDropdownOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-50 transition-all group text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition-colors">
+                                <Bell className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-800 group-hover:text-slate-950 leading-tight">Push Notifications</p>
+                                <p className="text-[10px] text-slate-400 leading-tight truncate">
+                                  {notificationPermission === 'granted' ? 'Alerts active for item chats' : 'Enable browser alerts'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={`w-2 h-2 rounded-full ${notificationPermission === 'granted' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                              <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
+                            </div>
+                          </button>
+
                           {currentUser && isUserAdmin(currentUser.email) && isAdmin && (
                             <button
                               onClick={() => {
                                 setCurrentTab('admin-dashboard');
                                 setIsProfileDropdownOpen(false);
                               }}
-                              className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-red-900 hover:bg-red-50/60 transition-all group text-left"
+                              className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-red-900 hover:bg-red-50/60 transition-all group text-left cursor-pointer"
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="w-7 h-7 rounded-lg bg-red-800 text-white flex items-center justify-center shrink-0">
@@ -366,7 +433,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 openAdminVerificationModal();
                                 setIsProfileDropdownOpen(false);
                               }}
-                              className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-amber-900 bg-amber-50/70 hover:bg-amber-100/80 border border-amber-200/80 transition-all group text-left"
+                              className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-amber-900 bg-amber-50/70 hover:bg-amber-100/80 border border-amber-200/80 transition-all group text-left cursor-pointer"
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="w-7 h-7 rounded-lg bg-amber-700 text-white flex items-center justify-center shrink-0">
@@ -389,7 +456,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                               await logout();
                               setIsProfileDropdownOpen(false);
                             }}
-                            className="w-full flex items-center gap-2.5 p-2 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50/80 rounded-xl transition-colors text-left"
+                            className="w-full flex items-center gap-2.5 p-2 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50/80 rounded-xl transition-colors text-left cursor-pointer"
                           >
                             <div className="w-7 h-7 rounded-lg bg-red-100/60 text-red-600 flex items-center justify-center shrink-0">
                               <LogOut className="w-3.5 h-3.5" />
@@ -409,10 +476,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </span>
                   <button
                     onClick={() => setCurrentTab('login')}
-                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all ${
+                    className={`flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2 rounded-full text-xs font-extrabold transition-all cursor-pointer active:scale-95 ${
                       currentTab === 'login'
-                        ? 'bg-red-800 text-white shadow-sm'
-                        : 'border border-slate-200 bg-white/80 hover:bg-white text-slate-800 shadow-2xs hover:shadow-xs'
+                        ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white shadow-md shadow-rose-600/30'
+                        : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 shadow-xs hover:shadow-md'
                     }`}
                   >
                     <LogIn className="w-3.5 h-3.5 text-slate-500" />
@@ -478,16 +545,40 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
+          <button
+            type="button"
+            onClick={() => { handleOpenNotificationModal(); setIsMobileMenuOpen(false); }}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-left text-slate-700 bg-slate-50 hover:bg-slate-100 cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <Bell className="w-4 h-4 text-amber-600" />
+              <span>Browser Push Alerts</span>
+            </div>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${notificationPermission === 'granted' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+              {notificationPermission === 'granted' ? 'Active' : 'Enable'}
+            </span>
+          </button>
+
           {!isAuthenticated && (
             <button
               onClick={() => { setCurrentTab('login'); setIsMobileMenuOpen(false); }}
-              className="w-full flex items-center justify-center gap-2 mt-2 px-4 py-2.5 bg-gradient-to-r from-red-700 to-red-800 text-white font-bold rounded-xl text-xs shadow-sm"
+              className="w-full flex items-center justify-center gap-2 mt-2 px-4 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white font-extrabold rounded-full text-xs shadow-md shadow-rose-600/30 cursor-pointer active:scale-95"
             >
               <LogIn className="w-4 h-4" />
               <span>Student / Staff Login</span>
             </button>
           )}
         </div>
+      )}
+
+      {!onOpenNotificationModal && (
+        <NotificationSettingsModal
+          isOpen={isNotificationModalOpen}
+          onClose={() => {
+            setIsNotificationModalOpen(false);
+            setNotificationPermission(getNotificationPermission());
+          }}
+        />
       )}
     </header>
   );

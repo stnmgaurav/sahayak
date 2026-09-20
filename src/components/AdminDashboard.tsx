@@ -240,7 +240,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <div className="flex items-center justify-between">
         <button
           onClick={onBackToBrowse}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-white/90 hover:bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all active:scale-95"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-extrabold text-slate-700 hover:text-slate-950 bg-white hover:bg-slate-50 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 text-slate-500" />
           <span>Back to Campus Registry</span>
@@ -249,9 +249,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsAddUserModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 shadow-2xs transition-all"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-extrabold text-white bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 shadow-md shadow-rose-600/25 transition-all cursor-pointer active:scale-95"
           >
-            <UserPlus className="w-4 h-4 text-slate-600" />
+            <UserPlus className="w-4 h-4" />
             <span>Add Campus User</span>
           </button>
         </div>
@@ -281,11 +281,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-3 relative z-10 flex-wrap">
-          <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/15 text-slate-200 text-xs font-bold backdrop-blur-md">
+          <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-slate-200 text-xs font-bold backdrop-blur-md">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
             <span>Live Registry Database</span>
           </span>
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-red-600/20 border border-red-500/30 text-red-200 text-xs font-bold">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-red-600/20 border border-red-500/30 text-red-200 text-xs font-bold">
             <ShieldCheck className="w-3.5 h-3.5 text-red-300" />
             <span>Administrator Access</span>
           </span>
@@ -296,31 +296,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
         <div 
           onClick={() => setActiveTab('reports')}
-          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-slate-800"
+          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md shadow-slate-900/10 hover:shadow-lg hover:-translate-y-0.5 border border-slate-700/60"
         >
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
             Total Listings
           </span>
-          <span className="text-2xl font-black text-slate-950 mt-1 block">{totalReports}</span>
-          <span className="text-[10px] text-slate-500 font-medium">Logged on Campus</span>
+          <span className="text-2xl font-black text-white mt-1 block">{totalReports}</span>
+          <span className="text-[10px] text-slate-300 font-medium">Logged on Campus</span>
         </div>
 
         <div 
           onClick={() => setActiveTab('users')}
-          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-red-600"
+          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white shadow-md shadow-rose-600/20 hover:shadow-lg hover:-translate-y-0.5 border border-rose-500/50"
         >
-          <span className="text-[10px] font-black uppercase tracking-wider text-red-700 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-white/80 block">
             Platform Users
           </span>
-          <span className="text-2xl font-black text-red-800 mt-1 block">{users.length}</span>
-          <span className="text-[10px] text-slate-500 font-medium">Students &amp; Staff</span>
+          <span className="text-2xl font-black text-white mt-1 block">{users.length}</span>
+          <span className="text-[10px] text-white/80 font-medium">Students &amp; Staff</span>
         </div>
 
         <div 
           onClick={() => { setActiveTab('reports'); setTypeFilter('lost'); }}
-          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-rose-500"
+          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-rose-50 to-orange-50/50 border border-rose-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5"
         >
-          <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 block">
             Active Lost
           </span>
           <span className="text-2xl font-black text-rose-700 mt-1 block">{activeLost}</span>
@@ -329,9 +329,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <div 
           onClick={() => { setActiveTab('reports'); setTypeFilter('found'); }}
-          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-emerald-600"
+          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5"
         >
-          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 block">
             Safe Custody
           </span>
           <span className="text-2xl font-black text-emerald-700 mt-1 block">{itemsInCustody}</span>
@@ -340,9 +340,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <div 
           onClick={() => setActiveTab('claims')}
-          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-amber-500"
+          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-amber-50 to-yellow-50/50 border border-amber-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5"
         >
-          <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-600 block">
             Pending Claims
           </span>
           <span className="text-2xl font-black text-amber-700 mt-1 block">{pendingClaims}</span>
@@ -351,9 +351,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <div 
           onClick={() => setActiveTab('ledger')}
-          className="glass-panel p-4 rounded-2xl shadow-2xs hover:shadow-md transition-all cursor-pointer border-t-2 border-t-sky-500"
+          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-sky-50 to-blue-50/50 border border-sky-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5"
         >
-          <span className="text-[10px] font-black uppercase tracking-wider text-sky-600 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-600 block">
             Recovered / Returned
           </span>
           <span className="text-2xl font-black text-sky-700 mt-1 block">{returnedItems}</span>
@@ -362,13 +362,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* Tabs Navigation */}
-      <div className="glass-panel rounded-2xl p-1.5 shadow-2xs flex items-center gap-1.5 overflow-x-auto">
+      <div className="glass-panel rounded-full p-1.5 shadow-2xs flex items-center gap-1.5 overflow-x-auto">
         <button
           onClick={() => setActiveTab('reports')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer active:scale-95 ${
             activeTab === 'reports' 
-              ? 'bg-slate-950 text-white shadow-xs' 
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-md' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <FileText className="w-4 h-4" />
@@ -377,10 +377,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <button
           onClick={() => setActiveTab('users')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer active:scale-95 ${
             activeTab === 'users' 
-              ? 'bg-red-800 text-white shadow-xs' 
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white shadow-md shadow-rose-600/25' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Users className="w-4 h-4" />
@@ -389,10 +389,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <button
           onClick={() => setActiveTab('claims')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer active:scale-95 ${
             activeTab === 'claims' 
-              ? 'bg-slate-950 text-white shadow-xs' 
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-md shadow-amber-500/25' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
@@ -401,10 +401,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <button
           onClick={() => setActiveTab('ledger')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer active:scale-95 ${
             activeTab === 'ledger' 
-              ? 'bg-slate-950 text-white shadow-xs' 
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ? 'bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 text-white shadow-md shadow-emerald-600/25' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <PackageCheck className="w-4 h-4" />
@@ -413,10 +413,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         <button
           onClick={() => setActiveTab('hotspots')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer active:scale-95 ${
             activeTab === 'hotspots' 
-              ? 'bg-slate-950 text-white shadow-xs' 
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ? 'bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-700 text-white shadow-md shadow-purple-600/25' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <TrendingUp className="w-4 h-4" />
@@ -609,7 +609,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleEditClick(item)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-2xs"
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-950 text-white rounded-full text-xs font-extrabold transition-all shadow-2xs active:scale-95 cursor-pointer"
                                   title="Edit full report details (Owner / Admin only)"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
@@ -621,7 +621,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <button
                                 type="button"
                                 onClick={() => onViewItemDetails(item)}
-                                className="px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                                className="px-3 py-1.5 text-xs font-extrabold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 rounded-full transition-all active:scale-95 cursor-pointer"
                                 title="Inspect details"
                               >
                                 View
@@ -690,7 +690,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <button
                 onClick={() => setIsAddUserModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-800 hover:bg-red-900 transition-all shadow-xs"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-extrabold text-white bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 transition-all shadow-md shadow-rose-600/25 cursor-pointer active:scale-95"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>Add New User</span>
@@ -741,7 +741,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="p-3.5">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-red-700 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-red-700 to-rose-600 text-white flex items-center justify-center font-black text-sm shadow-xs shrink-0">
                                 {user.name.charAt(0).toUpperCase()}
                               </div>
                               <div>
@@ -781,7 +781,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <button
                               type="button"
                               onClick={() => setSelectedUserForListings(user)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs transition-all"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 shadow-2xs transition-all cursor-pointer active:scale-95"
                             >
                               <FileText className="w-3.5 h-3.5 text-red-700" />
                               <span>{userItems.length} Listings</span>
@@ -795,7 +795,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setSelectedUserForListings(user)}
-                                className="px-2.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-950 rounded-xl transition-all shadow-2xs"
+                                className="px-3.5 py-1.5 text-xs font-extrabold text-white bg-slate-900 hover:bg-slate-950 rounded-full transition-all shadow-2xs cursor-pointer active:scale-95"
                                 title="Manage all listings reported by this user"
                               >
                                 Manage Listings
@@ -805,7 +805,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setEditingUser(user)}
-                                className="p-1.5 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-colors"
+                                className="p-1.5 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
                                 title="Edit user details"
                               >
                                 <Edit3 className="w-4 h-4" />
@@ -815,7 +815,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleToggleRole(user)}
-                                className={`px-2 py-1.5 rounded-xl text-[11px] font-bold transition-colors ${
+                                className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all cursor-pointer active:scale-95 ${
                                   isAdminUser 
                                     ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200' 
                                     : 'text-red-700 bg-red-50 hover:bg-red-100 border border-red-200'
@@ -829,7 +829,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleDeleteUser(user)}
-                                className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl transition-colors"
+                                className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-full transition-colors cursor-pointer"
                                 title="Delete user account"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -913,14 +913,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <>
                             <button
                               onClick={() => handleVerifyClaim(claim.id)}
-                              className="px-3.5 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-2xs transition-colors flex items-center gap-1.5"
+                              className="px-4 py-2 bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-400 hover:via-teal-500 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-emerald-600/30 transition-all cursor-pointer active:scale-95 flex items-center gap-1.5"
                             >
                               <ShieldCheck className="w-4 h-4" />
                               <span>Approve &amp; Verify</span>
                             </button>
                             <button
                               onClick={() => handleRejectClaim(claim.id)}
-                              className="px-3.5 sm:px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors"
+                              className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95"
                             >
                               Reject Claim
                             </button>
@@ -931,7 +931,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <>
                             <button
                               onClick={() => handleReturnClaim(claim.id)}
-                              className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-2xs transition-colors flex items-center gap-1.5"
+                              className="px-4 py-2 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 hover:from-slate-800 hover:to-slate-900 text-white rounded-full text-xs font-extrabold shadow-md shadow-slate-900/25 transition-all cursor-pointer active:scale-95 flex items-center gap-1.5"
                             >
                               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                               <span>Mark Handed Over / Returned</span>
@@ -939,7 +939,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             {item && (
                               <button
                                 onClick={() => onViewReceipt(claim, item)}
-                                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-800 border border-red-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5"
+                                className="px-4 py-2 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/25 transition-all cursor-pointer active:scale-95 flex items-center gap-1.5"
                               >
                                 <Printer className="w-3.5 h-3.5" />
                                 <span>Issue Gate Pass</span>
@@ -951,9 +951,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {isReturned && item && (
                           <button
                             onClick={() => onViewReceipt(claim, item)}
-                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5"
+                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-full text-xs font-extrabold transition-all cursor-pointer active:scale-95 flex items-center gap-1.5"
                           >
-                            <Printer className="w-3.5 h-3.5" />
+                            <Printer className="w-3.5 h-3.5 text-red-600" />
                             <span>View Handover Pass</span>
                           </button>
                         )}
@@ -1083,7 +1083,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="p-3.5 text-right">
                         <button
                           onClick={() => onViewReceipt(claim, item)}
-                          className="px-3.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-800 border border-red-200 rounded-xl text-xs font-bold inline-flex items-center gap-1.5"
+                          className="px-4 py-1.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold inline-flex items-center gap-1.5 shadow-md shadow-rose-600/25 transition-all cursor-pointer active:scale-95"
                         >
                           <Printer className="w-3.5 h-3.5" />
                           <span>Handover Pass</span>

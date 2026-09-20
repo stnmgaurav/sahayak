@@ -225,7 +225,14 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-md p-0 sm:p-4 overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-[999] flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-md p-0 sm:p-4 overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          setNeedsProfileCompletion(false);
+        }
+      }}
+    >
       {/* Main Container: Full screen on mobile, elegant rounded card on desktop */}
       <div className="relative w-full sm:max-w-xl bg-white sm:rounded-3xl shadow-2xl flex flex-col min-h-screen sm:min-h-0 sm:max-h-[92vh] overflow-hidden my-0 sm:my-4 border-0 sm:border sm:border-slate-200 animate-in fade-in zoom-in-95 duration-200">
         
@@ -256,9 +263,9 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
               </div>
             </div>
 
-            {/* Right side controls: Progress pill on initial setup, Close button on edit */}
+            {/* Right side controls: Progress pill on initial setup + ALWAYS visible Close cross button */}
             <div className="flex items-center gap-2 shrink-0">
-              {!isExistingProfile ? (
+              {!isExistingProfile && (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-bold text-white shadow-xs">
                   <span className="text-amber-300 font-mono">{completedCount}/4</span>
                   <span className="text-white/70 hidden xs:inline">done</span>
@@ -266,16 +273,16 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
                     {completionPercentage}%
                   </span>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setNeedsProfileCompletion(false)}
-                  className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 flex items-center justify-center text-white transition-all"
-                  title="Close Profile Details"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               )}
+              <button
+                type="button"
+                onClick={() => setNeedsProfileCompletion(false)}
+                className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 flex items-center justify-center text-white transition-all cursor-pointer shadow-xs"
+                title="Close Profile Details"
+                aria-label="Close Profile"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
@@ -356,9 +363,9 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
                   />
                   <label
                     htmlFor="student-photo-upload"
-                    className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl bg-white border border-slate-300 hover:border-red-700 text-slate-700 hover:text-red-800 text-xs font-bold shadow-2xs transition-colors active:scale-95 touch-manipulation"
+                    className="cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 hover:border-red-600 text-slate-700 hover:text-red-700 text-xs font-bold shadow-2xs transition-colors active:scale-95 touch-manipulation"
                   >
-                    <Upload className="w-3.5 h-3.5 text-red-700" />
+                    <Upload className="w-3.5 h-3.5 text-red-600" />
                     <span>Upload / Camera</span>
                   </label>
 
@@ -366,10 +373,10 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
                     <button
                       type="button"
                       onClick={() => setAvatarUrl(googlePhotoUrl)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 touch-manipulation ${
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 touch-manipulation ${
                         avatarUrl === googlePhotoUrl
-                          ? 'bg-red-100 text-red-800 border border-red-200'
-                          : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                       }`}
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
@@ -380,8 +387,8 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
                   <button
                     type="button"
                     onClick={() => setShowPresetGrid(!showPresetGrid)}
-                    className={`inline-flex items-center gap-1 px-2.5 py-2 sm:py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 touch-manipulation ${
-                      showPresetGrid ? 'bg-red-800 text-white' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 touch-manipulation ${
+                      showPresetGrid ? 'bg-slate-900 text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     <Sparkles className="w-3.5 h-3.5" />
@@ -391,7 +398,7 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
                   <button
                     type="button"
                     onClick={() => setShowCustomUrlInput(!showCustomUrlInput)}
-                    className="inline-flex items-center gap-1 px-2 py-2 sm:py-1.5 rounded-xl text-slate-500 hover:text-slate-800 text-xs font-semibold hover:bg-white transition-colors"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-slate-600 hover:text-slate-900 text-xs font-semibold hover:bg-white border border-slate-200 cursor-pointer transition-colors"
                     title="Enter custom image link"
                   >
                     <ImageIcon className="w-3.5 h-3.5" />
@@ -639,7 +646,7 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
                 <button
                   type="button"
                   onClick={() => setNeedsProfileCompletion(false)}
-                  className="w-1/3 py-3.5 sm:py-3 px-3 rounded-2xl border border-slate-300 text-slate-700 font-bold text-xs sm:text-sm hover:bg-slate-100 transition-colors active:scale-98 touch-manipulation"
+                  className="w-1/3 py-3 px-4 rounded-full border border-slate-200 text-slate-700 font-extrabold text-xs sm:text-sm hover:bg-slate-100 transition-colors active:scale-95 cursor-pointer"
                 >
                   Close
                 </button>
@@ -648,7 +655,7 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
               <button
                 type="submit"
                 disabled={saving || uploadingImage}
-                className={`${isExistingProfile ? 'w-2/3' : 'w-full'} flex items-center justify-center gap-2 py-3.5 px-4 bg-gradient-to-r from-red-700 via-red-800 to-red-900 hover:from-red-800 hover:to-red-950 text-white font-black text-sm rounded-2xl shadow-lg shadow-red-900/25 hover:shadow-xl transition-all disabled:opacity-60 active:scale-98 touch-manipulation min-h-[46px]`}
+                className={`${isExistingProfile ? 'w-2/3' : 'w-full'} flex items-center justify-center gap-2 py-3.5 px-6 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white font-extrabold text-sm rounded-full shadow-md shadow-rose-600/30 hover:shadow-lg transition-all disabled:opacity-60 active:scale-95 cursor-pointer min-h-[46px]`}
               >
                 {saving ? (
                   <>

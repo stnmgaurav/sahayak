@@ -30,8 +30,17 @@ import {
   Camera,
   MessageSquare,
   Phone,
-  Send
+  Send,
+  Bell,
+  BellRing,
+  Settings
 } from 'lucide-react';
+import { 
+  getNotificationPermission, 
+  requestNotificationPermission, 
+  sendTestPushNotification, 
+  NotificationPermissionState 
+} from '../lib/notifications';
 
 interface StudentDashboardProps {
   items: ItemReport[];
@@ -65,6 +74,39 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const { currentUser, isAdmin, openAuthModal, setNeedsProfileCompletion } = useAuth();
   const [activeTab, setActiveTab] = useState<'lost' | 'found' | 'matches' | 'claims' | 'messages'>('lost');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'recovered'>('all');
+  const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(() => getNotificationPermission());
+  const [isEnablingNotif, setIsEnablingNotif] = useState(false);
+  const [testNotifSent, setTestNotifSent] = useState(false);
+
+  const handleEnableNotifications = async () => {
+    setIsEnablingNotif(true);
+    try {
+      const res = await requestNotificationPermission();
+      setNotifPermission(res);
+      if (res === 'granted') {
+        await sendTestPushNotification();
+        setTestNotifSent(true);
+        setTimeout(() => setTestNotifSent(false), 5000);
+      }
+    } catch (e) {
+      console.warn(e);
+    } finally {
+      setIsEnablingNotif(false);
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    setIsEnablingNotif(true);
+    try {
+      await sendTestPushNotification();
+      setTestNotifSent(true);
+      setTimeout(() => setTestNotifSent(false), 5000);
+    } catch (e) {
+      console.warn(e);
+    } finally {
+      setIsEnablingNotif(false);
+    }
+  };
 
   if (!currentUser) {
     return (
@@ -144,33 +186,33 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       <div className="flex items-center justify-between">
         <button
           onClick={onBackToBrowse}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-white/90 hover:bg-white border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all active:scale-95"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200/90 shadow-2xs transition-all active:scale-95 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 text-slate-500" />
           <span>Back to Campus Registry</span>
         </button>
       </div>
 
-      {/* Student Welcome & Profile Bento Banner */}
-      <div className="glass-panel rounded-3xl p-5 sm:p-8 shadow-md relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-red-600/10 via-rose-500/5 to-transparent rounded-full blur-2xl pointer-events-none"></div>
+      {/* Student Welcome & Profile Banner */}
+      <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-7 shadow-xs relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-red-50/60 rounded-full blur-2xl pointer-events-none"></div>
 
         <div className="flex items-center gap-4 sm:gap-5 relative z-10">
           <button
             type="button"
             onClick={() => setNeedsProfileCompletion(true)}
-            className="relative group shrink-0 focus:outline-none focus:ring-2 focus:ring-red-600 rounded-2xl"
+            className="relative group shrink-0 focus:outline-none focus:ring-2 focus:ring-red-600 rounded-2xl cursor-pointer"
             title="Click to view student profile details"
           >
             {currentUser.avatarUrl ? (
               <img
                 src={currentUser.avatarUrl}
                 alt={currentUser.name}
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-red-700/60 shadow-md shadow-red-900/20 bg-white group-hover:scale-102 transition-transform"
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-red-700/60 shadow-xs bg-white group-hover:scale-102 transition-transform"
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-red-700 via-red-800 to-red-950 text-white flex items-center justify-center font-black text-xl sm:text-2xl shadow-md shadow-red-900/20 group-hover:scale-102 transition-transform">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-red-700 via-red-800 to-red-950 text-white flex items-center justify-center font-extrabold text-xl sm:text-2xl shadow-xs group-hover:scale-102 transition-transform">
                 {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
               </div>
             )}
@@ -181,18 +223,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight truncate">{currentUser.name}</h1>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase bg-red-100/90 text-red-800 border border-red-200" title="UID is locked to student profile">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight truncate">{currentUser.name}</h1>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-red-50 text-red-800 border border-red-200/80" title="UID is locked to student profile">
                 <Lock className="w-2.5 h-2.5 text-red-700" />
                 UID: {currentUser.uidOrRoll}
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100/90 text-emerald-800 border border-emerald-200">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80">
                 Verified Student
               </span>
               <button
                 type="button"
                 onClick={() => setNeedsProfileCompletion(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-slate-600 hover:text-red-800 bg-white hover:bg-slate-100 border border-slate-200 shadow-2xs transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-slate-600 hover:text-red-800 bg-slate-50 hover:bg-slate-100 border border-slate-200 shadow-2xs transition-colors cursor-pointer"
                 title="View student profile details (UID & Mobile locked)"
               >
                 <Edit3 className="w-3 h-3 text-slate-500" />
@@ -205,149 +247,236 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </div>
         </div>
 
-        {/* Quick Report Actions */}
+        {/* Quick Report Action Pills - Vibrant Modern Style */}
         <div className="flex items-center gap-2 sm:gap-3 relative z-10 w-full md:w-auto">
           {currentUser && isUserAdmin(currentUser.email) && onOpenSecurityDesk && (
             <button
               type="button"
               onClick={onOpenSecurityDesk}
-              className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-red-800 to-red-950 hover:from-red-900 hover:to-black text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/20 hover:shadow-md"
+              className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-4 py-2.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 hover:from-black hover:to-slate-900 text-white rounded-full text-xs font-extrabold transition-all shadow-xs hover:shadow-md cursor-pointer active:scale-95"
               title="Open Campus Security Desk Admin Console"
             >
-              <Shield className="w-4 h-4 text-red-200 shrink-0" />
+              <Shield className="w-4 h-4 text-rose-300 shrink-0" />
               <span>Security Desk</span>
             </button>
           )}
           <button
             onClick={() => onOpenReportModal('lost')}
-            className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/10 hover:shadow-md"
+            className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-5 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold transition-all shadow-md shadow-rose-600/25 hover:shadow-lg hover:shadow-rose-600/35 cursor-pointer active:scale-95"
           >
-            <PlusCircle className="w-4 h-4 text-red-200 shrink-0" />
+            <PlusCircle className="w-4 h-4 text-rose-100 shrink-0" />
             <span>I Lost Something</span>
           </button>
           <button
             onClick={() => onOpenReportModal('found')}
-            className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-950 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm hover:shadow-md"
+            className="flex-1 md:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-400 hover:via-teal-500 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold transition-all shadow-md shadow-emerald-600/25 hover:shadow-lg hover:shadow-emerald-600/35 cursor-pointer active:scale-95"
           >
-            <HandHeart className="w-4 h-4 text-emerald-400 shrink-0" />
+            <HandHeart className="w-4 h-4 text-emerald-100 shrink-0" />
             <span>I Found Something</span>
           </button>
         </div>
       </div>
 
-      {/* Bento Grid Metrics Summary */}
+      {/* Real-time Browser Push Notifications Card - Vibrant Modern Accent */}
+      <div className="bg-gradient-to-r from-white via-slate-50/50 to-white rounded-2xl border border-slate-100 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
+            notifPermission === 'granted'
+              ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/30'
+              : notifPermission === 'denied'
+              ? 'bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-rose-500/30'
+              : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-amber-500/30'
+          }`}>
+            {notifPermission === 'granted' ? (
+              <BellRing className="w-5 h-5 text-white animate-pulse" />
+            ) : (
+              <Bell className="w-5 h-5 text-white" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
+                {notifPermission === 'granted'
+                  ? 'Browser Push Notifications Active'
+                  : notifPermission === 'denied'
+                  ? 'Browser Push Notifications Blocked'
+                  : 'Enable Browser Push Notifications'}
+              </h3>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
+                notifPermission === 'granted'
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                  : notifPermission === 'denied'
+                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                  : 'bg-amber-100 text-amber-900 border-amber-300'
+              }`}>
+                {notifPermission === 'granted' ? 'Live Alerting' : notifPermission === 'denied' ? 'Blocked' : 'Recommended'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mt-0.5 leading-relaxed">
+              {notifPermission === 'granted'
+                ? 'You will receive instant system tray alerts on your device whenever another student or security messages about your items.'
+                : notifPermission === 'denied'
+                ? 'Notifications were blocked in your browser settings. Unblock them in your address bar to receive instant chat alerts.'
+                : 'Turn on push notifications to be alerted on your phone or computer the moment someone finds or inquires about your item.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+          {notifPermission !== 'granted' && (
+            <button
+              type="button"
+              onClick={handleEnableNotifications}
+              disabled={isEnablingNotif}
+              className="px-5 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold transition-all shadow-md shadow-rose-600/25 active:scale-95 cursor-pointer disabled:opacity-50"
+            >
+              {isEnablingNotif ? 'Requesting...' : 'Turn On Alerts'}
+            </button>
+          )}
+
+          {notifPermission === 'granted' && (
+            <button
+              type="button"
+              onClick={handleSendTestNotification}
+              disabled={isEnablingNotif}
+              className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-600 hover:from-emerald-400 hover:via-teal-500 hover:to-emerald-500 text-white rounded-full text-xs font-extrabold transition-all shadow-md shadow-emerald-600/25 active:scale-95 cursor-pointer disabled:opacity-50"
+            >
+              {testNotifSent ? 'Alert Dispatched!' : 'Send Test Alert'}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('sahayak:open_notification_settings'))}
+            className="p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full border border-slate-200/90 shadow-2xs transition-colors cursor-pointer"
+            title="Notification Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Grid Metrics Summary - Vibrant Colorful Modern App Action Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {/* Metric 1 */}
+        {/* Metric 1 - My Lost Items */}
         <div 
           onClick={() => setActiveTab('lost')}
-          className={`glass-panel p-5 rounded-2xl cursor-pointer transition-all duration-200 group ${
+          className={`rounded-2xl border p-5 cursor-pointer transition-all duration-300 group ${
             activeTab === 'lost' 
-              ? 'ring-2 ring-red-700/60 bg-red-50/40 shadow-md' 
-              : 'hover:border-slate-300 hover:shadow-md'
+              ? 'bg-gradient-to-br from-rose-50 via-white to-white border-rose-300 ring-2 ring-rose-500/20 shadow-md shadow-rose-500/10' 
+              : 'bg-white hover:bg-rose-50/20 border-slate-100 hover:border-rose-200 shadow-xs hover:shadow-md'
           }`}
         >
-          <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-slate-500 group-hover:text-rose-600 transition-colors">
             <span>My Lost Items</span>
-            <Clock className="w-4 h-4 text-rose-500" />
+            <div className="w-7 h-7 rounded-lg bg-rose-50 group-hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors">
+              <Clock className="w-4 h-4" />
+            </div>
           </div>
           <div className="flex items-baseline justify-between mt-3">
-            <span className="text-3xl font-black text-rose-700">{myLostItems.length}</span>
-            <span className="text-xs font-semibold text-slate-400">Reports</span>
+            <span className="text-3xl font-black text-rose-600">{myLostItems.length}</span>
+            <span className="text-xs font-bold text-rose-800 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200/60">Reports</span>
           </div>
         </div>
 
-        {/* Metric 2 */}
+        {/* Metric 2 - Items I Found */}
         <div 
           onClick={() => setActiveTab('found')}
-          className={`glass-panel p-5 rounded-2xl cursor-pointer transition-all duration-200 group ${
+          className={`rounded-2xl border p-5 cursor-pointer transition-all duration-300 group ${
             activeTab === 'found' 
-              ? 'ring-2 ring-emerald-700/60 bg-emerald-50/40 shadow-md' 
-              : 'hover:border-slate-300 hover:shadow-md'
+              ? 'bg-gradient-to-br from-emerald-50 via-white to-white border-emerald-300 ring-2 ring-emerald-500/20 shadow-md shadow-emerald-500/10' 
+              : 'bg-white hover:bg-emerald-50/20 border-slate-100 hover:border-emerald-200 shadow-xs hover:shadow-md'
           }`}
         >
-          <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-slate-500 group-hover:text-emerald-600 transition-colors">
             <span>Items I Found</span>
-            <HandHeart className="w-4 h-4 text-emerald-600" />
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 group-hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors">
+              <HandHeart className="w-4 h-4" />
+            </div>
           </div>
           <div className="flex items-baseline justify-between mt-3">
-            <span className="text-3xl font-black text-emerald-700">{myFoundItems.length}</span>
-            <span className="text-xs font-semibold text-slate-400">Turned In</span>
+            <span className="text-3xl font-black text-emerald-600">{myFoundItems.length}</span>
+            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">Turned In</span>
           </div>
         </div>
 
-        {/* Metric 3 */}
+        {/* Metric 3 - Campus Matches */}
         <div 
           onClick={() => setActiveTab('matches')}
-          className={`glass-panel p-5 rounded-2xl cursor-pointer transition-all duration-200 group ${
+          className={`rounded-2xl border p-5 cursor-pointer transition-all duration-300 group ${
             activeTab === 'matches' 
-              ? 'ring-2 ring-amber-500/60 bg-amber-50/40 shadow-md' 
-              : 'hover:border-slate-300 hover:shadow-md'
+              ? 'bg-gradient-to-br from-amber-50 via-white to-white border-amber-300 ring-2 ring-amber-500/20 shadow-md shadow-amber-500/10' 
+              : 'bg-white hover:bg-amber-50/20 border-slate-100 hover:border-amber-200 shadow-xs hover:shadow-md'
           }`}
         >
-          <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-slate-500 group-hover:text-amber-600 transition-colors">
             <span>Campus Matches</span>
-            <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+            <div className="w-7 h-7 rounded-lg bg-amber-50 group-hover:bg-amber-100 text-amber-600 flex items-center justify-center transition-colors">
+              <Sparkles className="w-4 h-4 animate-pulse" />
+            </div>
           </div>
           <div className="flex items-baseline justify-between mt-3">
             <span className="text-3xl font-black text-amber-600">{myMatches.length}</span>
             {myMatches.length > 0 ? (
-              <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full animate-pulse">
+              <span className="text-xs font-black text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300 animate-pulse">
                 Action Req
               </span>
             ) : (
-              <span className="text-xs font-semibold text-slate-400">Scanning</span>
+              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">Scanning</span>
             )}
           </div>
         </div>
 
-        {/* Metric 4 */}
+        {/* Metric 4 - My Claims */}
         <div 
           onClick={() => setActiveTab('claims')}
-          className={`glass-panel p-5 rounded-2xl cursor-pointer transition-all duration-200 group ${
+          className={`rounded-2xl border p-5 cursor-pointer transition-all duration-300 group ${
             activeTab === 'claims' 
-              ? 'ring-2 ring-sky-600/60 bg-sky-50/40 shadow-md' 
-              : 'hover:border-slate-300 hover:shadow-md'
+              ? 'bg-gradient-to-br from-sky-50 via-white to-white border-sky-300 ring-2 ring-sky-500/20 shadow-md shadow-sky-500/10' 
+              : 'bg-white hover:bg-sky-50/20 border-slate-100 hover:border-sky-200 shadow-xs hover:shadow-md'
           }`}
         >
-          <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-slate-500 group-hover:text-sky-600 transition-colors">
             <span>My Claims</span>
-            <ShieldCheck className="w-4 h-4 text-sky-600" />
+            <div className="w-7 h-7 rounded-lg bg-sky-50 group-hover:bg-sky-100 text-sky-600 flex items-center justify-center transition-colors">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
           </div>
           <div className="flex items-baseline justify-between mt-3">
-            <span className="text-3xl font-black text-sky-700">{myClaims.length}</span>
-            <span className="text-xs font-semibold text-slate-400">Tracking</span>
+            <span className="text-3xl font-black text-sky-600">{myClaims.length}</span>
+            <span className="text-xs font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200/60">Tracking</span>
           </div>
         </div>
       </div>
 
-      {/* Frosted Glass Tabs Switcher */}
-      <div className="glass-panel rounded-2xl p-1.5 shadow-2xs flex items-center gap-1.5 overflow-x-auto">
+      {/* Tabs Switcher - Vibrant Pill Action Buttons */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-2 shadow-xs flex items-center gap-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('lost')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+          className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer active:scale-95 ${
             activeTab === 'lost' 
-              ? 'bg-red-800 text-white shadow-xs' 
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white shadow-sm shadow-rose-600/30' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           My Lost Reports ({myLostItems.length})
         </button>
         <button
           onClick={() => setActiveTab('found')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+          className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer active:scale-95 ${
             activeTab === 'found' 
-              ? 'bg-slate-950 text-white shadow-xs' 
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-sm shadow-emerald-600/30' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           My Found Reports ({myFoundItems.length})
         </button>
         <button
           onClick={() => setActiveTab('matches')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer active:scale-95 ${
             activeTab === 'matches' 
-              ? 'bg-amber-600 text-white shadow-xs' 
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-sm shadow-amber-500/30' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Sparkles className="w-3.5 h-3.5" />
@@ -355,23 +484,23 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </button>
         <button
           onClick={() => setActiveTab('claims')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+          className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer active:scale-95 ${
             activeTab === 'claims' 
-              ? 'bg-sky-800 text-white shadow-xs' 
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white shadow-sm shadow-indigo-600/30' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           My Claims &amp; Verification ({myClaims.length})
         </button>
         <button
           onClick={() => setActiveTab('messages')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer active:scale-95 ${
             activeTab === 'messages' 
-              ? 'bg-emerald-800 text-white shadow-xs' 
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              ? 'bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 text-white shadow-sm shadow-violet-600/30' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
-          <MessageSquare className="w-3.5 h-3.5 text-emerald-300" />
+          <MessageSquare className="w-3.5 h-3.5 text-violet-300" />
           <span>Finder Inquiries ({myReceivedMessages.length})</span>
           {unreadMessagesCount > 0 && (
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -419,7 +548,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
             <button
               onClick={() => onOpenReportModal('lost')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white rounded-xl text-xs font-bold shadow-2xs transition-all"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-sm shadow-rose-600/25 transition-all cursor-pointer active:scale-95"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Report Lost Item</span>
@@ -427,14 +556,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           </div>
 
           {myLostItems.length === 0 ? (
-            <div className="glass-panel rounded-3xl p-12 text-center shadow-md">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+            <div className="rounded-3xl p-12 text-center border border-slate-100 bg-white shadow-xs">
+              <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-3 border border-rose-100">
                 <PlusCircle className="w-6 h-6" />
               </div>
-              <h3 className="font-black text-slate-900 text-lg">
+              <h3 className="font-extrabold text-slate-900 text-lg">
                 {statusFilter === 'recovered' ? 'No Recovered Items Yet' : 'No Lost Items Reported'}
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
+              <p className="text-xs text-slate-500 font-medium mt-1 max-w-sm mx-auto leading-relaxed">
                 {statusFilter === 'recovered'
                   ? 'When your reported lost belongings are found and recovered, they will be archived here in your personal history.'
                   : 'If you misplace an item anywhere on the Chandigarh University campus, report it here for security and peers to help find it.'}
@@ -442,7 +571,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               {statusFilter !== 'recovered' && (
                 <button
                   onClick={() => onOpenReportModal('lost')}
-                  className="mt-4 px-5 py-2.5 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white rounded-xl text-xs font-bold shadow-sm"
+                  className="mt-4 px-5 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/25 transition-all cursor-pointer active:scale-95"
                 >
                   Report a Lost Belonging
                 </button>
@@ -456,23 +585,23 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 return (
                   <div
                     key={item.id}
-                    className="glass-card rounded-2xl p-5 shadow-xs space-y-4"
+                    className="rounded-2xl p-5 shadow-xs hover:shadow-md border border-slate-100 hover:border-slate-200/80 bg-white space-y-4 transition-all duration-200"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-4">
                         <img
                           src={item.imageUrl}
                           alt={item.title}
-                          className="w-16 h-16 rounded-xl object-cover border border-slate-200/80 shrink-0"
+                          className="w-16 h-16 rounded-2xl object-cover border border-slate-200/80 shrink-0"
                         />
                         <div>
                           <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-slate-950 text-base">
+                            <h4 className="font-extrabold text-slate-950 text-base">
                               {item.title}
                             </h4>
                             {item.status === 'recovered' ? (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-xs flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-white" />
                                 Recovered
                               </span>
                             ) : item.status === 'returned' ? (
@@ -480,13 +609,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 Returned
                               </span>
                             ) : (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-100 text-red-800">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-rose-100 text-rose-800 border border-rose-200">
                                 {item.status.replace('_', ' ')}
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-red-700" />
+                          <p className="text-xs text-slate-500 font-medium mt-1 flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-rose-600" />
                             <span>{item.locationBlock}</span>
                             <span>•</span>
                             <span>{new Date(item.dateTime).toLocaleDateString()}</span>
@@ -497,7 +626,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           onClick={() => onViewItemDetails(item)}
-                          className="px-3.5 py-2 bg-white/80 hover:bg-white border border-slate-200/80 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-2xs"
+                          className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-slate-300 text-slate-700 rounded-full text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
                         >
                           Details
                         </button>
@@ -505,28 +634,28 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         {!isRecovered && (
                           <button
                             onClick={() => updateItemStatus(item.id, 'recovered', currentUser?.id, isAdmin)}
-                            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+                            className="px-4 py-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:via-teal-500 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-xs hover:shadow-md shadow-emerald-600/25 cursor-pointer active:scale-95"
                             title="Confirm recovery to remove this item from the campus dashboard"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                            <span>Mark Recovered (Remove from Dashboard)</span>
+                            <span>Mark Recovered</span>
                           </button>
                         )}
 
                         {allMessages.filter(m => m.itemId === item.id).length > 0 && (
                           <button
                             onClick={() => setActiveTab('messages')}
-                            className="px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                            className="px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-full text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
                           >
-                            <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
-                            <span>{allMessages.filter(m => m.itemId === item.id).length} Finder Message(s)</span>
+                            <MessageSquare className="w-3.5 h-3.5 text-white" />
+                            <span>{allMessages.filter(m => m.itemId === item.id).length} Message(s)</span>
                           </button>
                         )}
 
                         {onEditItem && (
                           <button
                             onClick={() => onEditItem(item)}
-                            className="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-2xs"
+                            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-full text-xs font-bold transition-all flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
                             title="Edit this item report"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -544,7 +673,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               }
                             }
                           }}
-                          className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+                          className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 rounded-full text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95"
                           title="Delete this report"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -555,16 +684,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                     {/* Matched Banner if candidates exist */}
                     {!isRecovered && matches.length > 0 && (
-                      <div className="p-3.5 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-between gap-3 text-xs text-amber-950">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Sparkles className="w-4 h-4 text-amber-600 shrink-0 animate-spin" style={{ animationDuration: '6s' }} />
+                      <div className="p-3.5 bg-gradient-to-r from-amber-50 via-orange-50/70 to-amber-50 border border-amber-200/80 rounded-2xl flex items-center justify-between gap-3 text-xs text-amber-950">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <Sparkles className="w-4 h-4 animate-spin" style={{ animationDuration: '6s' }} />
+                          </div>
                           <span className="truncate">
-                            <strong>{matches.length} AI Match Found:</strong> "{matches[0].candidateItem.title}" at {matches[0].candidateItem.locationBlock} ({matches[0].matchScore}% match)
+                            <strong className="font-extrabold">{matches.length} AI Match Found:</strong> "{matches[0].candidateItem.title}" at {matches[0].candidateItem.locationBlock} ({matches[0].matchScore}% match)
                           </span>
                         </div>
                         <button
                           onClick={() => onOpenMatchComparison(item, matches[0].candidateItem)}
-                          className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shrink-0 transition-colors shadow-2xs"
+                          className="px-4 py-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:via-orange-400 hover:to-amber-500 text-white rounded-full text-xs font-extrabold shrink-0 transition-all shadow-xs hover:shadow-md cursor-pointer active:scale-95"
                         >
                           Compare &amp; Claim
                         </button>
@@ -942,6 +1073,102 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               >
                 Chats I Sent ({mySentMessages.length})
               </button>
+            </div>
+          </div>
+
+          {/* Browser Push Notifications Banner Card */}
+          <div className={`p-4 rounded-2xl border transition-all ${
+            notifPermission === 'granted' 
+              ? 'bg-emerald-50/80 border-emerald-200/90 text-emerald-950' 
+              : 'bg-white border-slate-200 text-slate-900 shadow-xs'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                  notifPermission === 'granted' ? 'bg-emerald-600 text-white' : 'bg-red-800 text-white'
+                }`}>
+                  {notifPermission === 'granted' ? <BellRing className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs sm:text-sm font-extrabold text-slate-900">
+                      {notifPermission === 'granted'
+                        ? 'Browser Push Alerts Active'
+                        : 'Never miss a message about your lost item'}
+                    </h4>
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border uppercase ${
+                      notifPermission === 'granted'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}>
+                      {notifPermission === 'granted' ? 'Enabled' : 'Recommended'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5 leading-relaxed">
+                    {notifPermission === 'granted'
+                      ? 'You will receive immediate notifications on your desktop or phone whenever someone chats about your reported belongings, even when this tab is closed.'
+                      : 'Enable browser push notifications to get alerted on your phone or computer as soon as a finder sends holding coordinates, photos, or inquiries.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                {notifPermission !== 'granted' ? (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={isEnablingNotif}
+                      onClick={async () => {
+                        setIsEnablingNotif(true);
+                        try {
+                          const res = await requestNotificationPermission();
+                          setNotifPermission(res);
+                          if (res === 'granted') {
+                            await sendTestPushNotification();
+                          }
+                        } finally {
+                          setIsEnablingNotif(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-800 hover:bg-red-900 text-white rounded-full text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50 cursor-pointer active:scale-95"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span>{isEnablingNotif ? 'Enabling...' : 'Enable Push Alerts'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent('sahayak:open_notification_settings'))}
+                      className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 rounded-full text-xs font-semibold border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                      title="Alert Settings"
+                    >
+                      <Settings className="w-4 h-4 text-slate-600" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setTestNotifSent(true);
+                        await sendTestPushNotification();
+                        setTimeout(() => setTestNotifSent(false), 4000);
+                      }}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer active:scale-95"
+                    >
+                      <BellRing className="w-3.5 h-3.5" />
+                      <span>{testNotifSent ? 'Dispatched!' : 'Send Test Alert'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent('sahayak:open_notification_settings'))}
+                      className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 rounded-full text-xs font-semibold border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                      title="Manage Notification Preferences"
+                    >
+                      <Settings className="w-4 h-4 text-slate-600" />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

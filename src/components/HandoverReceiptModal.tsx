@@ -50,14 +50,14 @@ export const HandoverReceiptModal: React.FC<HandoverReceiptModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-semibold transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full text-xs font-extrabold transition-all cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print Pass</span>
             </button>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-white/10 rounded-lg text-white/80 hover:text-white transition-colors"
+              className="p-1.5 hover:bg-white/10 rounded-full text-white/80 hover:text-white transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -152,7 +152,7 @@ export const HandoverReceiptModal: React.FC<HandoverReceiptModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-200/80 hover:bg-slate-200 transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 text-slate-500" />
             <span>Back to Dashboard</span>
@@ -161,7 +161,7 @@ export const HandoverReceiptModal: React.FC<HandoverReceiptModalProps> = ({
           <button
             type="button"
             onClick={handlePrint}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-red-800 hover:bg-red-900 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/30 transition-all cursor-pointer active:scale-95"
           >
             <Printer className="w-4 h-4" />
             <span>Print Official Pass</span>

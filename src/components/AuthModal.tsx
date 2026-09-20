@@ -173,7 +173,7 @@ export const AuthModal: React.FC = () => {
             type="button"
             onClick={handleGoogleSignIn}
             disabled={googleLoading || loading}
-            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl text-slate-700 font-bold text-xs sm:text-sm transition-all shadow-2xs disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-full text-slate-800 font-extrabold text-xs sm:text-sm transition-all shadow-xs hover:shadow-md cursor-pointer active:scale-95 disabled:opacity-50"
           >
             {googleLoading ? (
               <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
@@ -298,7 +298,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="submit"
               disabled={loading || googleLoading}
-              className="w-full mt-3 flex items-center justify-center gap-2 py-3.5 sm:py-2.5 px-4 bg-red-800 hover:bg-red-900 active:bg-red-950 text-white rounded-xl text-sm font-bold transition-colors shadow-sm disabled:opacity-50 min-h-[44px]"
+              className="w-full mt-4 flex items-center justify-center gap-2 py-3.5 sm:py-3 px-6 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-sm font-extrabold transition-all shadow-md shadow-rose-600/30 cursor-pointer active:scale-95 disabled:opacity-50 min-h-[44px]"
             >
               {loading ? (
                 <>

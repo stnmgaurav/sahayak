@@ -152,9 +152,9 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setFilterType('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold transition-all cursor-pointer ${
                 filterType === 'all' 
-                  ? 'bg-slate-900 text-white' 
+                  ? 'bg-slate-900 text-white shadow-xs' 
                   : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
               }`}
             >
@@ -162,9 +162,9 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
             </button>
             <button
               onClick={() => setFilterType('lost')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold transition-all cursor-pointer ${
                 filterType === 'lost' 
-                  ? 'bg-red-800 text-white' 
+                  ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-xs' 
                   : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
               }`}
             >
@@ -172,9 +172,9 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
             </button>
             <button
               onClick={() => setFilterType('found')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold transition-all cursor-pointer ${
                 filterType === 'found' 
-                  ? 'bg-emerald-700 text-white' 
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs' 
                   : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
               }`}
             >
@@ -287,7 +287,7 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
                                 onClose();
                                 onEditItem(item);
                               }}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-2xs"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-black hover:to-slate-900 text-white rounded-full text-xs font-extrabold transition-all shadow-2xs active:scale-95 cursor-pointer"
                               title="Edit this listing"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
@@ -303,7 +303,7 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
                                   onDeleteItem(item.id);
                                 }
                               }}
-                              className="p-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors"
+                              className="p-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-full transition-colors cursor-pointer"
                               title="Permanently delete this report"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -331,7 +331,7 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
           <span>Total {userItems.length} reports logged by {user.name}</span>
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 transition-colors"
+            className="px-5 py-2 rounded-full text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
           >
             Close
           </button>

@@ -321,7 +321,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         {/* Return Button */}
         <button
           onClick={onBackToBrowse}
-          className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors px-3 py-1.5 rounded-xl hover:bg-white/60"
+          className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-950 transition-colors px-4 py-2 rounded-full bg-white/80 hover:bg-white border border-slate-200/80 shadow-2xs cursor-pointer active:scale-95"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Campus Registry</span>
@@ -383,13 +383,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <div>
               {/* Mode Switcher Tabs */}
               {mode !== 'forgot' && (
-                <div className="flex p-1 rounded-2xl glass-panel-subtle mb-6 border border-slate-200/80">
+                <div className="flex p-1.5 rounded-full bg-slate-100/90 mb-6 border border-slate-200">
                   <button
                     type="button"
                     onClick={() => { setMode('login'); setError(null); }}
-                    className={`flex-1 py-2.5 text-center text-xs font-bold rounded-xl transition-all ${
+                    className={`flex-1 py-2 text-center text-xs font-extrabold rounded-full transition-all cursor-pointer ${
                       mode === 'login'
-                        ? 'bg-white text-slate-950 shadow-sm'
+                        ? 'bg-white text-slate-900 shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -398,9 +398,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <button
                     type="button"
                     onClick={() => { setMode('signup'); setError(null); }}
-                    className={`flex-1 py-2.5 text-center text-xs font-bold rounded-xl transition-all ${
+                    className={`flex-1 py-2 text-center text-xs font-extrabold rounded-full transition-all cursor-pointer ${
                       mode === 'signup'
-                        ? 'bg-white text-slate-950 shadow-sm'
+                        ? 'bg-white text-slate-900 shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -440,7 +440,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     type="button"
                     onClick={handleGoogleSignIn}
                     disabled={googleLoading || loading}
-                    className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white/90 hover:bg-white text-slate-800 font-bold text-xs sm:text-sm rounded-xl border border-slate-200 shadow-2xs hover:shadow-xs transition-all disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-3 py-3 px-5 bg-white hover:bg-slate-50 text-slate-800 font-extrabold text-xs sm:text-sm rounded-full border border-slate-200 shadow-xs hover:shadow-md transition-all cursor-pointer active:scale-95 disabled:opacity-50"
                   >
                     {googleLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
@@ -525,7 +525,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <button
                     type="submit"
                     disabled={loading || googleLoading}
-                    className="w-full py-3.5 sm:py-2.5 px-4 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 active:bg-red-950 text-white font-bold text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 min-h-[44px]"
+                    className="w-full py-3.5 px-6 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 active:scale-95 text-white font-extrabold text-sm rounded-full shadow-md shadow-rose-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 min-h-[44px]"
                   >
                     {loading ? (
                       <>
@@ -659,7 +659,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <button
                     type="submit"
                     disabled={loading || googleLoading}
-                    className="w-full py-3.5 sm:py-2.5 px-4 bg-gradient-to-r from-red-700 to-red-800 hover:from-red-800 hover:to-red-900 text-white font-bold text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 mt-2 disabled:opacity-50 min-h-[44px]"
+                    className="w-full py-3.5 px-6 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white font-extrabold text-sm rounded-full shadow-md shadow-rose-600/30 transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer active:scale-95 disabled:opacity-50 min-h-[44px]"
                   >
                     {loading ? (
                       <>
@@ -692,7 +692,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       <button
                         type="button"
                         onClick={() => { setMode('login'); setResetSent(false); }}
-                        className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
+                        className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-full text-xs font-extrabold cursor-pointer transition-all active:scale-95"
                       >
                         Return to Sign In
                       </button>
@@ -717,14 +717,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         <button
                           type="button"
                           onClick={() => setMode('login')}
-                          className="flex-1 py-2.5 px-4 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50"
+                          className="flex-1 py-2.5 px-4 border border-slate-200 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition-all"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
                           disabled={loading}
-                          className="flex-1 py-2.5 px-4 bg-red-800 text-white rounded-xl text-xs font-bold hover:bg-red-900 flex items-center justify-center gap-2"
+                          className="flex-1 py-2.5 px-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
                         >
                           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>Send Reset Link</span>}
                         </button>

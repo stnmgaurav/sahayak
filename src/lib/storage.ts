@@ -12,6 +12,12 @@ import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { uploadImageToCloudinary } from './cloudinary';
 import { ItemReport, ItemClaim, HandoverReceipt, ItemMessage, UserProfile } from '../types';
 import { INITIAL_REPORTS, INITIAL_CLAIMS, DEMO_USERS } from '../data/mockData';
+import { 
+  handleIncomingMessageNotification, 
+  broadcastOutgoingMessage, 
+  registerServiceWorker,
+  subscribeToCrossTabNotifications 
+} from './notifications';
 
 const ITEMS_KEY = 'sahayak_items_v1';
 const CLAIMS_KEY = 'sahayak_claims_v1';
@@ -138,6 +144,9 @@ let cachedReceipts: HandoverReceipt[] = loadLocalReceipts();
 let cachedMessages: ItemMessage[] = loadLocalMessages();
 let cachedUsers: UserProfile[] = loadLocalUsers();
 
+let seenMessageIds = new Set<string>(cachedMessages.map(m => m.id));
+let isFirstMessagesSnapshot = true;
+
 let unsubscribeItems: (() => void) | null = null;
 let unsubscribeClaims: (() => void) | null = null;
 let unsubscribeReceipts: (() => void) | null = null;
@@ -257,13 +266,42 @@ export function initFirestoreSync() {
       unsubscribeMessages = onSnapshot(messagesCol, (snapshot) => {
         if (!snapshot.empty) {
           const firestoreMessages: ItemMessage[] = [];
+          const newMessagesToAlert: ItemMessage[] = [];
+
           snapshot.forEach((docSnap) => {
-            firestoreMessages.push({ ...(docSnap.data() as ItemMessage), id: docSnap.id });
+            const msg = { ...(docSnap.data() as ItemMessage), id: docSnap.id };
+            firestoreMessages.push(msg);
+
+            // Detect brand new messages that arrived after initial load
+            if (!isFirstMessagesSnapshot && !seenMessageIds.has(msg.id)) {
+              newMessagesToAlert.push(msg);
+            }
+            seenMessageIds.add(msg.id);
           });
+
+          isFirstMessagesSnapshot = false;
           firestoreMessages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           cachedMessages = firestoreMessages;
           localStorage.setItem(MESSAGES_KEY, JSON.stringify(firestoreMessages));
           notifyListeners();
+
+          // Trigger push notifications for the recipient / owner of reported items
+          if (newMessagesToAlert.length > 0 && typeof window !== 'undefined') {
+            try {
+              const rawUser = localStorage.getItem('sahayak_auth_user_v1');
+              if (rawUser) {
+                const activeUser = JSON.parse(rawUser);
+                for (const newMsg of newMessagesToAlert) {
+                  const targetItem = cachedItems.find(i => i.id === newMsg.itemId);
+                  handleIncomingMessageNotification(newMsg, targetItem, activeUser.id, activeUser.email);
+                }
+              }
+            } catch (err) {
+              console.warn('Failed to evaluate push notification for incoming message:', err);
+            }
+          }
+        } else {
+          isFirstMessagesSnapshot = false;
         }
       }, (error) => {
         handleFirestoreError(error, OperationType.GET, 'messages');
@@ -319,6 +357,20 @@ export function initFirestoreSync() {
 // Automatically start synchronization on load and bind auth lifecycle
 if (typeof window !== 'undefined') {
   initFirestoreSync();
+  registerServiceWorker().catch(() => {});
+
+  // Listen for cross-tab message events to notify other tabs immediately
+  subscribeToCrossTabNotifications((msg) => {
+    try {
+      const rawUser = localStorage.getItem('sahayak_auth_user_v1');
+      if (rawUser) {
+        const activeUser = JSON.parse(rawUser);
+        const targetItem = cachedItems.find(i => i.id === msg.itemId);
+        handleIncomingMessageNotification(msg, targetItem, activeUser.id, activeUser.email);
+      }
+    } catch (e) {}
+  });
+
   onAuthStateChanged(auth, (user) => {
     if (user) {
       initFirestoreSync();
@@ -571,6 +623,7 @@ export function getStoredMessages(): ItemMessage[] {
 export function saveMessage(newMessage: ItemMessage): ItemMessage {
   // Update local cache immediately
   cachedMessages.unshift(newMessage);
+  seenMessageIds.add(newMessage.id);
   localStorage.setItem(MESSAGES_KEY, JSON.stringify(cachedMessages));
 
   // Automatically update the associated lost item status to 'match_found' if it was 'lost'
@@ -580,6 +633,7 @@ export function saveMessage(newMessage: ItemMessage): ItemMessage {
   }
 
   notifyListeners();
+  broadcastOutgoingMessage(newMessage);
 
   // Persist to Firebase Firestore
   try {

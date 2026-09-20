@@ -120,7 +120,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
-      <div className="relative w-full max-w-3xl glass-panel rounded-3xl shadow-2xl border border-white/80 overflow-hidden my-6">
+      <div className="relative w-full max-w-3xl rounded-2xl border border-slate-100 bg-white shadow-2xl overflow-hidden my-6">
         {/* Header */}
         <div className={`p-5 sm:p-7 pr-16 text-white relative ${
           isLost 
@@ -129,7 +129,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
         }`}>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-white/90 hover:text-white p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
+            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-white/90 hover:text-white p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors cursor-pointer"
             aria-label="Close details"
           >
             <X className="w-5 h-5" />
@@ -142,8 +142,8 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             <span className="text-white/70 text-xs font-mono">ID: #{item.id.slice(-6)}</span>
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">{item.title}</h2>
-          <p className="text-xs sm:text-sm text-white/80 mt-1">
+          <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">{item.title}</h2>
+          <p className="text-xs sm:text-sm text-white/80 font-medium mt-1">
             Reported by {item.userName} ({item.userUid || 'Student'}) • {item.locationBlock}
           </p>
         </div>
@@ -157,8 +157,8 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
         )}
 
         {/* Status Pipeline Tracker */}
-        <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-4 overflow-x-auto no-scrollbar">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3 whitespace-nowrap">
+        <div className="bg-slate-50 border-b border-slate-100 px-4 sm:px-6 py-4 overflow-x-auto no-scrollbar">
+          <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-3 whitespace-nowrap">
             Item Status Pipeline: Lost → Match Found → Claim → Verified → Returned
           </p>
 
@@ -184,8 +184,8 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   >
                     {isPast ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
                   </div>
-                  <span className={`text-[10px] sm:text-[11px] font-semibold mt-1.5 text-center max-w-[70px] leading-tight ${
-                    isCurrent ? 'text-red-900 font-bold' : isPast ? 'text-slate-700' : 'text-slate-400'
+                  <span className={`text-[10px] sm:text-[11px] font-bold mt-1.5 text-center max-w-[70px] leading-tight ${
+                    isCurrent ? 'text-red-900 font-extrabold' : isPast ? 'text-slate-700' : 'text-slate-400'
                   }`}>
                     {step.label}
                   </span>
@@ -200,7 +200,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left: Image */}
             <div className="space-y-3">
-              <div className="aspect-4/3 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden shadow-2xs">
+              <div className="aspect-4/3 rounded-2xl bg-slate-100 border border-slate-100 overflow-hidden shadow-2xs">
                 <img
                   src={item.imageUrl}
                   alt={item.title}
@@ -210,131 +210,131 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
               {/* Safe Custody Note for Found items */}
               {item.type === 'found' && item.currentHoldingLocation && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-start gap-2.5">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 flex items-start gap-2.5">
                   <Building2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold block">Safe Custody Handover Point:</span>
-                    <span className="text-emerald-800">{item.currentHoldingLocation}</span>
+                    <span className="font-extrabold block">Safe Custody Handover Point:</span>
+                    <span className="text-emerald-800 font-medium">{item.currentHoldingLocation}</span>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Right: Metadata Specifications */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-slate-400 uppercase tracking-wider font-bold text-[10px] block">
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                  <span className="text-slate-500 uppercase tracking-wider font-extrabold text-[10px] block">
                     Category
                   </span>
-                  <span className="font-bold text-slate-800 text-sm mt-0.5 block">
+                  <span className="font-extrabold text-slate-900 text-sm mt-0.5 block">
                     {item.category}
                   </span>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-slate-400 uppercase tracking-wider font-bold text-[10px] block">
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                  <span className="text-slate-500 uppercase tracking-wider font-extrabold text-[10px] block">
                     Color
                   </span>
-                  <span className="font-bold text-slate-800 text-sm mt-0.5 block">
+                  <span className="font-extrabold text-slate-900 text-sm mt-0.5 block">
                     {item.color}
                   </span>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-slate-400 uppercase tracking-wider font-bold text-[10px] block">
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                  <span className="text-slate-500 uppercase tracking-wider font-extrabold text-[10px] block">
                     Brand / Model
                   </span>
-                  <span className="font-bold text-slate-800 text-sm mt-0.5 block">
+                  <span className="font-extrabold text-slate-900 text-sm mt-0.5 block truncate">
                     {item.brandOrModel || 'Not Specified'}
                   </span>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-slate-400 uppercase tracking-wider font-bold text-[10px] block">
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                  <span className="text-slate-500 uppercase tracking-wider font-extrabold text-[10px] block">
                     Current Status
                   </span>
-                  <span className="font-bold text-red-800 text-sm mt-0.5 block capitalize">
+                  <span className="font-extrabold text-red-800 text-sm mt-0.5 block capitalize">
                     {item.status.replace('_', ' ')}
                   </span>
                 </div>
               </div>
 
               {/* Campus Location */}
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
-                <div className="flex items-center gap-2 text-slate-500 font-semibold">
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 space-y-1 text-xs">
+                <div className="flex items-center gap-2 text-slate-500 font-bold">
                   <MapPin className="w-4 h-4 text-red-700" />
                   <span>Reported Campus Location:</span>
                 </div>
-                <p className="font-bold text-slate-900 pl-6">
+                <p className="font-extrabold text-slate-900 pl-6">
                   {item.locationBlock}
                 </p>
-                <p className="text-slate-600 pl-6">
+                <p className="text-slate-500 font-medium pl-6">
                   Spot: {item.specificSpot || 'Not specified'}
                 </p>
               </div>
 
               {/* Timestamp */}
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1 text-xs">
-                <div className="flex items-center gap-2 text-slate-500 font-semibold">
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 space-y-1 text-xs">
+                <div className="flex items-center gap-2 text-slate-500 font-bold">
                   <Calendar className="w-4 h-4 text-red-700" />
                   <span>Reported Timestamp:</span>
                 </div>
-                <p className="font-medium text-slate-800 pl-6">
+                <p className="font-medium text-slate-700 pl-6">
                   {formattedDate}
                 </p>
               </div>
 
               {/* Unique Identifying Mark */}
               {item.identifyingMark && (
-                <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl text-xs space-y-1">
-                  <span className="font-bold text-amber-900 block">
+                <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs space-y-1">
+                  <span className="font-extrabold text-amber-900 block">
                     Unique Identifying Mark / Feature:
                   </span>
-                  <p className="text-amber-800">{item.identifyingMark}</p>
+                  <p className="text-amber-800 font-medium">{item.identifyingMark}</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Description Section */}
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1.5">
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
               Detailed Description
             </h4>
-            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
               {item.description}
             </p>
           </div>
 
           {/* Reporter Profile & Contact */}
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-800 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+              <div className="w-10 h-10 rounded-full bg-red-800 text-white flex items-center justify-center font-extrabold text-sm shadow-xs">
                 {item.userName.charAt(0).toUpperCase()}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-900 text-sm">{item.userName}</span>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-800">
+                  <span className="font-extrabold text-slate-900 text-sm">{item.userName}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-emerald-100 text-emerald-800">
                     CU Student
                   </span>
                 </div>
-                <span className="text-[11px] text-slate-500 block">UID: {item.userUid || 'Registered'}</span>
+                <span className="text-[11px] text-slate-500 font-medium block">UID: {item.userUid || 'Registered'}</span>
               </div>
             </div>
 
             <div className="flex items-center gap-2.5 flex-wrap">
               {/* Phone privacy check */}
               {item.hidePhone ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 font-semibold text-xs">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 font-semibold text-xs">
                   <EyeOff className="w-3.5 h-3.5 text-amber-600" />
                   <span>Phone Kept Private</span>
                 </span>
               ) : item.userPhone ? (
                 <a
                   href={`tel:${item.userPhone}`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-slate-950 font-bold hover:bg-slate-50 transition-colors shadow-2xs"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 hover:text-slate-900 font-bold hover:bg-slate-50 transition-colors shadow-2xs"
                 >
                   <Phone className="w-3.5 h-3.5 text-emerald-600" />
                   <span>{item.userPhone}</span>
@@ -354,7 +354,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                     onClose();
                     onSendMessage(item);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded-xl font-bold shadow-2xs transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full font-extrabold shadow-md shadow-rose-600/25 transition-all cursor-pointer active:scale-95"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Chat with {item.userName.split(' ')[0]}</span>
@@ -367,37 +367,37 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
           {matches.length > 0 && (
             <div className="border border-amber-200 bg-amber-50/50 rounded-2xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                <div className="flex items-center gap-2 text-amber-900 font-extrabold text-xs">
                   <Sparkles className="w-4 h-4 text-amber-600" />
                   <span>Automatically Detected Campus Matches ({matches.length})</span>
                 </div>
-                <span className="text-[11px] text-amber-700 font-medium">
+                <span className="text-[11px] text-amber-700 font-bold">
                   AI Matching Engine
                 </span>
               </div>
 
               <div className="space-y-2">
-                {matches.map((match, idx) => (
+                {matches.map((match) => (
                   <div
                     key={match.candidateItem.id}
-                    className="p-3 bg-white rounded-xl border border-amber-200 flex items-center justify-between gap-3 shadow-2xs hover:border-amber-400 transition-colors"
+                    className="p-3 bg-white rounded-2xl border border-amber-200 flex items-center justify-between gap-3 shadow-2xs hover:border-amber-400 transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <img
                         src={match.candidateItem.imageUrl}
                         alt={match.candidateItem.title}
-                        className="w-12 h-12 rounded-lg object-cover shrink-0"
+                        className="w-12 h-12 rounded-xl object-cover shrink-0"
                       />
                       <div className="min-w-0 text-xs">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 truncate">
+                          <span className="font-extrabold text-slate-900 truncate">
                             {match.candidateItem.title}
                           </span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-900">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900">
                             {match.matchScore}% Match
                           </span>
                         </div>
-                        <p className="text-slate-500 truncate mt-0.5">
+                        <p className="text-slate-500 font-medium truncate mt-0.5">
                           {match.candidateItem.locationBlock} • {match.reasons.slice(0, 2).join(', ')}
                         </p>
                       </div>
@@ -417,7 +417,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                           onOpenMatchComparison(match.candidateItem, item);
                         }
                       }}
-                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shrink-0 transition-colors"
+                      className="px-4 py-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white rounded-full text-xs font-extrabold shadow-md shadow-amber-500/25 shrink-0 transition-all cursor-pointer active:scale-95"
                     >
                       Compare &amp; Claim
                     </button>
@@ -429,11 +429,11 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 sm:p-5 border-t border-slate-200 bg-slate-50/70 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50/70 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-200/70 hover:bg-slate-200 transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 text-slate-500" />
             <span>Back to Registry</span>
@@ -447,7 +447,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={handleMarkRecovered}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-emerald-600/25 transition-all cursor-pointer active:scale-95"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Mark Recovered</span>
@@ -461,7 +461,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                       onClose();
                       onEditItem(item);
                     }}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white rounded-full text-xs font-extrabold shadow-md shadow-slate-900/20 transition-all cursor-pointer active:scale-95"
                     title="Edit listing details"
                   >
                     <Edit3 className="w-4 h-4" />
@@ -473,7 +473,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={handleDelete}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-red-100 hover:bg-red-200 text-red-800 rounded-xl text-xs font-bold transition-all"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-xs font-extrabold transition-all cursor-pointer active:scale-95"
                     title="Delete your uploaded item report"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -496,7 +496,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   onClose();
                   onSendMessage(item);
                 }}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-emerald-600/25 transition-all cursor-pointer active:scale-95"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Found This Item? Message Owner</span>
@@ -516,7 +516,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   onClose();
                   onSendMessage(item);
                 }}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white rounded-full text-xs font-extrabold shadow-md shadow-slate-900/25 transition-all cursor-pointer active:scale-95"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Message Finder</span>
@@ -536,7 +536,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   onClose();
                   onClaim(item);
                 }}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/30 transition-all cursor-pointer active:scale-95"
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>I Own This Item (File Claim)</span>
@@ -551,7 +551,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   onClose();
                   onSendMessage(item);
                 }}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-800 hover:to-teal-900 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-emerald-600/25 transition-all cursor-pointer active:scale-95"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Open Item Chat &amp; Replies</span>
@@ -570,7 +570,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   }
                   onOpenMatchComparison(item, matches[0].candidateItem);
                 }}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white rounded-full text-xs font-extrabold shadow-md shadow-amber-500/25 transition-all cursor-pointer active:scale-95"
               >
                 <Sparkles className="w-4 h-4" />
                 <span>View Top Match ({matches[0].matchScore}%)</span>

@@ -239,7 +239,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
             <div className="flex items-center gap-3">
               <label
                 htmlFor={proofInputId}
-                className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs transition-colors"
+                className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 rounded-full text-xs font-bold text-slate-700 shadow-2xs hover:shadow-xs transition-all active:scale-95"
               >
                 <Upload className="w-4 h-4 text-slate-500" />
                 <span>Upload Proof Photo / Bill</span>
@@ -271,7 +271,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4 text-slate-500" />
               <span>Back to Item</span>
@@ -280,7 +280,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center justify-center gap-2 px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-7 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/30 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
             >
               <ShieldCheck className="w-4 h-4" />
               <span>{submitting ? 'Submitting Verification...' : 'Submit Claim Request'}</span>

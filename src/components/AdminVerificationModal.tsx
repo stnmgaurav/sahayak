@@ -191,7 +191,7 @@ export const AdminVerificationModal: React.FC<AdminVerificationModalProps> = ({ 
                 type="button"
                 onClick={handleCancel}
                 disabled={isVerifying || success}
-                className="flex-1 py-2.5 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50"
+                className="flex-1 py-2.5 px-4 border border-slate-200 rounded-full text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 Cancel
               </button>
@@ -199,7 +199,7 @@ export const AdminVerificationModal: React.FC<AdminVerificationModalProps> = ({ 
               <button
                 type="submit"
                 disabled={isVerifying || success || !password.trim()}
-                className="flex-1 py-2.5 px-4 bg-gradient-to-r from-red-800 to-red-900 hover:from-red-900 hover:to-slate-950 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="flex-1 py-2.5 px-5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 active:scale-95 text-white font-extrabold text-xs rounded-full shadow-md shadow-rose-600/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 {isVerifying ? (
                   <>

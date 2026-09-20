@@ -178,7 +178,7 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-200/70 hover:bg-slate-200 transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 text-slate-500" />
             <span>Back to Details</span>
@@ -190,7 +190,7 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
               onClose();
               onProceedToClaim(foundItem);
             }}
-            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+            className="flex items-center justify-center gap-2 px-7 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/30 transition-all cursor-pointer active:scale-95"
           >
             <ShieldCheck className="w-4 h-4" />
             <span>This is My Item — Claim &amp; Verify</span>

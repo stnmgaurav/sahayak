@@ -268,7 +268,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
-      <div className="relative w-full max-w-3xl glass-panel rounded-3xl shadow-2xl border border-white/80 overflow-hidden my-6">
+      <div className="relative w-full max-w-3xl rounded-2xl border border-slate-100 bg-white shadow-2xl overflow-hidden my-6">
         {/* Header */}
         <div className={`p-5 sm:p-7 pr-16 text-white relative transition-colors ${
           type === 'lost' 
@@ -277,7 +277,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         }`}>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-white/90 hover:text-white p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
+            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-white/90 hover:text-white p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors cursor-pointer"
             aria-label="Close form"
           >
             <X className="w-5 h-5" />
@@ -288,10 +288,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             <button
               type="button"
               onClick={() => setType('lost')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition-all cursor-pointer active:scale-95 ${
                 type === 'lost'
-                  ? 'bg-white text-red-950 shadow-md'
-                  : 'bg-white/15 text-white hover:bg-white/25'
+                  ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white shadow-md shadow-rose-600/30'
+                  : 'bg-white/20 text-white hover:bg-white/30'
               }`}
             >
               I Lost Something
@@ -299,22 +299,22 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             <button
               type="button"
               onClick={() => setType('found')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition-all cursor-pointer active:scale-95 ${
                 type === 'found'
-                  ? 'bg-emerald-500 text-white shadow-md'
-                  : 'bg-white/15 text-white hover:bg-white/25'
+                  ? 'bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 text-white shadow-md shadow-emerald-600/30'
+                  : 'bg-white/20 text-white hover:bg-white/30'
               }`}
             >
               I Found Something
             </button>
           </div>
 
-          <h2 className="text-2xl font-black tracking-tight text-white">
+          <h2 className="text-2xl font-extrabold tracking-tight text-white">
             {editingItem 
               ? (type === 'lost' ? 'Edit Lost Item Report' : 'Edit Found Belonging Report')
               : (type === 'lost' ? 'Report a Lost Item on Campus' : 'Report a Found Belonging')}
           </h2>
-          <p className="text-xs sm:text-sm text-white/80 mt-1">
+          <p className="text-xs sm:text-sm text-white/80 font-medium mt-1">
             {editingItem
               ? 'Update the details for your reported item. Changes will immediately sync to the campus database.'
               : type === 'lost'
@@ -445,7 +445,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 <div className="flex items-center gap-2">
                   <label
                     htmlFor={fileInputId}
-                    className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs transition-colors"
+                    className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 rounded-full text-xs font-bold text-slate-700 shadow-2xs transition-all active:scale-95"
                   >
                     <Upload className="w-4 h-4 text-slate-500" />
                     <span>Upload from Device (Cloudinary / File)</span>
@@ -457,12 +457,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                     onChange={handleFileUpload}
                     className="hidden"
                   />
-                  <span className="text-[11px] text-slate-400">Max 5MB (PNG, JPG, WEBP)</span>
+                  <span className="text-[11px] text-slate-400 font-medium">Max 5MB (PNG, JPG, WEBP)</span>
                 </div>
 
                 {/* Preset Campus Items Selector */}
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1.5">
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
                     Or select a common campus item photography preset:
                   </label>
                   <div className="flex flex-wrap gap-1.5">
@@ -471,10 +471,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                         key={p.label}
                         type="button"
                         onClick={() => setImageUrl(p.url)}
-                        className={`px-2.5 py-1 text-xs rounded-lg border transition-all ${
+                        className={`px-3 py-1 text-xs rounded-full border transition-all cursor-pointer active:scale-95 ${
                           imageUrl === p.url
-                            ? 'bg-red-50 border-red-600 text-red-800 font-semibold'
-                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                            ? type === 'lost'
+                              ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white font-extrabold border-transparent shadow-xs'
+                              : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold border-transparent shadow-xs'
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 font-medium hover:border-slate-300'
                         }`}
                       >
                         {p.label}
@@ -698,13 +700,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                         onClose();
                         openAuthModal('login', `Please sign in with your Chandigarh University ID to submit a ${type === 'lost' ? 'lost' : 'found'} item report.`);
                       }}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-red-800 hover:bg-red-900 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+                      className="flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/25 transition-all cursor-pointer active:scale-95"
                     >
                       <LogIn className="w-3.5 h-3.5" />
                       <span>Sign In with CU ID</span>
                     </button>
                   </div>
-                  <p className="text-xs text-amber-800/90 leading-relaxed">
+                  <p className="text-xs text-amber-800/90 leading-relaxed font-medium">
                     Chandigarh University security policies mandate that all campus reports be associated with a verified student or faculty profile (including University UID and contact mobile number).
                   </p>
                 </div>
@@ -713,11 +715,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           </div>
 
           {/* Submit Action */}
-          <div className="pt-4 border-t border-slate-200 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4 text-slate-500" />
               <span>Back / Cancel</span>
@@ -726,10 +728,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             <button
               type="submit"
               disabled={submitting}
-              className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-sm transition-all disabled:opacity-50 ${
+              className={`flex items-center justify-center gap-2 px-7 py-2.5 rounded-full text-xs font-extrabold text-white shadow-md transition-all disabled:opacity-50 cursor-pointer active:scale-95 ${
                 type === 'lost'
-                  ? 'bg-red-700 hover:bg-red-800'
-                  : 'bg-slate-900 hover:bg-slate-800'
+                  ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 shadow-rose-600/30'
+                  : 'bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-400 hover:via-teal-500 hover:to-emerald-600 shadow-emerald-600/30'
               }`}
             >
               <CheckCircle2 className="w-4 h-4" />

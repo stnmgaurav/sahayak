@@ -17,6 +17,13 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileCompletionModal } from './components/UserProfileCompletionModal';
 import { AdminVerificationModal } from './components/AdminVerificationModal';
+import { InAppNotificationBanner } from './components/InAppNotificationBanner';
+import { NotificationSettingsModal } from './components/NotificationSettingsModal';
+import { 
+  registerServiceWorker, 
+  subscribeToCrossTabNotifications, 
+  handleIncomingMessageNotification 
+} from './lib/notifications';
 import { SahayakLogo } from './components/SahayakLogo';
 import { ITEM_CATEGORIES, CU_CAMPUS_LOCATIONS } from './data/mockData';
 import { 
@@ -35,7 +42,8 @@ import {
   Building2,
   CheckCircle2,
   Lock,
-  Radio
+  Radio,
+  ShieldCheck
 } from 'lucide-react';
 
 const QUICK_CATEGORIES = [
@@ -114,6 +122,43 @@ function SahayakMain() {
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [messageTargetItem, setMessageTargetItem] = useState<ItemReport | null>(null);
 
+  // Handle opening item chat when user clicks a push notification or in-app alert
+  useEffect(() => {
+    const handleOpenItemChat = (e: Event) => {
+      const customEvent = e as CustomEvent<{ itemId: string; messageId?: string }>;
+      const targetId = customEvent.detail?.itemId;
+      if (targetId) {
+        const currentList = getStoredItems();
+        const found = currentList.find(i => i.id === targetId) || items.find(i => i.id === targetId);
+        if (found) {
+          setMessageTargetItem(found);
+          setMessageModalOpen(true);
+        }
+      }
+    };
+
+    window.addEventListener('sahayak:open_item_chat', handleOpenItemChat);
+    return () => {
+      window.removeEventListener('sahayak:open_item_chat', handleOpenItemChat);
+    };
+  }, [items]);
+
+  // Check URL parameter on load (e.g. redirected from Service Worker push notification click)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const openChatId = params.get('openItemChat');
+      if (openChatId) {
+        const currentList = getStoredItems();
+        const found = currentList.find(i => i.id === openChatId) || items.find(i => i.id === openChatId);
+        if (found) {
+          setMessageTargetItem(found);
+          setMessageModalOpen(true);
+        }
+      }
+    }
+  }, [items]);
+
   const [matchModalOpen, setMatchModalOpen] = useState(false);
   const [matchLostItem, setMatchLostItem] = useState<ItemReport | null>(null);
   const [matchFoundItem, setMatchFoundItem] = useState<ItemReport | null>(null);
@@ -121,6 +166,33 @@ function SahayakMain() {
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [receiptClaim, setReceiptClaim] = useState<ItemClaim | null>(null);
   const [receiptItem, setReceiptItem] = useState<ItemReport | null>(null);
+
+  const [notificationSettingsOpen, setNotificationSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpenSettings = () => setNotificationSettingsOpen(true);
+    window.addEventListener('sahayak:open_notification_settings', handleOpenSettings);
+    return () => {
+      window.removeEventListener('sahayak:open_notification_settings', handleOpenSettings);
+    };
+  }, []);
+
+  // Register push notification service worker on mount
+  useEffect(() => {
+    registerServiceWorker();
+  }, []);
+
+  // Listen for real-time cross-tab chat messages to deliver push notifications to recipient
+  useEffect(() => {
+    const unsubscribe = subscribeToCrossTabNotifications((newMsg) => {
+      if (currentUser) {
+        const currentList = getStoredItems();
+        const targetItem = currentList.find(i => i.id === newMsg.itemId) || items.find(i => i.id === newMsg.itemId);
+        handleIncomingMessageNotification(newMsg, targetItem, currentUser.id, currentUser.email);
+      }
+    });
+    return unsubscribe;
+  }, [currentUser, items]);
 
   // Handlers
   const handleOpenReportModal = (type: 'lost' | 'found') => {
@@ -289,6 +361,7 @@ function SahayakMain() {
         onOpenReportModal={handleOpenReportModal}
         unreadMatchesCount={unreadMatchesCount}
         pendingClaimsCount={pendingClaimsCount}
+        onOpenNotificationModal={() => setNotificationSettingsOpen(true)}
       />
 
       {/* 2. Main Views */}
@@ -341,170 +414,180 @@ function SahayakMain() {
         {/* BROWSE VIEW WITH BENTO GRID + GLASSMORPHISM */}
         {currentTab === 'browse' && (
           <div className="space-y-10">
-            {/* HERO SECTION: MODERN STARTUP BENTO GRID */}
+            {/* HERO SECTION: SWIGGY INSTAMART CLEAN MODERN BENTO GRID */}
             <section className="pt-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
                 
-                {/* BENTO TILE 1 (Col 1-12): Primary Interactive Hero Glass Card */}
-                <div className="md:col-span-12 glass-panel rounded-3xl p-6 sm:p-9 relative overflow-hidden flex flex-col justify-between group shadow-lg">
-                  {/* Specular glass highlight */}
-                  <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-gradient-to-br from-red-600/15 via-rose-500/5 to-transparent rounded-full blur-2xl pointer-events-none"></div>
+                {/* BENTO TILE 1 (Col 1-12): Primary Hero Card */}
+                <div className="md:col-span-12 rounded-2xl border border-slate-100 bg-white p-6 sm:p-8 relative overflow-hidden flex flex-col justify-between shadow-xs">
+                  {/* Subtle clean accent glow */}
+                  <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-red-50/70 rounded-full blur-2xl pointer-events-none"></div>
 
-                  <div className="space-y-4 relative z-10">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-pill text-red-800 text-xs font-bold tracking-wide uppercase shadow-2xs">
+                  <div className="space-y-3 relative z-10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200/80 text-red-800 text-xs font-bold tracking-wide uppercase">
                       <Shield className="w-3.5 h-3.5 text-red-700" />
                       <span>Chandigarh University • Smart Campus</span>
                     </div>
 
-                    <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-950 leading-[1.15]">
+                    <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
                       SAHAYAK
                     </h1>
 
                     {/* Prominent Tagline */}
-                    <p className="text-base sm:text-xl font-bold text-red-800 leading-snug">
+                    <p className="text-base sm:text-xl font-extrabold text-red-800 leading-snug">
                       “Lost something on campus? Let SAHAYAK help you find it.”
                     </p>
 
-                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-2xl">
+                    <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed max-w-2xl">
                       Real-time AI matching, verified student authentication, and automated security desk custody for over full campus across all academic blocks.
                     </p>
                   </div>
 
-                  {/* Two Primary Action Glass Cards */}
-                  <div className="mt-6 pt-5 border-t border-slate-200/80 flex flex-col sm:flex-row items-stretch gap-4 relative z-10">
+                  {/* Two Primary Action Pill Buttons - Vibrant Modern Gradients */}
+                  <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-stretch gap-3.5 relative z-10">
                     <button
                       onClick={() => handleOpenReportModal('lost')}
-                      className="flex-1 group/btn flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-red-800 to-red-900 hover:from-red-900 hover:to-red-950 text-white shadow-md shadow-red-900/20 hover:shadow-lg transition-all"
+                      className="flex-1 group/btn flex items-center justify-between p-3.5 px-5 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white shadow-md shadow-rose-600/25 hover:shadow-lg hover:shadow-rose-600/35 transition-all duration-300 cursor-pointer active:scale-95"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/20">
-                          <PlusCircle className="w-5 h-5 text-red-200 group-hover/btn:scale-110 transition-transform" />
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-inner">
+                          <PlusCircle className="w-5 h-5 text-rose-100 group-hover/btn:scale-110 transition-transform duration-200" />
                         </div>
                         <div className="text-left">
-                          <p className="text-xs uppercase font-extrabold tracking-wider text-red-200">Lost Item?</p>
-                          <p className="text-sm font-black">I Lost Something</p>
+                          <p className="text-[11px] uppercase font-black tracking-wider text-rose-200">Lost Item?</p>
+                          <p className="text-sm font-extrabold text-white">I Lost Something</p>
                         </div>
                       </div>
-                      <ArrowUpRight className="w-4 h-4 text-white/70 group-hover/btn:text-white group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+                      <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center group-hover/btn:bg-white/25 transition-colors">
+                        <ArrowUpRight className="w-4 h-4 text-white group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+                      </div>
                     </button>
 
                     <button
                       onClick={() => handleOpenReportModal('found')}
-                      className="flex-1 group/btn flex items-center justify-between p-4 rounded-2xl bg-slate-950 hover:bg-slate-900 text-white shadow-md hover:shadow-lg transition-all border border-slate-800"
+                      className="flex-1 group/btn flex items-center justify-between p-3.5 px-5 rounded-full bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-400 hover:via-teal-500 hover:to-emerald-600 text-white shadow-md shadow-emerald-600/25 hover:shadow-lg hover:shadow-emerald-600/35 transition-all duration-300 cursor-pointer active:scale-95"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white border border-white/20">
-                          <HandHeart className="w-5 h-5 text-emerald-400 group-hover/btn:scale-110 transition-transform" />
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white shadow-inner">
+                          <HandHeart className="w-5 h-5 text-emerald-100 group-hover/btn:scale-110 transition-transform duration-200" />
                         </div>
                         <div className="text-left">
-                          <p className="text-xs uppercase font-extrabold tracking-wider text-emerald-400">Found Item?</p>
-                          <p className="text-sm font-black">I Found Something</p>
+                          <p className="text-[11px] uppercase font-black tracking-wider text-emerald-200">Found Item?</p>
+                          <p className="text-sm font-extrabold text-white">I Found Something</p>
                         </div>
                       </div>
-                      <ArrowUpRight className="w-4 h-4 text-white/70 group-hover/btn:text-white group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+                      <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center group-hover/btn:bg-white/25 transition-colors">
+                        <ArrowUpRight className="w-4 h-4 text-white group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+                      </div>
                     </button>
                   </div>
                 </div>
 
                 {/* BENTO TILE 3 (Col 1-5): Real-Time Campus Live Activity */}
-                <div className="md:col-span-5 glass-panel rounded-3xl p-5 relative overflow-hidden shadow-md">
+                <div className="md:col-span-5 rounded-2xl border border-slate-100 bg-white p-5 relative overflow-hidden shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                      </span>
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-900">
                         Live Campus Activity
                       </h4>
                     </div>
-                    <span className="text-[10px] font-semibold text-slate-400">Just Now</span>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">Live Feed</span>
                   </div>
 
                   <div className="space-y-2.5">
-                    <div className="p-2.5 rounded-xl bg-white/70 border border-slate-200/80 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-transparent border border-emerald-100/90 flex items-center gap-3 hover:border-emerald-200 transition-colors">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs shadow-emerald-500/30">
                         <CheckCircle2 className="w-4 h-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-slate-900 truncate">boAt Airdopes 141 returned</p>
-                        <p className="text-[10px] text-slate-500">Security Gate 1 • Verified Handover</p>
+                        <p className="text-xs font-extrabold text-slate-900 truncate">boAt Airdopes 141 returned</p>
+                        <p className="text-[10px] text-slate-500 font-medium">Security Gate 1 • Verified Handover</p>
                       </div>
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Returned</span>
+                      <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-200">Returned</span>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-white/70 border border-slate-200/80 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-50/70 via-orange-50/40 to-transparent border border-amber-100/90 flex items-center gap-3 hover:border-amber-200 transition-colors">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shrink-0 shadow-xs shadow-amber-500/30">
                         <Sparkles className="w-4 h-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-slate-900 truncate">HP Envy x360 matched (92%)</p>
-                        <p className="text-[10px] text-slate-500">Central Library Reading Hall</p>
+                        <p className="text-xs font-extrabold text-slate-900 truncate">HP Envy x360 matched (92%)</p>
+                        <p className="text-[10px] text-slate-500 font-medium">Central Library Reading Hall</p>
                       </div>
-                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded">Matched</span>
+                      <span className="text-[10px] font-extrabold text-amber-800 bg-amber-100/90 px-2.5 py-0.5 rounded-full border border-amber-200">Matched</span>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-white/70 border border-slate-200/80 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-red-100 text-red-800 flex items-center justify-center shrink-0">
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-rose-50/70 via-red-50/40 to-transparent border border-rose-100/90 flex items-center gap-3 hover:border-rose-200 transition-colors">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-500 to-red-600 text-white flex items-center justify-center shrink-0 shadow-xs shadow-rose-500/30">
                         <Clock className="w-4 h-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-slate-900 truncate">CU Student ID card reported</p>
-                        <p className="text-[10px] text-slate-500">North Campus Food Court</p>
+                        <p className="text-xs font-extrabold text-slate-900 truncate">CU Student ID card reported</p>
+                        <p className="text-[10px] text-slate-500 font-medium">North Campus Food Court</p>
                       </div>
-                      <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">Available</span>
+                      <span className="text-[10px] font-extrabold text-rose-700 bg-rose-100/90 px-2.5 py-0.5 rounded-full border border-rose-200">Available</span>
                     </div>
                   </div>
                 </div>
 
                 {/* BENTO TILE 4 (Col 6-12): Campus Security Custody Desks */}
-                <div className="md:col-span-7 glass-panel rounded-3xl p-5 relative overflow-hidden shadow-md flex flex-col justify-between">
+                <div className="md:col-span-7 rounded-2xl border border-slate-100 bg-white p-5 relative overflow-hidden shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-red-700" />
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                      <div className="w-6 h-6 rounded-lg bg-red-50 text-red-700 flex items-center justify-center">
+                        <Building2 className="w-3.5 h-3.5" />
+                      </div>
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-900">
                         Campus Custody &amp; Handover Desks
                       </h4>
                     </div>
+                    <span className="text-[10px] font-bold text-slate-500">Verified Physical Locations</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="p-3 rounded-2xl bg-white/80 border border-slate-200/80 space-y-1">
+                    <div className="p-3 rounded-2xl bg-gradient-to-b from-slate-50 to-white border border-slate-200/80 hover:border-red-200 transition-all space-y-1 group">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-950">Block C3 Desk</p>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <p className="text-xs font-extrabold text-slate-900 group-hover:text-red-700 transition-colors">Block C3 Desk</p>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100"></span>
                       </div>
-                      <p className="text-[11px] text-slate-500">Student Welfare Center</p>
-                      <p className="text-[10px] font-extrabold text-slate-700 pt-1">9:00 AM – 5:30 PM</p>
+                      <p className="text-[11px] text-slate-500 font-medium">Student Welfare Center</p>
+                      <p className="text-[10px] font-extrabold text-red-700 pt-1">9:00 AM – 5:30 PM</p>
                     </div>
 
-                    <div className="p-3 rounded-2xl bg-white/80 border border-slate-200/80 space-y-1">
+                    <div className="p-3 rounded-2xl bg-gradient-to-b from-slate-50 to-white border border-slate-200/80 hover:border-red-200 transition-all space-y-1 group">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-950">Central Library</p>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <p className="text-xs font-extrabold text-slate-900 group-hover:text-red-700 transition-colors">Central Library</p>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100"></span>
                       </div>
-                      <p className="text-[11px] text-slate-500">Ground Floor Reception</p>
-                      <p className="text-[10px] font-extrabold text-slate-700 pt-1">8:30 AM – 8:00 PM</p>
+                      <p className="text-[11px] text-slate-500 font-medium">Ground Floor Reception</p>
+                      <p className="text-[10px] font-extrabold text-red-700 pt-1">8:30 AM – 8:00 PM</p>
                     </div>
 
-                    <div className="p-3 rounded-2xl bg-white/80 border border-slate-200/80 space-y-1">
+                    <div className="p-3 rounded-2xl bg-gradient-to-b from-slate-50 to-white border border-slate-200/80 hover:border-emerald-200 transition-all space-y-1 group">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-950">Gate 2 security Room</p>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <p className="text-xs font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors">Gate 2 Security</p>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100"></span>
                       </div>
-                      <p className="text-[11px] text-slate-500">NH-95 gate 2 security</p>
+                      <p className="text-[11px] text-slate-500 font-medium">NH-95 Main Entrance</p>
                       <p className="text-[10px] font-extrabold text-emerald-700 pt-1">24x7 Assistance</p>
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 mt-3 pt-2 border-t border-slate-200/80 flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-slate-400" />
+                  <p className="text-[11px] text-slate-500 font-medium mt-3 pt-2.5 border-t border-slate-100 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>Every item claimed requires digital OTP verification &amp; physical student ID inspection.</span>
                   </p>
                 </div>
               </div>
             </section>
 
-            {/* CATEGORY DISCOVERY STRIP */}
+            {/* CATEGORY DISCOVERY STRIP - VIBRANT MODERN APP STYLE */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none no-scrollbar">
+              <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none no-scrollbar">
                 {QUICK_CATEGORIES.map(cat => {
                   const isSelected = categoryFilter === cat.id;
                   const count = cat.id === 'all' ? activeItems.length : (categoryCounts[cat.id] || 0);
@@ -512,16 +595,16 @@ function SahayakMain() {
                     <button
                       key={cat.id}
                       onClick={() => setCategoryFilter(isSelected && cat.id !== 'all' ? 'all' : cat.id)}
-                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+                      className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-extrabold whitespace-nowrap transition-all duration-200 shrink-0 cursor-pointer active:scale-95 ${
                         isSelected
-                          ? 'bg-red-800 text-white shadow-md shadow-red-900/20 scale-[1.02]'
-                          : 'bg-white/80 hover:bg-white text-slate-700 border border-slate-200/80 hover:border-slate-300 shadow-2xs'
+                          ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md shadow-rose-600/25 border border-rose-500/50'
+                          : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs'
                       }`}
                     >
                       <span className="text-sm">{cat.icon}</span>
                       <span>{cat.label}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ml-0.5 ${
-                        isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ml-0.5 ${
+                        isSelected ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'
                       }`}>
                         {count}
                       </span>
@@ -531,12 +614,12 @@ function SahayakMain() {
               </div>
             </div>
 
-            {/* INTERACTIVE EXPLORER & GLASS FILTERS */}
+            {/* INTERACTIVE EXPLORER & FILTERS */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-              <div className="glass-panel rounded-3xl p-5 sm:p-6 shadow-md space-y-4">
+              <div className="rounded-2xl border border-slate-100 bg-white p-5 sm:p-6 shadow-xs space-y-4">
                 {/* Search Bar & Primary Type Pills */}
                 <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-                  {/* Search Input */}
+                  {/* Search Input - Pill Shape */}
                   <div className="relative w-full md:max-w-md">
                     <Search className="w-4 h-4 text-slate-400 absolute left-4 top-3.5" />
                     <input
@@ -544,73 +627,73 @@ function SahayakMain() {
                       placeholder="Search items, keywords, brand model, or block..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      className="w-full pl-11 pr-4 py-2.5 bg-white/80 border border-slate-200/90 rounded-2xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white shadow-2xs transition-all"
+                      className="w-full pl-11 pr-14 py-2.5 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200/90 rounded-full text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:border-red-500 shadow-2xs transition-all"
                     />
                     {searchQuery && (
                       <button
                         onClick={() => setSearchQuery('')}
-                        className="absolute right-3.5 top-3 text-xs text-slate-400 hover:text-slate-700 font-bold"
+                        className="absolute right-4 top-3 text-xs text-slate-400 hover:text-slate-700 font-bold cursor-pointer"
                       >
                         Clear
                       </button>
                     )}
                   </div>
 
-                  {/* Type Filter Buttons */}
-                  <div className="flex items-center gap-1.5 p-1 glass-panel-subtle rounded-2xl w-full md:w-auto border border-slate-200/80 shadow-2xs overflow-x-auto">
+                  {/* Type Filter Buttons - Vibrant Modern Pills */}
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-full w-full md:w-auto border border-slate-200/60 shadow-2xs overflow-x-auto">
                     <button
                       onClick={() => setTypeFilter('all')}
-                      className={`flex-1 md:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                      className={`flex-1 md:flex-initial px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer active:scale-95 ${
                         typeFilter === 'all'
-                          ? 'bg-slate-950 text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
+                          ? 'bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                       }`}
                     >
                       All ({activeItems.length})
                     </button>
                     <button
                       onClick={() => setTypeFilter('lost')}
-                      className={`flex-1 md:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                      className={`flex-1 md:flex-initial px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer active:scale-95 ${
                         typeFilter === 'lost'
-                          ? 'bg-red-800 text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
+                          ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white shadow-sm shadow-rose-600/30'
+                          : 'text-slate-600 hover:text-red-700 hover:bg-rose-50/60'
                       }`}
                     >
                       Lost ({lostCount})
                     </button>
                     <button
                       onClick={() => setTypeFilter('found')}
-                      className={`flex-1 md:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                      className={`flex-1 md:flex-initial px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer active:scale-95 ${
                         typeFilter === 'found'
-                          ? 'bg-emerald-800 text-white shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
+                          ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-sm shadow-emerald-600/30'
+                          : 'text-slate-600 hover:text-emerald-700 hover:bg-emerald-50/60'
                       }`}
                     >
                       Found ({foundCount})
                     </button>
                     <button
                       onClick={() => setTypeFilter('matched')}
-                      className={`flex-1 md:flex-initial px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center justify-center gap-1.5 ${
+                      className={`flex-1 md:flex-initial px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
                         typeFilter === 'matched'
-                          ? 'bg-amber-700 text-white shadow-sm'
-                          : 'text-amber-800 hover:text-amber-950'
+                          ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-sm shadow-amber-500/30'
+                          : 'text-amber-800 hover:text-amber-950 hover:bg-amber-50/60'
                       }`}
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <Sparkles className="w-3.5 h-3.5 text-amber-200" />
                       <span>AI Matched ({matchFoundCount})</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Secondary Category & Location Dropdowns */}
-                <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-3 border-t border-slate-200/60 text-xs">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-3 border-t border-slate-100 text-xs">
                   {/* Category Filter */}
                   <div className="flex items-center gap-1.5 flex-1 sm:flex-initial min-w-[130px]">
                     <Tag className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <select
                       value={categoryFilter}
                       onChange={e => setCategoryFilter(e.target.value)}
-                      className="w-full sm:w-auto px-2.5 sm:px-3 py-1.5 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs focus:outline-none focus:ring-1 focus:ring-red-600"
+                      className="w-full sm:w-auto px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-full text-xs font-semibold text-slate-700 shadow-2xs focus:outline-none focus:ring-1 focus:ring-slate-400"
                     >
                       <option value="all">All Categories ({activeItems.length})</option>
                       {ITEM_CATEGORIES.map(cat => (
@@ -627,7 +710,7 @@ function SahayakMain() {
                     <select
                       value={locationFilter}
                       onChange={e => setLocationFilter(e.target.value)}
-                      className="w-full sm:w-auto px-2.5 sm:px-3 py-1.5 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 sm:max-w-[200px] shadow-2xs focus:outline-none focus:ring-1 focus:ring-red-600"
+                      className="w-full sm:w-auto px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-full text-xs font-semibold text-slate-700 sm:max-w-[200px] shadow-2xs focus:outline-none focus:ring-1 focus:ring-slate-400"
                     >
                       <option value="all">All Locations</option>
                       {CU_CAMPUS_LOCATIONS.map(loc => (
@@ -642,7 +725,7 @@ function SahayakMain() {
                     <select
                       value={statusFilter}
                       onChange={e => setStatusFilter(e.target.value)}
-                      className="w-full sm:w-auto px-2.5 sm:px-3 py-1.5 bg-white/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs focus:outline-none focus:ring-1 focus:ring-red-600"
+                      className="w-full sm:w-auto px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-full text-xs font-semibold text-slate-700 shadow-2xs focus:outline-none focus:ring-1 focus:ring-slate-400"
                     >
                       <option value="all">All Statuses</option>
                       <option value="lost">Lost / Active</option>
@@ -658,7 +741,7 @@ function SahayakMain() {
                   {(searchQuery || typeFilter !== 'all' || categoryFilter !== 'all' || locationFilter !== 'all' || statusFilter !== 'all') && (
                     <button
                       onClick={resetFilters}
-                      className="ml-auto text-xs font-bold text-red-700 hover:text-red-900 flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                      className="ml-auto text-xs font-bold text-red-700 hover:text-red-900 flex items-center gap-1 px-3 py-1 rounded-full bg-red-50 hover:bg-red-100 transition-colors cursor-pointer"
                     >
                       <RotateCcw className="w-3 h-3" />
                       <span>Reset Filters</span>
@@ -667,15 +750,15 @@ function SahayakMain() {
                 </div>
               </div>
 
-              {/* Items Grid with Glassmorphic Cards */}
+              {/* Items Grid with Clean Instamart Cards */}
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-black text-slate-950 tracking-tight">
+                      <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
                         Campus Lost &amp; Found Registry
                       </h2>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-800 border border-red-200/60">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-50 text-red-800 border border-red-200/60">
                         Public View
                       </span>
                     </div>
@@ -684,7 +767,7 @@ function SahayakMain() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200/80">
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200/80">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                       <span>Real-time Live Sync</span>
                     </span>
@@ -692,17 +775,17 @@ function SahayakMain() {
                 </div>
 
                 {filteredItems.length === 0 ? (
-                  <div className="glass-panel rounded-3xl p-12 text-center space-y-4 shadow-md">
-                    <div className="w-14 h-14 rounded-2xl bg-red-50 text-red-700 flex items-center justify-center mx-auto border border-red-100">
+                  <div className="rounded-2xl border border-slate-100 bg-white p-12 text-center space-y-4 shadow-xs">
+                    <div className="w-14 h-14 rounded-full bg-red-50 text-red-700 flex items-center justify-center mx-auto border border-red-100">
                       <Search className="w-6 h-6" />
                     </div>
-                    <h3 className="font-black text-slate-900 text-lg">No Matching Items Found</h3>
-                    <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                    <h3 className="font-extrabold text-slate-900 text-lg">No Matching Items Found</h3>
+                    <p className="text-xs text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
                       We couldn't find any reports matching your search criteria. Try modifying your filters or submit a new report.
                     </p>
                     <button
                       onClick={resetFilters}
-                      className="px-5 py-2.5 bg-slate-950 text-white rounded-xl text-xs font-bold shadow-sm hover:bg-slate-900 transition-all"
+                      className="px-6 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/25 transition-all cursor-pointer active:scale-95"
                     >
                       Clear All Filters
                     </button>
@@ -754,6 +837,7 @@ function SahayakMain() {
             <div>
               <p className="font-black text-slate-950 text-sm">SAHAYAK — Chandigarh University</p>
               <p className="text-[11px] text-slate-500">Autonomous Student Welfare &amp; Campus Security Handover System</p>
+              <p className="font-black text-slate-950 text-[12px]">Crafted with ❤️ by Gaurav</p>
             </div>
           </div>
         </div>
@@ -833,6 +917,23 @@ function SahayakMain() {
       <UserProfileCompletionModal
         onProfileCompleted={() => {
           setCurrentTab('student-dashboard');
+        }}
+      />
+
+      <NotificationSettingsModal
+        isOpen={notificationSettingsOpen}
+        onClose={() => setNotificationSettingsOpen(false)}
+      />
+
+      {/* Floating In-App Chat Notification Banner */}
+      <InAppNotificationBanner 
+        onOpenChatForItem={(itemId) => {
+          const currentList = getStoredItems();
+          const found = currentList.find(i => i.id === itemId) || items.find(i => i.id === itemId);
+          if (found) {
+            setMessageTargetItem(found);
+            setMessageModalOpen(true);
+          }
         }}
       />
     </div>
