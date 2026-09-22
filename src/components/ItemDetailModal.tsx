@@ -94,7 +94,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   const currentStepIdx = getStepIndex(item.status);
 
   const handleMarkRecovered = () => {
-    const success = updateItemStatus(item.id, 'recovered', currentUser?.id, isAdmin);
+    const success = updateItemStatus(item.id, 'recovered', currentUser?.id, isAdmin, currentUser?.email);
     if (success) {
       setActionSuccess('Item successfully marked as Recovered! It will now be archived from public search and listings.');
       setTimeout(() => {
@@ -162,7 +162,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             Item Status Pipeline: Lost → Match Found → Claim → Verified → Returned
           </p>
 
-          <div className="relative flex items-center justify-between min-w-[340px] sm:min-w-0">
+          <div className="relative flex items-center justify-between min-w-[280px] sm:min-w-0 w-full">
             <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-slate-200 w-full z-0"></div>
             <div 
               className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-red-700 transition-all duration-500 z-0"

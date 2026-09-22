@@ -110,6 +110,7 @@ export interface ItemClaim {
   createdAt: string;
   verifiedAt?: string;
   returnedAt?: string;
+  updatedAt?: string;
 }
 
 export interface HandoverReceipt {

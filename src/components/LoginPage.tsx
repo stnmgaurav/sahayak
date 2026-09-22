@@ -133,16 +133,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
-    if (isUserAdmin(email)) {
-      setError('Administrator accounts must authenticate via Google Sign-In with an Admin Passcode. Direct email/password sign-in is disabled.');
-      return;
-    }
-
     setLoading(true);
     try {
       await loginWithEmail(email.trim(), password);
+      const isTargetAdmin = isUserAdmin(email.trim());
       if (onOpenDashboard) {
-        onOpenDashboard('student');
+        onOpenDashboard(isTargetAdmin && isAdmin ? 'admin' : 'student');
       } else {
         onBackToBrowse();
       }

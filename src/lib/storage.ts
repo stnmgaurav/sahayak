@@ -589,7 +589,7 @@ export function saveClaim(newClaim: ItemClaim): ItemClaim {
 export function updateClaim(claimId: string, updates: Partial<ItemClaim>): void {
   const idx = cachedClaims.findIndex(c => c.id === claimId);
   if (idx >= 0) {
-    cachedClaims[idx] = { ...cachedClaims[idx], ...updates };
+    cachedClaims[idx] = { ...cachedClaims[idx], ...updates, updatedAt: new Date().toISOString() };
     localStorage.setItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
 
     // Update item status accordingly
@@ -606,14 +606,36 @@ export function updateClaim(claimId: string, updates: Partial<ItemClaim>): void 
     // Persist to Firestore
     try {
       const cleanUpdates = sanitizeForFirestore(updates as Record<string, any>);
-      updateDoc(doc(db, 'claims', claimId), cleanUpdates).catch(err => {
-        handleFirestoreError(err, OperationType.UPDATE, `claims/${claimId}`);
-        console.warn('Firestore updateClaim failed:', err);
-      });
+      if (Object.keys(cleanUpdates).length > 0) {
+        updateDoc(doc(db, 'claims', claimId), cleanUpdates).catch(err => {
+          handleFirestoreError(err, OperationType.UPDATE, `claims/${claimId}`);
+          console.warn('Firestore updateClaim failed:', err);
+        });
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `claims/${claimId}`);
     }
   }
+}
+
+export function deleteClaim(claimId: string): boolean {
+  const claim = cachedClaims.find(c => c.id === claimId);
+  if (!claim) return false;
+
+  cachedClaims = cachedClaims.filter(c => c.id !== claimId);
+  localStorage.setItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
+  notifyListeners();
+
+  try {
+    deleteDoc(doc(db, 'claims', claimId)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `claims/${claimId}`);
+      console.warn('Firestore deleteClaim failed:', err);
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `claims/${claimId}`);
+  }
+
+  return true;
 }
 
 export function getStoredMessages(): ItemMessage[] {
@@ -658,9 +680,11 @@ export function updateMessage(messageId: string, updates: Partial<ItemMessage>):
 
     try {
       const cleanUpdates = sanitizeForFirestore(updates as Record<string, any>);
-      updateDoc(doc(db, 'messages', messageId), cleanUpdates).catch(err => {
-        handleFirestoreError(err, OperationType.UPDATE, `messages/${messageId}`);
-      });
+      if (Object.keys(cleanUpdates).length > 0) {
+        updateDoc(doc(db, 'messages', messageId), cleanUpdates).catch(err => {
+          handleFirestoreError(err, OperationType.UPDATE, `messages/${messageId}`);
+        });
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `messages/${messageId}`);
     }
@@ -737,6 +761,26 @@ export function saveReceipt(receipt: HandoverReceipt): void {
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `receipts/${receipt.receiptNumber}`);
   }
+}
+
+export function deleteReceipt(receiptNumber: string): boolean {
+  const receipt = cachedReceipts.find(r => r.receiptNumber === receiptNumber);
+  if (!receipt) return false;
+
+  cachedReceipts = cachedReceipts.filter(r => r.receiptNumber !== receiptNumber);
+  localStorage.setItem(RECEIPTS_KEY, JSON.stringify(cachedReceipts));
+  notifyListeners();
+
+  try {
+    deleteDoc(doc(db, 'receipts', receiptNumber)).catch(err => {
+      handleFirestoreError(err, OperationType.DELETE, `receipts/${receiptNumber}`);
+      console.warn('Firestore deleteReceipt failed:', err);
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `receipts/${receiptNumber}`);
+  }
+
+  return true;
 }
 
 export function resetDemoData(): void {

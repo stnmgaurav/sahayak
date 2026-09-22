@@ -47,25 +47,35 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
   if (!isOpen || !user) return null;
 
   // Find all items reported by this user (by userId, userEmail, or userUid)
-  const userItems = items.filter(i => 
-    i.userId === user.id || 
-    (user.email && i.userEmail?.toLowerCase() === user.email.toLowerCase()) ||
-    (user.uidOrRoll && i.userUid?.toLowerCase() === user.uidOrRoll.toLowerCase())
+  const safeItems = Array.isArray(items) ? items : [];
+  const uEmail = (user.email || '').toLowerCase();
+  const uUid = (user.uidOrRoll || '').toLowerCase();
+
+  const userItems = safeItems.filter(i => 
+    (user.id && i.userId === user.id) || 
+    (uEmail && (i.userEmail || '').toLowerCase() === uEmail) ||
+    (uUid && (i.userUid || '').toLowerCase() === uUid)
   );
 
+  const q = (searchQuery || '').toLowerCase().trim();
   const filteredItems = userItems.filter(item => {
+    if (!item) return false;
     const matchesType = filterType === 'all' || item.type === filterType;
-    const matchesSearch = 
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.locationBlock.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = !q || (
+      (item.title || '').toLowerCase().includes(q) ||
+      (item.category || '').toLowerCase().includes(q) ||
+      (item.locationBlock || '').toLowerCase().includes(q) ||
+      (item.description || '').toLowerCase().includes(q)
+    );
     return matchesType && matchesSearch;
   });
 
   const lostCount = userItems.filter(i => i.type === 'lost').length;
   const foundCount = userItems.filter(i => i.type === 'found').length;
   const recoveredCount = userItems.filter(i => i.status === 'recovered' || i.status === 'returned').length;
+
+  const displayName = user.name || user.email || 'Campus User';
+  const displayInitial = (displayName.charAt(0) || 'U').toUpperCase();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
@@ -83,11 +93,11 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pr-10">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-red-700 text-white flex items-center justify-center text-xl font-black shadow-md border border-white/20 shrink-0">
-                {user.name.charAt(0).toUpperCase()}
+                {displayInitial}
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-xl font-black text-white">{user.name}</h2>
+                  <h2 className="text-xl font-black text-white">{displayName}</h2>
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                     user.role === 'admin' 
                       ? 'bg-red-600/40 text-red-200 border border-red-500/40' 

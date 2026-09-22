@@ -111,7 +111,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   };
 
   return (
-    <div className="group rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-slate-200/70 border border-slate-100 hover:border-slate-200/80 bg-white">
+    <div className="group rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-slate-200/70 border border-slate-100 hover:border-slate-200/80 bg-white w-full min-w-0">
       {/* Top Media & Badges */}
       <div>
         <div 

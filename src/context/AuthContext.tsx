@@ -258,10 +258,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithEmail = async (email: string, password: string): Promise<void> => {
     const lower = (email || '').toLowerCase().trim();
-    // Admins CANNOT use standard email/password login. Must use Google + Admin Passcode
-    if (isUserAdmin(lower) || lower.includes('admin') || lower.includes('security') || lower.includes('gauravsinghrajpoot2019')) {
-      throw new Error('Administrative Security Protocol: Campus administrator accounts cannot be accessed via standard email/password login. Administrators must authenticate exclusively via Google Verification and secondary master security passcode.');
-    }
+    const adminCandidate = isUserAdmin(lower);
+    const verifiedInSession = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
 
     const credential = await signInWithEmailAndPassword(auth, email, password);
     const user = credential.user;
@@ -275,18 +273,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const finalized: UserProfile = {
           ...profileData,
           authProvider: 'password',
-          role: 'student', // Any email/password login is always restricted to student role
+          role: (adminCandidate && verifiedInSession) ? 'admin' : (adminCandidate ? 'student' : (profileData.role || 'student')),
+          uidOrRoll: profileData.uidOrRoll || (adminCandidate ? 'EMP-CU-ADMIN' : ''),
+          department: profileData.department || (adminCandidate ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)'),
+          profileCompleted: adminCandidate ? true : profileData.profileCompleted,
         };
         setCurrentUser(finalized);
-        if (checkProfileIncomplete(finalized)) {
+        if (!adminCandidate && checkProfileIncomplete(finalized)) {
           setNeedsProfileCompletion(true);
         } else {
           setNeedsProfileCompletion(false);
         }
+      } else {
+        const fallbackProfile: UserProfile = {
+          id: user.uid,
+          name: user.displayName || email.split('@')[0],
+          email: email,
+          uidOrRoll: adminCandidate ? 'EMP-CU-ADMIN' : '',
+          phone: '',
+          department: adminCandidate ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
+          role: (adminCandidate && verifiedInSession) ? 'admin' : 'student',
+          joinedDate: new Date().toISOString().split('T')[0],
+          profileCompleted: adminCandidate ? true : false,
+          authProvider: 'password',
+        };
+        setCurrentUser(fallbackProfile);
+        setNeedsProfileCompletion(!adminCandidate);
       }
     } catch (err) {
       console.warn('Firestore fetch failed on login, using fallback profile:', err);
     }
+
+    if (adminCandidate && !verifiedInSession) {
+      setIsAdminVerificationModalOpen(true);
+    }
+
     setIsAuthModalOpen(false);
     setAuthPromptMessage(null);
   };
@@ -534,13 +555,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthPromptMessage(null);
   };
 
-  // Active admin check: Requires user account to have authorized admin email AND to have authenticated via Google AND to be verified with sahayak@1Cu in session
+  // Active admin check: Requires user account to have authorized admin email AND to be verified with sahayak@1Cu in session
   const isEmailAdmin = currentUser ? isUserAdmin(currentUser.email) : false;
-  const isGoogleVerified = Boolean(
-    currentUser?.authProvider === 'google' ||
-    (firebaseUser?.providerData && firebaseUser.providerData.some(p => p.providerId === 'google.com'))
-  );
-  const activeIsAdmin = Boolean(isEmailAdmin && isGoogleVerified && isAdminVerified);
+  const activeIsAdmin = Boolean(isEmailAdmin && isAdminVerified);
 
   return (
     <AuthContext.Provider

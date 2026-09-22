@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { ItemReport, ItemClaim, UserProfile, ItemStatus } from '../types';
 import { 
   updateClaim, 
+  deleteClaim,
   updateItemStatus, 
   deleteItem, 
   getStoredUsers, 
@@ -66,8 +67,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onEditItem,
   onDeleteItem,
 }) => {
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser, isAdmin, openAdminVerificationModal } = useAuth();
   const [activeTab, setActiveTab] = useState<'reports' | 'users' | 'claims' | 'ledger' | 'hotspots'>('reports');
+
+  // Defensive array checks
+  const safeItems = Array.isArray(items) ? items : [];
+  const safeClaims = Array.isArray(claims) ? claims : [];
 
   // Listings state
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,6 +82,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Users state
   const [users, setUsers] = useState<UserProfile[]>(() => getStoredUsers());
+  const safeUsers = Array.isArray(users) ? users : [];
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'student' | 'admin'>('all');
 
@@ -94,11 +100,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }, []);
 
   // Stats calculation
-  const totalReports = items.length;
-  const activeLost = items.filter(i => i.type === 'lost' && i.status !== 'returned' && i.status !== 'recovered').length;
-  const itemsInCustody = items.filter(i => i.type === 'found' && i.status !== 'returned' && i.status !== 'recovered').length;
-  const pendingClaims = claims.filter(c => c.status === 'pending').length;
-  const returnedItems = items.filter(i => i.status === 'returned' || i.status === 'recovered').length;
+  const totalReports = safeItems.length;
+  const activeLost = safeItems.filter(i => i && i.type === 'lost' && i.status !== 'returned' && i.status !== 'recovered').length;
+  const itemsInCustody = safeItems.filter(i => i && i.type === 'found' && i.status !== 'returned' && i.status !== 'recovered').length;
+  const pendingClaims = safeClaims.filter(c => c && c.status === 'pending').length;
+  const returnedItems = safeItems.filter(i => i && (i.status === 'returned' || i.status === 'recovered')).length;
   const recoveryRate = totalReports > 0 ? Math.round((returnedItems / totalReports) * 100) : 0;
 
   // Handlers for Claim Review
@@ -119,12 +125,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleRejectClaim = (claimId: string) => {
-    const reason = window.prompt('Enter reason for rejecting this claim (e.g. Serial number mismatch, incorrect secret answer):');
-    if (reason !== null) {
-      updateClaim(claimId, {
-        status: 'rejected',
-        adminNotes: reason || 'Claim rejected due to insufficient ownership evidence.',
-      });
+    let reason = 'Claim rejected due to insufficient ownership evidence.';
+    try {
+      const custom = window.prompt('Enter reason for rejecting this claim (e.g. Serial number mismatch, incorrect secret answer):', reason);
+      if (custom !== null) {
+        reason = custom.trim() || reason;
+      }
+    } catch {
+      // In case window.prompt is restricted in iframe
+    }
+    updateClaim(claimId, {
+      status: 'rejected',
+      adminNotes: reason,
+    });
+  };
+
+  const handleDeleteClaim = (claimId: string) => {
+    let confirmed = true;
+    try {
+      confirmed = window.confirm('Are you sure you want to permanently remove this claim from the security database?');
+    } catch {}
+    if (confirmed) {
+      deleteClaim(claimId);
     }
   };
 
@@ -137,11 +159,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       )
     );
     if (!isAdmin && !isItemOwner) {
-      alert("Access Denied: Security protocol requires you to be the original listing owner or a verified campus administrator to delete this report.");
       return;
     }
 
-    if (window.confirm(`Are you sure you want to permanently remove listing "${item.title}" from the platform?`)) {
+    let confirmed = true;
+    try {
+      confirmed = window.confirm(`Are you sure you want to permanently remove listing "${item.title}" from the platform?`);
+    } catch {}
+    if (confirmed) {
       if (onDeleteItem) {
         onDeleteItem(item.id);
       } else {
@@ -159,7 +184,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       )
     );
     if (!isAdmin && !isItemOwner) {
-      alert("Access Denied: Security protocol requires you to be the original listing owner or an authorized administrator to edit this report.");
       return;
     }
     if (onEditItem) {
@@ -174,7 +198,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       ? `Promote ${user.name} (${user.uidOrRoll}) to Campus Security Admin?`
       : `Demote ${user.name} from Admin back to Student role?`;
 
-    if (window.confirm(confirmMsg)) {
+    let confirmed = true;
+    try {
+      confirmed = window.confirm(confirmMsg);
+    } catch {}
+    if (confirmed) {
       updateUser(user.id, { role: newRole });
       setUsers(getStoredUsers());
     }
@@ -182,7 +210,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Delete user handler
   const handleDeleteUser = (user: UserProfile) => {
-    if (window.confirm(`Are you sure you want to delete user account "${user.name}" (${user.email})?`)) {
+    let confirmed = true;
+    try {
+      confirmed = window.confirm(`Are you sure you want to delete user account "${user.name}" (${user.email})?`);
+    } catch {}
+    if (confirmed) {
       deleteUser(user.id);
       setUsers(getStoredUsers());
     }
@@ -190,46 +222,69 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Filtered reports
   const filteredReports = useMemo(() => {
-    return items.filter(item => {
-      const matchesSearch = 
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.locationBlock.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.userUid && item.userUid.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (item.userEmail && item.userEmail.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        item.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = (searchQuery || '').toLowerCase().trim();
+    return safeItems.filter(item => {
+      if (!item) return false;
+      const title = (item.title || '').toLowerCase();
+      const loc = (item.locationBlock || '').toLowerCase();
+      const user = (item.userName || '').toLowerCase();
+      const uid = (item.userUid || '').toLowerCase();
+      const email = (item.userEmail || '').toLowerCase();
+      const desc = (item.description || '').toLowerCase();
+
+      const matchesSearch = !q || (
+        title.includes(q) ||
+        loc.includes(q) ||
+        user.includes(q) ||
+        uid.includes(q) ||
+        email.includes(q) ||
+        desc.includes(q)
+      );
       const matchesType = typeFilter === 'all' || item.type === typeFilter;
       const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
       const matchesCategory = categoryFilter === 'all' || item.category === categoryFilter;
       return matchesSearch && matchesType && matchesStatus && matchesCategory;
     });
-  }, [items, searchQuery, typeFilter, statusFilter, categoryFilter]);
+  }, [safeItems, searchQuery, typeFilter, statusFilter, categoryFilter]);
 
   // Filtered users
   const filteredUsers = useMemo(() => {
-    return users.filter(user => {
-      const matchesSearch = 
-        user.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-        user.email.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-        (user.uidOrRoll && user.uidOrRoll.toLowerCase().includes(userSearchQuery.toLowerCase())) ||
-        (user.phone && user.phone.toLowerCase().includes(userSearchQuery.toLowerCase())) ||
-        (user.department && user.department.toLowerCase().includes(userSearchQuery.toLowerCase()));
+    const q = (userSearchQuery || '').toLowerCase().trim();
+    return safeUsers.filter(user => {
+      if (!user) return false;
+      const name = (user.name || '').toLowerCase();
+      const email = (user.email || '').toLowerCase();
+      const uid = (user.uidOrRoll || '').toLowerCase();
+      const phone = (user.phone || '').toLowerCase();
+      const dept = (user.department || '').toLowerCase();
+
+      const matchesSearch = !q || (
+        name.includes(q) ||
+        email.includes(q) ||
+        uid.includes(q) ||
+        phone.includes(q) ||
+        dept.includes(q)
+      );
       const matchesRole = userRoleFilter === 'all' || user.role === userRoleFilter;
       return matchesSearch && matchesRole;
     });
-  }, [users, userSearchQuery, userRoleFilter]);
+  }, [safeUsers, userSearchQuery, userRoleFilter]);
 
   // Categories list
   const categories = useMemo(() => {
     const set = new Set<string>();
-    items.forEach(i => set.add(i.category));
+    safeItems.forEach(i => {
+      if (i && i.category) set.add(i.category);
+    });
     return Array.from(set);
-  }, [items]);
+  }, [safeItems]);
 
   // Hotspots calculation
   const hotspotCounts: Record<string, number> = {};
-  items.forEach(i => {
-    const block = i.locationBlock.split('(')[0].trim();
+  safeItems.forEach(i => {
+    if (!i) return;
+    const loc = i.locationBlock || 'Campus Area';
+    const block = loc.split('(')[0].trim() || 'General Campus';
     hotspotCounts[block] = (hotspotCounts[block] || 0) + 1;
   });
   const sortedHotspots = Object.entries(hotspotCounts).sort((a, b) => b[1] - a[1]);
@@ -292,77 +347,104 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </div>
 
+      {/* Secondary Security Passcode Banner if !isAdmin */}
+      {!isAdmin && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 border border-amber-500/30 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30">
+              <Lock className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="text-sm font-extrabold text-slate-900">
+                Secondary Security Verification Required
+              </h4>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Full administrative actions (overriding listings, verified returns, promoting users) require the session security passcode.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openAdminVerificationModal}
+            className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/25 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Unlock Admin Desk</span>
+          </button>
+        </div>
+      )}
+
       {/* Bento Grid KPI Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 w-full">
         <div 
           onClick={() => setActiveTab('reports')}
-          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md shadow-slate-900/10 hover:shadow-lg hover:-translate-y-0.5 border border-slate-700/60"
+          className="rounded-2xl p-3.5 sm:p-4 transition-all cursor-pointer bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-md shadow-slate-900/10 hover:shadow-lg hover:-translate-y-0.5 border border-slate-700/60 min-w-0"
         >
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block truncate">
             Total Listings
           </span>
-          <span className="text-2xl font-black text-white mt-1 block">{totalReports}</span>
-          <span className="text-[10px] text-slate-300 font-medium">Logged on Campus</span>
+          <span className="text-xl sm:text-2xl font-black text-white mt-1 block">{totalReports}</span>
+          <span className="text-[10px] text-slate-300 font-medium truncate block">Logged on Campus</span>
         </div>
 
         <div 
           onClick={() => setActiveTab('users')}
-          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white shadow-md shadow-rose-600/20 hover:shadow-lg hover:-translate-y-0.5 border border-rose-500/50"
+          className="rounded-2xl p-3.5 sm:p-4 transition-all cursor-pointer bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white shadow-md shadow-rose-600/20 hover:shadow-lg hover:-translate-y-0.5 border border-rose-500/50 min-w-0"
         >
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-white/80 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-white/80 block truncate">
             Platform Users
           </span>
-          <span className="text-2xl font-black text-white mt-1 block">{users.length}</span>
-          <span className="text-[10px] text-white/80 font-medium">Students &amp; Staff</span>
+          <span className="text-xl sm:text-2xl font-black text-white mt-1 block">{users.length}</span>
+          <span className="text-[10px] text-white/80 font-medium truncate block">Students &amp; Staff</span>
         </div>
 
         <div 
           onClick={() => { setActiveTab('reports'); setTypeFilter('lost'); }}
-          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-rose-50 to-orange-50/50 border border-rose-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5"
+          className="rounded-2xl p-3.5 sm:p-4 transition-all cursor-pointer bg-gradient-to-br from-rose-50 to-orange-50/50 border border-rose-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5 min-w-0"
         >
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 block truncate">
             Active Lost
           </span>
-          <span className="text-2xl font-black text-rose-700 mt-1 block">{activeLost}</span>
-          <span className="text-[10px] text-rose-700/80 font-medium">Search Active</span>
+          <span className="text-xl sm:text-2xl font-black text-rose-700 mt-1 block">{activeLost}</span>
+          <span className="text-[10px] text-rose-700/80 font-medium truncate block">Search Active</span>
         </div>
 
         <div 
           onClick={() => { setActiveTab('reports'); setTypeFilter('found'); }}
-          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5"
+          className="rounded-2xl p-3.5 sm:p-4 transition-all cursor-pointer bg-gradient-to-br from-emerald-50 to-teal-50/50 border border-emerald-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5 min-w-0"
         >
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 block truncate">
             Safe Custody
           </span>
-          <span className="text-2xl font-black text-emerald-700 mt-1 block">{itemsInCustody}</span>
-          <span className="text-[10px] text-emerald-700/80 font-medium">In Vault / Desk</span>
+          <span className="text-xl sm:text-2xl font-black text-emerald-700 mt-1 block">{itemsInCustody}</span>
+          <span className="text-[10px] text-emerald-700/80 font-medium truncate block">In Vault / Desk</span>
         </div>
 
         <div 
           onClick={() => setActiveTab('claims')}
-          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-amber-50 to-yellow-50/50 border border-amber-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5"
+          className="rounded-2xl p-3.5 sm:p-4 transition-all cursor-pointer bg-gradient-to-br from-amber-50 to-yellow-50/50 border border-amber-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5 min-w-0"
         >
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-600 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-600 block truncate">
             Pending Claims
           </span>
-          <span className="text-2xl font-black text-amber-700 mt-1 block">{pendingClaims}</span>
-          <span className="text-[10px] text-amber-700/80 font-medium">Awaiting Inspection</span>
+          <span className="text-xl sm:text-2xl font-black text-amber-700 mt-1 block">{pendingClaims}</span>
+          <span className="text-[10px] text-amber-700/80 font-medium truncate block">Awaiting Inspection</span>
         </div>
 
         <div 
           onClick={() => setActiveTab('ledger')}
-          className="rounded-2xl p-4 transition-all cursor-pointer bg-gradient-to-br from-sky-50 to-blue-50/50 border border-sky-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5"
+          className="rounded-2xl p-3.5 sm:p-4 transition-all cursor-pointer bg-gradient-to-br from-sky-50 to-blue-50/50 border border-sky-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5 min-w-0"
         >
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-600 block">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-600 block truncate">
             Recovered / Returned
           </span>
-          <span className="text-2xl font-black text-sky-700 mt-1 block">{returnedItems}</span>
-          <span className="text-[10px] text-emerald-600 font-bold">{recoveryRate}% Recovery Rate</span>
+          <span className="text-xl sm:text-2xl font-black text-sky-700 mt-1 block">{returnedItems}</span>
+          <span className="text-[10px] text-emerald-600 font-bold truncate block">{recoveryRate}% Recovery</span>
         </div>
       </div>
 
       {/* Tabs Navigation */}
-      <div className="glass-panel rounded-full p-1.5 shadow-2xs flex items-center gap-1.5 overflow-x-auto">
+      <div className="glass-panel rounded-full p-1.5 shadow-2xs flex items-center gap-1.5 overflow-x-auto scrollbar-none no-scrollbar">
         <button
           onClick={() => setActiveTab('reports')}
           className={`px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer active:scale-95 ${
@@ -527,16 +609,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <td className="p-3.5">
                             <div className="flex items-center gap-3">
                               <img
-                                src={item.imageUrl}
-                                alt={item.title}
+                                src={item.imageUrl || 'https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=200&auto=format&fit=crop&q=80'}
+                                alt={item.title || 'Reported Item'}
                                 className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
                               />
                               <div>
                                 <span className="font-bold text-slate-900 block truncate max-w-[200px] text-sm">
-                                  {item.title}
+                                  {item.title || 'Untitled Item'}
                                 </span>
                                 <span className="text-[11px] text-slate-400 block">
-                                  {new Date(item.dateTime).toLocaleDateString()} • Color: {item.color}
+                                  {item.dateTime ? new Date(item.dateTime).toLocaleDateString() : 'Recent'} • Color: {item.color || 'N/A'}
                                 </span>
                               </div>
                             </div>
@@ -546,22 +628,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
                               item.type === 'lost' ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'
                             }`}>
-                              {item.type}
+                              {item.type || 'lost'}
                             </span>
                           </td>
 
                           <td className="p-3.5 font-semibold text-slate-800">
-                            {item.category}
+                            {item.category || 'General Item'}
                           </td>
 
                           <td className="p-3.5 text-slate-600 max-w-[170px]">
-                            <span className="font-medium text-slate-900 block truncate">{item.locationBlock}</span>
-                            <span className="text-[10px] text-slate-400 block truncate">{item.specificSpot}</span>
+                            <span className="font-medium text-slate-900 block truncate">{item.locationBlock || 'Campus Grounds'}</span>
+                            <span className="text-[10px] text-slate-400 block truncate">{item.specificSpot || ''}</span>
                           </td>
 
                           <td className="p-3.5">
                             <div className="space-y-0.5">
-                              <span className="font-bold text-slate-900 block">{item.userName}</span>
+                              <span className="font-bold text-slate-900 block">{item.userName || item.userEmail || 'CU User'}</span>
                               <span className="text-[10px] text-slate-500 block">
                                 UID: {item.userUid || 'N/A'} • {item.hidePhone ? '(Phone Hidden)' : (item.userPhone || 'No Phone')}
                               </span>
@@ -582,7 +664,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <td className="p-3.5">
                             {canModify ? (
                               <select
-                                value={item.status}
+                                value={item.status || 'lost'}
                                 onChange={e => updateItemStatus(item.id, e.target.value as ItemStatus, currentUser?.id, isAdmin, currentUser?.email)}
                                 className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-600 shadow-2xs"
                               >
@@ -597,7 +679,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </select>
                             ) : (
                               <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 capitalize">
-                                {item.status.replace('_', ' ')}
+                                {(item.status || 'lost').replace('_', ' ')}
                               </span>
                             )}
                           </td>
@@ -721,32 +803,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </tr>
                   ) : (
                     filteredUsers.map(user => {
+                      const uEmail = (user.email || '').toLowerCase();
+                      const uUid = (user.uidOrRoll || '').toLowerCase();
+
                       // Count this user's items
-                      const userItems = items.filter(i => 
-                        i.userId === user.id || 
-                        (user.email && i.userEmail?.toLowerCase() === user.email.toLowerCase()) ||
-                        (user.uidOrRoll && i.userUid?.toLowerCase() === user.uidOrRoll.toLowerCase())
+                      const userItems = safeItems.filter(i => 
+                        (user.id && i.userId === user.id) || 
+                        (uEmail && (i.userEmail || '').toLowerCase() === uEmail) ||
+                        (uUid && (i.userUid || '').toLowerCase() === uUid)
                       );
                       const lostCount = userItems.filter(i => i.type === 'lost').length;
                       const foundCount = userItems.filter(i => i.type === 'found').length;
-                      const userClaimsCount = claims.filter(c => 
-                        c.claimantId === user.id || 
-                        (user.email && c.claimantEmail?.toLowerCase() === user.email.toLowerCase()) ||
-                        (user.uidOrRoll && c.claimantUid?.toLowerCase() === user.uidOrRoll.toLowerCase())
+                      const userClaimsCount = safeClaims.filter(c => 
+                        (user.id && c.claimantId === user.id) || 
+                        (uEmail && (c.claimantEmail || '').toLowerCase() === uEmail) ||
+                        (uUid && (c.claimantUid || '').toLowerCase() === uUid)
                       ).length;
 
                       const isAdminUser = user.role === 'admin';
+                      const displayName = user.name || user.email || 'Campus Member';
+                      const displayInitial = (displayName.charAt(0) || 'U').toUpperCase();
 
                       return (
-                        <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
+                        <tr key={user.id || user.email} className="hover:bg-slate-50/80 transition-colors">
                           <td className="p-3.5">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-red-700 to-rose-600 text-white flex items-center justify-center font-black text-sm shadow-xs shrink-0">
-                                {user.name.charAt(0).toUpperCase()}
+                                {displayInitial}
                               </div>
                               <div>
                                 <span className="font-bold text-slate-900 block text-sm">
-                                  {user.name}
+                                  {displayName}
                                 </span>
                                 <span className="text-[11px] text-slate-500 flex items-center gap-1">
                                   <GraduationCap className="w-3.5 h-3.5 text-red-600" />
@@ -861,7 +948,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </span>
           </div>
 
-          {claims.length === 0 ? (
+          {safeClaims.length === 0 ? (
             <div className="glass-panel rounded-3xl p-12 text-center shadow-md">
               <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
               <h4 className="font-black text-slate-900 text-lg">No Pending Claims</h4>
@@ -871,11 +958,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              {claims.map(claim => {
-                const item = items.find(i => i.id === claim.itemId);
+              {safeClaims.map(claim => {
+                const item = safeItems.find(i => i && i.id === claim.itemId);
                 const isPending = claim.status === 'pending';
                 const isVerified = claim.status === 'verified';
                 const isReturned = claim.status === 'returned';
+                const claimIdStr = String(claim.id || '000000');
 
                 return (
                   <div
@@ -887,9 +975,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-mono font-bold text-red-900 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
-                            CLAIM #{claim.id.slice(-6).toUpperCase()}
+                            CLAIM #{claimIdStr.slice(-6).toUpperCase()}
                           </span>
-                          <h4 className="font-black text-slate-950 text-base">{claim.itemTitle}</h4>
+                          <h4 className="font-black text-slate-950 text-base">{claim.itemTitle || item?.title || 'Reported Property'}</h4>
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
                             isReturned
                               ? 'bg-slate-950 text-white'
@@ -899,11 +987,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               ? 'bg-red-100 text-red-800'
                               : 'bg-amber-100 text-amber-800'
                           }`}>
-                            {claim.status}
+                            {claim.status || 'pending'}
                           </span>
                         </div>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          Claimed by {claim.claimantName} (UID: <strong>{claim.claimantUid}</strong>) • {claim.claimantEmail} • {claim.claimantPhone}
+                          Claimed by {claim.claimantName || 'Student'} (UID: <strong>{claim.claimantUid || 'N/A'}</strong>) • {claim.claimantEmail || ''} • {claim.claimantPhone || ''}
                         </p>
                       </div>
 
@@ -957,6 +1045,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <span>View Handover Pass</span>
                           </button>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteClaim(claim.id)}
+                          className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-full transition-colors cursor-pointer"
+                          title="Permanently delete this claim record"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
 
@@ -1053,31 +1150,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.filter(i => i.status === 'returned' || i.status === 'recovered').map(item => {
-                  const claim = claims.find(c => c.itemId === item.id) || {
+                {safeItems.filter(i => i && (i.status === 'returned' || i.status === 'recovered')).map(item => {
+                  const claim = safeClaims.find(c => c && c.itemId === item.id) || {
                     id: `claim_${item.id}`,
                     itemId: item.id,
-                    itemTitle: item.title,
-                    itemType: item.type,
-                    claimantId: item.userId,
-                    claimantName: item.userName,
-                    claimantEmail: item.userEmail,
+                    itemTitle: item.title || 'Returned Item',
+                    itemType: item.type || 'found',
+                    claimantId: item.userId || '',
+                    claimantName: item.userName || 'Student',
+                    claimantEmail: item.userEmail || '',
                     claimantPhone: item.userPhone || '+91 98765 00000',
                     claimantUid: item.userUid || '21BCS10482',
                     proofDescription: 'Verified with physical ID card check at security desk.',
                     status: 'returned' as const,
                     pickupLocation: item.currentHoldingLocation || 'Main Security Gate 1',
-                    createdAt: item.createdAt,
+                    createdAt: item.createdAt || new Date().toISOString(),
                   };
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/80">
-                      <td className="p-3.5 font-bold text-slate-950">{item.title}</td>
-                      <td className="p-3.5">{item.category}</td>
+                      <td className="p-3.5 font-bold text-slate-950">{item.title || 'Campus Item'}</td>
+                      <td className="p-3.5">{item.category || 'General'}</td>
                       <td className="p-3.5 text-slate-600">{item.currentHoldingLocation || 'Security Gate 1'}</td>
                       <td className="p-3.5">
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-950 text-emerald-400 uppercase">
-                          {item.status}
+                          {item.status || 'returned'}
                         </span>
                       </td>
                       <td className="p-3.5 text-right">

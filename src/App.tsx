@@ -19,6 +19,7 @@ import { UserProfileCompletionModal } from './components/UserProfileCompletionMo
 import { AdminVerificationModal } from './components/AdminVerificationModal';
 import { InAppNotificationBanner } from './components/InAppNotificationBanner';
 import { NotificationSettingsModal } from './components/NotificationSettingsModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { 
   registerServiceWorker, 
   subscribeToCrossTabNotifications, 
@@ -216,7 +217,7 @@ function SahayakMain() {
   };
 
   const handleDeleteItem = (itemId: string) => {
-    deleteItem(itemId, currentUser?.id, isAdmin);
+    deleteItem(itemId, currentUser?.id, isAdmin, currentUser?.email);
     if (selectedItem?.id === itemId) {
       setSelectedItem(null);
       setDetailModalOpen(false);
@@ -400,15 +401,17 @@ function SahayakMain() {
 
         {/* ADMIN DASHBOARD VIEW */}
         {currentTab === 'admin-dashboard' && (
-          <AdminDashboard
-            items={items}
-            claims={claims}
-            onViewItemDetails={handleViewDetails}
-            onViewReceipt={handleViewReceipt}
-            onEditItem={handleEditItem}
-            onDeleteItem={handleDeleteItem}
-            onBackToBrowse={() => setCurrentTab('browse')}
-          />
+          <ErrorBoundary fallbackTitle="Campus Security & Admin Desk">
+            <AdminDashboard
+              items={items}
+              claims={claims}
+              onViewItemDetails={handleViewDetails}
+              onViewReceipt={handleViewReceipt}
+              onEditItem={handleEditItem}
+              onDeleteItem={handleDeleteItem}
+              onBackToBrowse={() => setCurrentTab('browse')}
+            />
+          </ErrorBoundary>
         )}
 
         {/* BROWSE VIEW WITH BENTO GRID + GLASSMORPHISM */}
@@ -640,7 +643,7 @@ function SahayakMain() {
                   </div>
 
                   {/* Type Filter Buttons - Vibrant Modern Pills */}
-                  <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-full w-full md:w-auto border border-slate-200/60 shadow-2xs overflow-x-auto">
+                  <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-full w-full md:w-auto border border-slate-200/60 shadow-2xs overflow-x-auto scrollbar-none no-scrollbar">
                     <button
                       onClick={() => setTypeFilter('all')}
                       className={`flex-1 md:flex-initial px-4 py-2 rounded-full text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer active:scale-95 ${
@@ -791,7 +794,7 @@ function SahayakMain() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 w-full">
                     {filteredItems.map(item => {
                       const matchData = matchesMap.get(item.id);
                       return (
@@ -942,8 +945,10 @@ function SahayakMain() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SahayakMain />
-    </AuthProvider>
+    <ErrorBoundary fallbackTitle="Sahayak Campus Lost & Found System">
+      <AuthProvider>
+        <SahayakMain />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

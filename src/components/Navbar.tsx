@@ -237,8 +237,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                         onClick={() => setIsProfileDropdownOpen(false)} 
                       />
 
-                      {/* Startup Elevated Popover Card */}
-                      <div className="absolute right-0 mt-2.5 w-84 sm:w-92 bg-white border border-slate-100 rounded-2xl shadow-2xl shadow-slate-950/15 z-50 overflow-hidden ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-150 divide-y divide-slate-100">
+                      {/* Startup Elevated Popover Card - Perfectly centered & padded on mobile, dropdown on sm+ */}
+                      <div className="fixed left-3 right-3 top-16 max-w-sm ml-auto sm:absolute sm:inset-auto sm:right-0 sm:mt-2.5 sm:w-92 bg-white border border-slate-100 rounded-2xl shadow-2xl shadow-slate-950/15 z-50 overflow-hidden ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-150 divide-y divide-slate-100">
                         {/* Profile Header Hero */}
                         <div className="p-4 bg-gradient-to-b from-slate-50 via-slate-50/50 to-white relative">
                           {/* Close Cross Button */}
