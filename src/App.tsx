@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AuthProvider, useAuth, isUserAdmin } from './context/AuthContext';
 import { ItemReport, ItemClaim, ReportType } from './types';
-import { getStoredItems, getStoredClaims, subscribeToStorage, deleteItem } from './lib/storage';
+import { getStoredItems, getStoredClaims, subscribeToStorage, deleteItem, updateClaim } from './lib/storage';
 import { findMatchesForItem } from './lib/matching';
 import { Navbar } from './components/Navbar';
 import { LoginPage } from './components/LoginPage';
@@ -12,6 +12,7 @@ import { ClaimModal } from './components/ClaimModal';
 import { SendMessageModal } from './components/SendMessageModal';
 import { MatchingModal } from './components/MatchingModal';
 import { HandoverReceiptModal } from './components/HandoverReceiptModal';
+import { ReviewClaimModal } from './components/ReviewClaimModal';
 import { StudentDashboard } from './components/StudentDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { AuthModal } from './components/AuthModal';
@@ -21,10 +22,12 @@ import { InAppNotificationBanner } from './components/InAppNotificationBanner';
 import { NotificationSettingsModal } from './components/NotificationSettingsModal';
 import { NotificationPanel } from './components/NotificationPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { routeClaimDecisionNotification } from './lib/notificationStore';
 import { 
   registerServiceWorker, 
   subscribeToCrossTabNotifications, 
-  handleIncomingMessageNotification 
+  handleIncomingMessageNotification,
+  deliverBrowserNotification 
 } from './lib/notifications';
 import { SahayakLogo } from './components/SahayakLogo';
 import { ITEM_CATEGORIES, CU_CAMPUS_LOCATIONS } from './data/mockData';
@@ -172,6 +175,91 @@ function SahayakMain() {
   const [notificationSettingsOpen, setNotificationSettingsOpen] = useState(false);
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
 
+  const [reviewClaimModalOpen, setReviewClaimModalOpen] = useState(false);
+  const [reviewClaimInitialMode, setReviewClaimInitialMode] = useState<'view' | 'accept' | 'reject' | 'proof'>('view');
+  const [selectedClaimForReview, setSelectedClaimForReview] = useState<ItemClaim | null>(null);
+  const [selectedItemForClaimReview, setSelectedItemForClaimReview] = useState<ItemReport | null>(null);
+
+  const handleOpenReviewClaim = (
+    claimId: string, 
+    itemId?: string, 
+    mode: 'view' | 'accept' | 'reject' | 'proof' = 'view'
+  ) => {
+    const currentClaims = getStoredClaims();
+    const foundClaim = currentClaims.find(c => c.id === claimId) || claims.find(c => c.id === claimId);
+    if (foundClaim) {
+      setSelectedClaimForReview(foundClaim);
+      const currentItems = getStoredItems();
+      const targetItem = currentItems.find(i => i.id === foundClaim.itemId) || items.find(i => i.id === foundClaim.itemId);
+      setSelectedItemForClaimReview(targetItem || null);
+      setReviewClaimInitialMode(mode);
+      setReviewClaimModalOpen(true);
+    }
+  };
+
+  const handleAcceptClaimHandover = (claimId: string, pickupLocation: string, adminNotes?: string) => {
+    updateClaim(claimId, {
+      status: 'verified',
+      pickupLocation,
+      adminNotes,
+      verifiedAt: new Date().toISOString(),
+    });
+
+    const updatedClaims = getStoredClaims();
+    setClaims(updatedClaims);
+    setItems(getStoredItems());
+
+    const c = updatedClaims.find(claim => claim.id === claimId) || selectedClaimForReview;
+    if (c) {
+      // 1. Route decision notification to both parties
+      routeClaimDecisionNotification(c, 'verified', { pickupLocation, adminNotes });
+
+      // 2. Deliver push alert
+      deliverBrowserNotification({
+        title: `🎉 Claim Approved for "${c.itemTitle}"`,
+        body: `The finder verified your ownership proof! Collect your belonging at: ${pickupLocation}.`,
+        icon: selectedItemForClaimReview?.imageUrl || '/logo.svg',
+        itemId: c.itemId,
+        tag: `sahayak-claim-approved-${claimId}`,
+        onClick: () => {
+          window.focus();
+          setCurrentTab('student-dashboard');
+        },
+      });
+    }
+  };
+
+  const handleRejectClaimHandover = (claimId: string, reason: string) => {
+    updateClaim(claimId, {
+      status: 'rejected',
+      rejectionReason: reason,
+      updatedAt: new Date().toISOString(),
+    });
+
+    const updatedClaims = getStoredClaims();
+    setClaims(updatedClaims);
+    setItems(getStoredItems());
+
+    const c = updatedClaims.find(claim => claim.id === claimId) || selectedClaimForReview;
+    if (c) {
+      // 1. Route decision notification to both parties
+      routeClaimDecisionNotification(c, 'rejected', { reason });
+
+      // 2. Deliver push alert
+      deliverBrowserNotification({
+        title: `Claim Not Approved for "${c.itemTitle}"`,
+        body: `The finder or security could not verify your claim. Reason: "${reason}".`,
+        icon: selectedItemForClaimReview?.imageUrl || '/logo.svg',
+        itemId: c.itemId,
+        tag: `sahayak-claim-rejected-${claimId}`,
+        onClick: () => {
+          window.focus();
+          setCurrentTab('student-dashboard');
+        },
+      });
+    }
+  };
+
   useEffect(() => {
     const handleOpenSettings = () => setNotificationSettingsOpen(true);
     const handleOpenNotifications = () => setNotificationPanelOpen(true);
@@ -186,16 +274,24 @@ function SahayakMain() {
         }
       }
     };
+    const handleReviewClaimEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ claimId: string; itemId?: string; mode?: 'view' | 'accept' | 'reject' | 'proof' }>;
+      if (customEvent.detail?.claimId) {
+        handleOpenReviewClaim(customEvent.detail.claimId, customEvent.detail.itemId, customEvent.detail.mode);
+      }
+    };
 
     window.addEventListener('sahayak:open_notification_settings', handleOpenSettings);
     window.addEventListener('sahayak:open_notifications', handleOpenNotifications);
     window.addEventListener('sahayak:view_item', handleViewItemEvent);
+    window.addEventListener('sahayak:review_claim', handleReviewClaimEvent);
     return () => {
       window.removeEventListener('sahayak:open_notification_settings', handleOpenSettings);
       window.removeEventListener('sahayak:open_notifications', handleOpenNotifications);
       window.removeEventListener('sahayak:view_item', handleViewItemEvent);
+      window.removeEventListener('sahayak:review_claim', handleReviewClaimEvent);
     };
-  }, [items]);
+  }, [items, claims]);
 
   // Register push notification service worker on mount
   useEffect(() => {
@@ -977,7 +1073,26 @@ function SahayakMain() {
             }
           }
         }}
+        onReviewClaim={handleOpenReviewClaim}
         onNavigateTab={(tab) => setCurrentTab(tab)}
+      />
+
+      <ReviewClaimModal
+        claim={selectedClaimForReview}
+        item={selectedItemForClaimReview}
+        isOpen={reviewClaimModalOpen}
+        initialDecisionMode={reviewClaimInitialMode}
+        onClose={() => setReviewClaimModalOpen(false)}
+        onAcceptClaim={handleAcceptClaimHandover}
+        onRejectClaim={handleRejectClaimHandover}
+        onOpenChatWithClaimant={(itemId) => {
+          const currentList = getStoredItems();
+          const target = currentList.find(i => i.id === itemId) || items.find(i => i.id === itemId);
+          if (target) {
+            setMessageTargetItem(target);
+            setMessageModalOpen(true);
+          }
+        }}
       />
 
       <NotificationSettingsModal

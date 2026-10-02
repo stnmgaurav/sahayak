@@ -116,6 +116,20 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     setErrorMessage(null);
   }, [editingItem, isOpen, initialType, currentUser]);
 
+  // Escape key listener to dismiss modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,31 +281,41 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
-      <div className="relative w-full max-w-3xl rounded-2xl border border-slate-100 bg-white shadow-2xl overflow-hidden my-6">
-        {/* Header */}
-        <div className={`p-5 sm:p-7 pr-16 text-white relative transition-colors ${
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div 
+        className="relative w-full max-w-3xl rounded-3xl border border-slate-200/90 bg-white shadow-2xl overflow-hidden my-auto max-h-[92vh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky Header with Prominent Close Button */}
+        <div className={`sticky top-0 z-30 shrink-0 p-4 sm:p-6 pr-14 sm:pr-16 text-white relative transition-colors border-b ${
           type === 'lost' 
-            ? 'bg-gradient-to-r from-red-900 via-red-800 to-red-950' 
-            : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950'
+            ? 'bg-gradient-to-r from-red-900 via-rose-900 to-red-950 border-red-800/50' 
+            : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 border-slate-700/50'
         }`}>
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-white/90 hover:text-white p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors cursor-pointer"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-white/90 hover:text-white rounded-full bg-white/10 hover:bg-white/25 active:scale-95 transition-all cursor-pointer ring-1 ring-white/20 shadow-sm"
             aria-label="Close form"
+            title="Close (Esc)"
           >
             <X className="w-5 h-5" />
           </button>
 
           {/* Action Switcher Tabs */}
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-2.5">
             <button
               type="button"
               onClick={() => setType('lost')}
-              className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition-all cursor-pointer active:scale-95 ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold transition-all cursor-pointer active:scale-95 ${
                 type === 'lost'
-                  ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white shadow-md shadow-rose-600/30'
-                  : 'bg-white/20 text-white hover:bg-white/30'
+                  ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white shadow-sm'
+                  : 'bg-white/15 text-white hover:bg-white/25'
               }`}
             >
               I Lost Something
@@ -299,22 +323,22 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             <button
               type="button"
               onClick={() => setType('found')}
-              className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition-all cursor-pointer active:scale-95 ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold transition-all cursor-pointer active:scale-95 ${
                 type === 'found'
-                  ? 'bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 text-white shadow-md shadow-emerald-600/30'
-                  : 'bg-white/20 text-white hover:bg-white/30'
+                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-sm'
+                  : 'bg-white/15 text-white hover:bg-white/25'
               }`}
             >
               I Found Something
             </button>
           </div>
 
-          <h2 className="text-2xl font-extrabold tracking-tight text-white">
+          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
             {editingItem 
               ? (type === 'lost' ? 'Edit Lost Item Report' : 'Edit Found Belonging Report')
               : (type === 'lost' ? 'Report a Lost Item on Campus' : 'Report a Found Belonging')}
           </h2>
-          <p className="text-xs sm:text-sm text-white/80 font-medium mt-1">
+          <p className="text-xs sm:text-sm text-white/80 font-medium mt-1 truncate">
             {editingItem
               ? 'Update the details for your reported item. Changes will immediately sync to the campus database.'
               : type === 'lost'
@@ -325,7 +349,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
         {/* Live Potential Match Alert */}
         {title.trim().length > 2 && instantMatches.length > 0 && (
-          <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-3.5 flex items-start gap-3 backdrop-blur-xs">
+          <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 sm:px-6 py-3 flex items-start gap-3 backdrop-blur-xs shrink-0">
             <Sparkles className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-950">
               <span className="font-bold">Possible Campus Match Detected! ({instantMatches[0].score}% match): </span>
@@ -338,7 +362,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         )}
 
         {/* Body */}
-        <form onSubmit={handleSubmit} className="p-6 sm:p-7 space-y-5 max-h-[75vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto overscroll-contain flex flex-col">
+          <div className="p-4 sm:p-6 space-y-5 flex-1">
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-medium flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -713,13 +738,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               )}
             </div>
           </div>
+        </div>
 
-          {/* Submit Action */}
-          <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* Sticky Submit Action Bar */}
+          <div className="sticky bottom-0 z-20 shrink-0 p-3.5 sm:p-4 border-t border-slate-200 bg-slate-50/95 backdrop-blur-md flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-auto">
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer shadow-2xs"
             >
               <ArrowLeft className="w-4 h-4 text-slate-500" />
               <span>Back / Cancel</span>
@@ -728,7 +754,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             <button
               type="submit"
               disabled={submitting}
-              className={`flex items-center justify-center gap-2 px-7 py-2.5 rounded-full text-xs font-extrabold text-white shadow-md transition-all disabled:opacity-50 cursor-pointer active:scale-95 ${
+              className={`flex items-center justify-center gap-2 px-7 py-2.5 rounded-full text-xs font-extrabold text-white shadow-sm hover:shadow transition-all disabled:opacity-50 cursor-pointer active:scale-95 ${
                 type === 'lost'
                   ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 shadow-rose-600/30'
                   : 'bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-400 hover:via-teal-500 hover:to-emerald-600 shadow-emerald-600/30'

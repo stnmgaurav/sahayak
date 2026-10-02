@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ItemReport, MatchSuggestion } from '../types';
 import { evaluateMatch } from '../lib/matching';
 import { 
@@ -31,31 +31,55 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
   onClose,
   onProceedToClaim,
 }) => {
+  // Escape key listener to dismiss modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !lostItem || !foundItem) return null;
 
   const match = evaluateMatch(lostItem, foundItem);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
-      <div className="relative w-full max-w-3xl glass-panel rounded-3xl shadow-2xl border border-white/80 overflow-hidden my-6">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-amber-800 via-amber-700 to-amber-900 text-white p-5 sm:p-7 pr-16 relative">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div 
+        className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden my-auto max-h-[92vh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky Header with Prominent Close Button */}
+        <div className="sticky top-0 z-30 shrink-0 bg-gradient-to-r from-amber-800 via-amber-700 to-amber-900 text-white p-4 sm:p-6 pr-14 sm:pr-16 relative border-b border-amber-600/40">
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center text-white/90 hover:text-white p-2 rounded-full bg-black/20 hover:bg-black/40 transition-colors"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-white/90 hover:text-white rounded-full bg-white/10 hover:bg-white/25 active:scale-95 transition-all cursor-pointer ring-1 ring-white/20 shadow-sm"
             aria-label="Close match comparison"
+            title="Close (Esc)"
           >
             <X className="w-5 h-5" />
           </button>
 
           <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-200 mb-1">
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="w-4 h-4 text-amber-300" />
             <span>Campus Intelligent Matching Engine</span>
           </div>
 
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <h2 className="text-2xl font-black tracking-tight text-white">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
                 Possible Campus Match
               </h2>
               <p className="text-xs sm:text-sm text-amber-100/90 mt-0.5">
@@ -64,9 +88,9 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
             </div>
 
             {/* Score Ring */}
-            <div className="flex items-center gap-2 bg-amber-950/50 backdrop-blur-xs px-4 py-2 rounded-2xl border border-amber-400/30 shadow-inner">
-              <span className="text-2xl font-black">{match.matchScore}%</span>
-              <span className="text-[11px] uppercase tracking-wider font-bold text-amber-200">
+            <div className="flex items-center gap-2 bg-amber-950/60 backdrop-blur-xs px-3.5 py-1.5 rounded-2xl border border-amber-400/40 shadow-inner">
+              <span className="text-2xl font-black text-amber-300">{match.matchScore}%</span>
+              <span className="text-[10px] uppercase tracking-wider font-extrabold text-amber-100">
                 Match Score
               </span>
             </div>
@@ -74,7 +98,7 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
         </div>
 
         {/* Side-by-Side Comparison Container */}
-        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-6 flex-1 overflow-y-auto overscroll-contain">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* Left: Lost Report */}
             <div className="p-4 bg-rose-50/50 rounded-2xl border border-rose-200 space-y-3">
@@ -173,12 +197,12 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 sm:p-5 border-t border-slate-200 bg-slate-50 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        {/* Sticky Footer */}
+        <div className="sticky bottom-0 z-20 shrink-0 p-3.5 sm:p-4 border-t border-slate-200 bg-slate-50/95 backdrop-blur-md flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-slate-700 hover:text-slate-950 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer shadow-2xs"
           >
             <ArrowLeft className="w-4 h-4 text-slate-500" />
             <span>Back to Details</span>
@@ -190,7 +214,7 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
               onClose();
               onProceedToClaim(foundItem);
             }}
-            className="flex items-center justify-center gap-2 px-7 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/30 transition-all cursor-pointer active:scale-95"
+            className="flex items-center justify-center gap-2 px-7 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-sm hover:shadow transition-all cursor-pointer active:scale-95"
           >
             <ShieldCheck className="w-4 h-4" />
             <span>This is My Item — Claim &amp; Verify</span>

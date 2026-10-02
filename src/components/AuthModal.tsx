@@ -38,6 +38,20 @@ export const AuthModal: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  // Escape key listener to dismiss modal
+  React.useEffect(() => {
+    if (!isAuthModalOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeAuthModal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAuthModalOpen, closeAuthModal]);
+
   if (!isAuthModalOpen) return null;
 
   const getFriendlyErrorMessage = (err: any): string => {
@@ -120,16 +134,26 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-2.5 sm:p-4 overflow-y-auto">
-      <div className="relative w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[94vh] sm:max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-red-800 to-red-900 text-white p-5 sm:p-6 pr-14 relative shrink-0">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+      onClick={closeAuthModal}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div 
+        className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden my-auto max-h-[92vh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky Header with Prominent Close Button */}
+        <div className="sticky top-0 z-30 bg-gradient-to-r from-red-800 to-red-900 text-white p-4 sm:p-6 pr-14 relative shrink-0 border-b border-red-800/40">
           <button
+            type="button"
             onClick={closeAuthModal}
-            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-white/90 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-white/90 hover:text-white rounded-full bg-white/10 hover:bg-white/25 active:scale-95 transition-all cursor-pointer ring-1 ring-white/20 shadow-sm"
             aria-label="Close dialog"
+            title="Close (Esc)"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
           <div className="flex items-center space-x-2 text-xs font-semibold tracking-wider uppercase text-red-200 mb-1">
             <Shield className="w-4 h-4" />

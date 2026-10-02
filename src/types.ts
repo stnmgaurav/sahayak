@@ -98,6 +98,10 @@ export interface ItemClaim {
   claimantEmail: string;
   claimantPhone: string;
   claimantUid: string;
+  // Finder information (user who posted the found listing)
+  finderId?: string;
+  finderEmail?: string;
+  finderName?: string;
   // Verification answers
   proofDescription: string;
   serialNumberOrIdentifier?: string;
@@ -107,6 +111,7 @@ export interface ItemClaim {
   status: 'pending' | 'verified' | 'rejected' | 'returned';
   adminNotes?: string;
   pickupLocation?: string;
+  rejectionReason?: string;
   createdAt: string;
   verifiedAt?: string;
   returnedAt?: string;

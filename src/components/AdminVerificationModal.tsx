@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   ShieldCheck, 
@@ -63,20 +63,41 @@ export const AdminVerificationModal: React.FC<AdminVerificationModalProps> = ({ 
     closeAdminVerificationModal();
   };
 
+  // Escape key listener to dismiss modal
+  useEffect(() => {
+    if (!isAdminVerificationModalOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleCancel();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAdminVerificationModalOpen]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+      onClick={handleCancel}
+      role="dialog"
+      aria-modal="true"
+    >
       <div 
-        className="relative w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto"
+        className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden my-auto animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
         {/* Security Crimson Header */}
-        <div className="bg-gradient-to-br from-red-800 via-red-900 to-slate-950 text-white p-5 sm:p-6 pr-14 relative shrink-0">
+        <div className="sticky top-0 z-30 bg-gradient-to-br from-red-800 via-red-900 to-slate-950 text-white p-4 sm:p-6 pr-14 relative shrink-0 border-b border-red-800/40">
           <button
+            type="button"
             onClick={handleCancel}
-            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-white/80 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-white/90 hover:text-white rounded-full bg-white/10 hover:bg-white/25 active:scale-95 transition-all cursor-pointer ring-1 ring-white/20 shadow-sm"
             aria-label="Close modal"
+            title="Close (Esc)"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
           <div className="flex items-center space-x-2 text-[11px] font-extrabold tracking-wider uppercase text-red-300 mb-1.5">

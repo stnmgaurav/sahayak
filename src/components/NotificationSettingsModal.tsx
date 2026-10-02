@@ -53,6 +53,20 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
     }
   }, [isOpen]);
 
+  // Escape key listener to dismiss modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleRequestPermission = async () => {
@@ -100,27 +114,24 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
 
   return (
     <div 
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="push-settings-title"
     >
       <div 
-        className="relative w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden my-auto flex flex-col animate-in zoom-in-95 duration-200"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="push-settings-title"
+        className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden my-auto flex flex-col max-h-[92vh] sm:max-h-[88vh] animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-red-800 via-red-900 to-slate-900 text-white p-5 sm:p-6 relative shrink-0">
+        {/* Sticky Header with Prominent Close Button */}
+        <div className="sticky top-0 z-30 shrink-0 bg-gradient-to-r from-red-800 via-red-900 to-slate-900 text-white p-4 sm:p-6 pr-14 relative border-b border-red-800/40">
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-white/80 hover:text-white rounded-full bg-white/10 hover:bg-white/25 transition-colors cursor-pointer"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-white/90 hover:text-white rounded-full bg-white/10 hover:bg-white/25 active:scale-95 transition-all cursor-pointer ring-1 ring-white/20 shadow-sm"
             aria-label="Close dialog"
-            title="Close"
+            title="Close (Esc)"
           >
             <X className="w-5 h-5" />
           </button>
@@ -137,7 +148,7 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
         </div>
 
         {/* Modal Content */}
-        <div className="p-5 sm:p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-5 flex-1 overflow-y-auto overscroll-contain">
           {/* Status Card */}
           <div className={`p-4 rounded-2xl border transition-all ${
             permission === 'granted'

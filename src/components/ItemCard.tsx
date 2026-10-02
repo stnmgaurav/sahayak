@@ -239,14 +239,25 @@ export const ItemCard: React.FC<ItemCardProps> = ({
 
         {/* 1. RULE: IF FOUND ITEM -> CLICK TO CLAIM OPTION (Vibrant Gradient CTA) */}
         {item.type === 'found' && (
-          <button
-            type="button"
-            onClick={() => onClaimItem(item)}
-            className="flex-1 py-2 px-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold transition-all shadow-xs hover:shadow-md hover:shadow-rose-600/30 active:scale-95 text-center flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-rose-200" />
-            <span>Claim Item</span>
-          </button>
+          isOwner ? (
+            <button
+              type="button"
+              onClick={() => onViewDetails(item)}
+              className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-full text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <PackageCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Your Listing</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onClaimItem(item)}
+              className="flex-1 py-2 px-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold transition-all shadow-xs hover:shadow-md hover:shadow-rose-600/30 active:scale-95 text-center flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-rose-200" />
+              <span>Claim Item</span>
+            </button>
+          )
         )}
 
         {/* 2. RULE: IF LOST ITEM -> BUTTON TO SEND MESSAGE IF FOUND (Vibrant Emerald CTA) */}

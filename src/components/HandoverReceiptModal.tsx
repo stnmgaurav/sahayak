@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ItemReport, ItemClaim } from '../types';
 import { SahayakLogo } from './SahayakLogo';
 import { 
@@ -26,6 +26,20 @@ export const HandoverReceiptModal: React.FC<HandoverReceiptModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  // Escape key listener to dismiss modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !claim || !item) return null;
 
   const receiptNumber = `CU-LF-${claim.id.slice(-6).toUpperCase()}`;
@@ -38,34 +52,46 @@ export const HandoverReceiptModal: React.FC<HandoverReceiptModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">
-      <div className="relative w-full max-w-xl glass-panel rounded-3xl shadow-2xl border border-white/80 overflow-hidden my-6">
-        {/* Actions Bar */}
-        <div className="bg-slate-950 text-white px-6 py-3.5 flex items-center justify-between border-b border-white/10">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div 
+        className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden my-auto max-h-[92vh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky Actions Bar */}
+        <div className="sticky top-0 z-30 shrink-0 bg-slate-950 text-white px-5 sm:px-6 py-3.5 flex items-center justify-between border-b border-white/10">
           <span className="text-xs font-bold uppercase tracking-wider text-red-400 flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4" />
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span>Official Gate Pass &amp; Handover Certificate</span>
           </span>
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full text-xs font-extrabold transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full text-xs font-extrabold transition-all cursor-pointer shadow-2xs"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print Pass</span>
             </button>
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 hover:bg-white/10 rounded-full text-white/80 hover:text-white transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/25 text-white transition-all cursor-pointer ring-1 ring-white/15"
+              aria-label="Close pass"
+              title="Close (Esc)"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Certificate Paper */}
-        <div className="p-6 sm:p-8 space-y-6 text-slate-800 bg-white" id="printable-receipt">
+        {/* Scrollable Certificate Paper */}
+        <div className="flex-1 overflow-y-auto overscroll-contain p-6 sm:p-8 space-y-6 text-slate-800 bg-white" id="printable-receipt">
           {/* Official CU Header */}
           <div className="border-b-2 border-red-900 pb-4 text-center">
             <div className="flex items-center justify-center gap-2.5 mb-1.5">

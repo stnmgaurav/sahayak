@@ -70,6 +70,20 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
   const fileInputId = useId();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Escape key listener to dismiss modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Load and refresh messages for this item
   useEffect(() => {
     if (!isOpen || !item) return;
@@ -213,18 +227,25 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
       <div 
-        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col h-[90vh] max-h-[720px]"
+        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden my-auto flex flex-col h-[90vh] max-h-[720px] animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
         
         {/* MODAL HEADER */}
-        <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-950 text-white p-4 sm:p-5 pr-14 relative shrink-0">
+        <div className="sticky top-0 z-30 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-950 text-white p-4 sm:p-5 pr-14 relative shrink-0 border-b border-emerald-800/40">
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center text-white/80 hover:text-white rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-white/90 hover:text-white rounded-full bg-white/10 hover:bg-white/25 active:scale-95 transition-all cursor-pointer ring-1 ring-white/20 shadow-sm"
             aria-label="Close dialog"
+            title="Close (Esc)"
           >
             <X className="w-5 h-5" />
           </button>

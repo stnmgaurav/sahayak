@@ -100,6 +100,20 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
     }
   }, [currentUser, firebaseUser]);
 
+  // Escape key listener to dismiss modal
+  useEffect(() => {
+    if (!needsProfileCompletion) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setNeedsProfileCompletion(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [needsProfileCompletion, setNeedsProfileCompletion]);
+
   // Admins and Security Staff do not require student profile completion
   if (!needsProfileCompletion || currentUser?.role === 'admin') return null;
 
@@ -226,18 +240,19 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
 
   return (
     <div 
-      className="fixed inset-0 z-[999] flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-md p-0 sm:p-4 overflow-y-auto"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          setNeedsProfileCompletion(false);
-        }
-      }}
+      className="fixed inset-0 z-[999] flex flex-col sm:items-center sm:justify-center bg-slate-950/80 backdrop-blur-md p-0 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+      onClick={() => setNeedsProfileCompletion(false)}
+      role="dialog"
+      aria-modal="true"
     >
       {/* Main Container: Full screen on mobile, elegant rounded card on desktop */}
-      <div className="relative w-full sm:max-w-xl bg-white sm:rounded-3xl shadow-2xl flex flex-col min-h-screen sm:min-h-0 sm:max-h-[92vh] overflow-hidden my-0 sm:my-4 border-0 sm:border sm:border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      <div 
+        className="relative w-full sm:max-w-xl bg-white sm:rounded-3xl shadow-2xl flex flex-col min-h-screen sm:min-h-0 sm:max-h-[92vh] overflow-hidden my-0 sm:my-4 border-0 sm:border sm:border-slate-200 animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         
-        {/* University Header Ribbon (Minimized & Enhanced) */}
-        <div className="bg-gradient-to-r from-red-950 via-red-900 to-slate-900 text-white px-4 py-3 sm:px-5 sm:py-3.5 relative overflow-hidden shrink-0 border-b border-red-800/40">
+        {/* University Header Ribbon (Sticky & Prominent Close) */}
+        <div className="sticky top-0 z-30 bg-gradient-to-r from-red-950 via-red-900 to-slate-900 text-white px-4 py-3 sm:px-5 sm:py-3.5 relative overflow-hidden shrink-0 border-b border-red-800/40">
           <div className="absolute top-0 right-0 w-36 h-36 bg-red-600/10 rounded-full blur-xl pointer-events-none"></div>
 
           <div className="flex items-center justify-between relative z-10 gap-2.5">
@@ -263,7 +278,7 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
               </div>
             </div>
 
-            {/* Right side controls: Progress pill on initial setup + ALWAYS visible Close cross button */}
+            {/* Right side controls: Progress pill on initial setup + prominent Close cross button */}
             <div className="flex items-center gap-2 shrink-0">
               {!isExistingProfile && (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-bold text-white shadow-xs">
@@ -277,11 +292,11 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
               <button
                 type="button"
                 onClick={() => setNeedsProfileCompletion(false)}
-                className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 flex items-center justify-center text-white transition-all cursor-pointer shadow-xs"
-                title="Close Profile Details"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 flex items-center justify-center text-white transition-all cursor-pointer ring-1 ring-white/20 shadow-xs"
+                title="Close Profile (Esc)"
                 aria-label="Close Profile"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
           </div>

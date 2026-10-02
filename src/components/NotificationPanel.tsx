@@ -17,11 +17,20 @@ import {
   Clock, 
   ArrowRight,
   Filter,
-  Package
+  Package,
+  Eye,
+  CheckCircle2,
+  XCircle,
+  Phone,
+  Copy,
+  Lock,
+  User,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { 
   AppNotificationItem, 
+  ClaimNotificationDetails,
   getStoredNotifications, 
   markNotificationAsRead, 
   toggleNotificationRead, 
@@ -38,6 +47,7 @@ interface NotificationPanelProps {
   onOpenChatForItem?: (itemId: string, messageId?: string) => void;
   onViewItemDetails?: (itemId: string) => void;
   onOpenMatchComparison?: (lostItemId: string) => void;
+  onReviewClaim?: (claimId: string, itemId?: string, mode?: 'view' | 'accept' | 'reject' | 'proof') => void;
   onNavigateTab?: (tab: 'browse' | 'student-dashboard' | 'admin-dashboard') => void;
 }
 
@@ -48,6 +58,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
   onOpenChatForItem,
   onViewItemDetails,
   onOpenMatchComparison,
+  onReviewClaim,
   onNavigateTab,
 }) => {
   const { currentUser } = useAuth();
@@ -55,6 +66,13 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
   const [notifications, setNotifications] = useState<AppNotificationItem[]>(() =>
     getStoredNotifications(currentUser?.id, currentUser?.email)
   );
+
+  // Proof inspection modal state
+  const [inspectingClaim, setInspectingClaim] = useState<ClaimNotificationDetails | null>(null);
+  const [inspectingItemTitle, setInspectingItemTitle] = useState<string>('');
+  const [inspectingClaimId, setInspectingClaimId] = useState<string>('');
+  const [inspectingItemId, setInspectingItemId] = useState<string>('');
+  const [copiedPhone, setCopiedPhone] = useState(false);
 
   // Sync notifications on mount and whenever the store updates
   useEffect(() => {
@@ -79,6 +97,24 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
     };
   }, [isOpen]);
 
+  // Escape key listener
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (inspectingClaim) {
+          setInspectingClaim(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, inspectingClaim, onClose]);
+
   if (!isOpen) return null;
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -96,6 +132,42 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
     if (notifications.length === 0) return;
     clearAllNotifications(currentUser?.id, currentUser?.email);
     setNotifications(getStoredNotifications(currentUser?.id, currentUser?.email));
+  };
+
+  const handleReviewClaimAction = (item: AppNotificationItem, mode: 'view' | 'accept' | 'reject' | 'proof' = 'view') => {
+    markNotificationAsRead(item.id);
+    if (item.claimId) {
+      if (onReviewClaim) {
+        onReviewClaim(item.claimId, item.itemId, mode);
+      } else {
+        window.dispatchEvent(
+          new CustomEvent('sahayak:review_claim', {
+            detail: { claimId: item.claimId, itemId: item.itemId, mode },
+          })
+        );
+      }
+      onClose();
+    }
+  };
+
+  const handleOpenProofInspection = (item: AppNotificationItem) => {
+    markNotificationAsRead(item.id);
+    if (item.claimDetails) {
+      setInspectingClaim(item.claimDetails);
+      setInspectingItemTitle(item.itemTitle || 'Found Item');
+      setInspectingClaimId(item.claimId || '');
+      setInspectingItemId(item.itemId || '');
+    } else if (item.claimId) {
+      handleReviewClaimAction(item, 'proof');
+    }
+  };
+
+  const handleCopyInspectingPhone = (phone?: string) => {
+    if (phone) {
+      navigator.clipboard.writeText(phone);
+      setCopiedPhone(true);
+      setTimeout(() => setCopiedPhone(false), 2000);
+    }
   };
 
   const handleItemAction = (item: AppNotificationItem) => {
@@ -135,6 +207,8 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
         onNavigateTab('student-dashboard');
       }
       onClose();
+    } else if (item.actionType === 'review_claim' && item.claimId) {
+      handleReviewClaimAction(item, 'view');
     } else if (item.actionType === 'open_security') {
       if (onNavigateTab) {
         onNavigateTab('admin-dashboard');
@@ -200,17 +274,18 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[9990] flex justify-end bg-slate-950/45 backdrop-blur-[2px] transition-opacity duration-200 animate-in fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="notification-panel-title"
-    >
+    <>
+      <div
+        className="fixed inset-0 z-[9990] flex justify-end bg-slate-950/45 backdrop-blur-[2px] transition-opacity duration-200 animate-in fade-in"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="notification-panel-title"
+      >
       {/* Sliding Notification Panel Container */}
       <div 
         className="relative w-full max-w-md sm:max-w-lg h-full bg-white shadow-2xl flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-250 ease-out"
@@ -455,24 +530,131 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
                       </div>
                     </div>
 
+                    {/* Specialized Claim Evidence Preview for Finder Claims */}
+                    {item.category === 'claim' && item.claimDetails && (
+                      <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2 text-xs">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 font-bold text-slate-800 text-[11px]">
+                            <User className="w-3 h-3 text-red-700" />
+                            <span>{item.claimDetails.claimantName}</span>
+                            <span className="text-slate-400">•</span>
+                            <span className="font-mono text-slate-600">UID: {item.claimDetails.claimantUid}</span>
+                          </span>
+
+                          {item.claimDetails.claimantPhone && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyInspectingPhone(item.claimDetails?.claimantPhone);
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-white px-2 py-0.5 rounded-md border border-slate-200 transition-colors cursor-pointer"
+                              title="Click to copy contact phone"
+                            >
+                              <Phone className="w-2.5 h-2.5 text-slate-500" />
+                              <span>{item.claimDetails.claimantPhone}</span>
+                              <Copy className="w-2.5 h-2.5 text-slate-400" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Distinctive Ownership Evidence */}
+                        <div className="text-slate-700 font-medium bg-white p-2.5 rounded-lg border border-slate-100 text-[11px] leading-relaxed">
+                          <span className="text-slate-500 font-bold block mb-0.5 text-[10px] uppercase tracking-wider">Submitted Proof:</span>
+                          "{item.claimDetails.proofDescription}"
+                        </div>
+
+                        {/* Attached Proof Photo Thumbnail */}
+                        {item.claimDetails.proofImageUrl && (
+                          <div className="flex items-center justify-between gap-2 pt-0.5">
+                            <div className="flex items-center gap-2">
+                              <img
+                                src={item.claimDetails.proofImageUrl}
+                                alt="Claim proof document"
+                                className="w-9 h-9 rounded-lg object-cover border border-slate-200"
+                              />
+                              <span className="text-[11px] font-bold text-slate-700">Photo Proof Attached</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenProofInspection(item)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md transition-colors cursor-pointer"
+                            >
+                              <Eye className="w-3 h-3 text-indigo-600" />
+                              <span>Inspect Photo</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Actions Row */}
-                    <div className="mt-3.5 pt-2.5 border-t border-slate-100/90 flex items-center justify-between gap-2">
-                      {/* Primary Context Action */}
-                      {item.actionLabel ? (
-                        <button
-                          type="button"
-                          onClick={() => handleItemAction(item)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-bold shadow-xs hover:shadow-sm active:scale-95 transition-all cursor-pointer"
-                        >
-                          <span>{item.actionLabel}</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
+                    <div className="mt-3.5 pt-2.5 border-t border-slate-100/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      {/* Option A: Pending Finder Claim with Complete Actions Set */}
+                      {item.category === 'claim' && (item.actionType === 'review_claim' || item.claimDetails?.status === 'pending') && item.statusType === 'urgent' ? (
+                        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+                          {/* 1. Review Claim */}
+                          <button
+                            type="button"
+                            onClick={() => handleReviewClaimAction(item, 'view')}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-xs hover:shadow-sm active:scale-95 transition-all cursor-pointer"
+                            title="Open full claim verification review dialog"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 text-rose-200" />
+                            <span>Review Claim</span>
+                          </button>
+
+                          {/* 2. View Proof */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenProofInspection(item)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/90 rounded-full text-xs font-bold active:scale-95 transition-all cursor-pointer"
+                            title="Inspect claimant's ownership proof document"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>View Proof</span>
+                          </button>
+
+                          {/* 3. Accept Handover */}
+                          <button
+                            type="button"
+                            onClick={() => handleReviewClaimAction(item, 'accept')}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-full text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
+                            title="Accept claim and designate handover point"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-100" />
+                            <span>Accept</span>
+                          </button>
+
+                          {/* 4. Reject Handover */}
+                          <button
+                            type="button"
+                            onClick={() => handleReviewClaimAction(item, 'reject')}
+                            className="inline-flex items-center gap-1 px-2 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 rounded-full text-xs font-bold active:scale-95 transition-all cursor-pointer"
+                            title="Reject claim with reason"
+                          >
+                            <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Reject</span>
+                          </button>
+                        </div>
                       ) : (
-                        <div />
+                        /* Default Action Button for Messages, AI Matches, etc. */
+                        item.actionLabel ? (
+                          <button
+                            type="button"
+                            onClick={() => handleItemAction(item)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-bold shadow-xs hover:shadow-sm active:scale-95 transition-all cursor-pointer"
+                          >
+                            <span>{item.actionLabel}</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        ) : (
+                          <div />
+                        )
                       )}
 
                       {/* Item Quick Utilities (Mark as Read / Dismiss) */}
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 shrink-0 ml-auto">
                         <button
                           type="button"
                           onClick={() => toggleNotificationRead(item.id)}
@@ -526,5 +708,152 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
         </div>
       </div>
     </div>
+
+    {/* Proof Inspection Lightbox Modal */}
+      {inspectingClaim && (
+        <div 
+          className="fixed inset-0 z-[9998] flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-200"
+          onClick={() => setInspectingClaim(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div 
+            className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-red-800 via-red-900 to-slate-900 text-white p-5 pr-14 relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setInspectingClaim(null)}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-red-200 mb-1">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Submitted Ownership Evidence</span>
+              </div>
+              <h3 className="text-lg font-black text-white truncate">
+                Claim for "{inspectingItemTitle}"
+              </h3>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-4 text-xs">
+              {/* Claimant Profile Strip */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-extrabold text-slate-900 text-sm">{inspectingClaim.claimantName}</h4>
+                  <p className="text-[11px] text-slate-500 font-mono mt-0.5">UID / Roll: {inspectingClaim.claimantUid}</p>
+                </div>
+                {inspectingClaim.claimantPhone && (
+                  <button
+                    type="button"
+                    onClick={() => handleCopyInspectingPhone(inspectingClaim.claimantPhone)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-slate-700 bg-white border border-slate-200 shadow-2xs cursor-pointer"
+                  >
+                    <Phone className="w-3 h-3 text-slate-500" />
+                    <span>{inspectingClaim.claimantPhone}</span>
+                    {copiedPhone ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-slate-400" />}
+                  </button>
+                )}
+              </div>
+
+              {/* Photo Proof */}
+              {inspectingClaim.proofImageUrl ? (
+                <div className="space-y-1.5">
+                  <label className="font-extrabold text-slate-700 text-[11px] uppercase tracking-wider block">
+                    Proof Photo / Bill / Identification Document:
+                  </label>
+                  <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 flex items-center justify-center max-h-[300px]">
+                    <img
+                      src={inspectingClaim.proofImageUrl}
+                      alt="Verification document"
+                      className="max-h-[300px] w-auto object-contain"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 rounded-xl text-slate-500 text-center italic border border-slate-100">
+                  No photographic document attached. Verification relies on distinctive marks description.
+                </div>
+              )}
+
+              {/* Description */}
+              <div className="space-y-1">
+                <label className="font-extrabold text-slate-700 text-[11px] uppercase tracking-wider block">
+                  Distinctive Ownership Marks &amp; Content Description:
+                </label>
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 font-medium text-slate-800 leading-relaxed">
+                  "{inspectingClaim.proofDescription}"
+                </div>
+              </div>
+
+              {/* Serial / ID */}
+              {inspectingClaim.serialNumberOrIdentifier && (
+                <div className="space-y-1">
+                  <label className="font-extrabold text-slate-700 text-[11px] uppercase tracking-wider block">
+                    Serial Number / Device Identifier:
+                  </label>
+                  <div className="px-3 py-1.5 bg-slate-100 rounded-xl font-mono font-bold text-slate-900 border border-slate-200 inline-block">
+                    {inspectingClaim.serialNumberOrIdentifier}
+                  </div>
+                </div>
+              )}
+
+              {/* Secret Answer */}
+              {inspectingClaim.secretAnswer && (
+                <div className="space-y-1 p-3 bg-amber-50/80 rounded-xl border border-amber-200">
+                  <div className="flex items-center gap-1.5 text-amber-900 font-bold text-[11px]">
+                    <Lock className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Secret Challenge Answer:</span>
+                  </div>
+                  <div className="font-mono text-xs font-bold text-slate-900 bg-white p-2 rounded-lg border border-amber-300">
+                    {inspectingClaim.secretAnswer}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Handover Actions */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setInspectingClaim(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white rounded-full border border-slate-200 cursor-pointer"
+              >
+                Close
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInspectingClaim(null);
+                    onReviewClaim?.(inspectingClaimId, inspectingItemId, 'reject');
+                    onClose();
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-rose-700 bg-white hover:bg-rose-50 border border-rose-300 rounded-full cursor-pointer transition-colors"
+                >
+                  Reject Claim
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInspectingClaim(null);
+                    onReviewClaim?.(inspectingClaimId, inspectingItemId, 'accept');
+                    onClose();
+                  }}
+                  className="px-5 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 rounded-full shadow-md shadow-emerald-600/20 cursor-pointer transition-all active:scale-95"
+                >
+                  Accept Handover
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };

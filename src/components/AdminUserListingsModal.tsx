@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { UserProfile, ItemReport, ItemStatus } from '../types';
 import { updateItemStatus } from '../lib/storage';
@@ -44,6 +44,20 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'lost' | 'found'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Escape key listener to dismiss modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !user) return null;
 
   // Find all items reported by this user (by userId, userEmail, or userUid)
@@ -78,16 +92,26 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
   const displayInitial = (displayName.charAt(0) || 'U').toUpperCase();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header with User Info */}
-        <div className="bg-slate-900 text-white p-5 sm:p-6 relative">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-950/70 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div 
+        className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden my-auto flex flex-col max-h-[92vh] sm:max-h-[88vh] animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Sticky Header with User Info */}
+        <div className="sticky top-0 z-30 shrink-0 bg-slate-900 text-white p-4 sm:p-6 pr-14 relative border-b border-slate-800">
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            title="Close modal"
+            className="absolute top-4 right-4 sm:top-5 sm:right-5 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-white/80 hover:text-white rounded-full bg-white/10 hover:bg-white/25 active:scale-95 transition-all cursor-pointer ring-1 ring-white/15"
+            title="Close (Esc)"
+            aria-label="Close modal"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pr-10">

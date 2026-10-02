@@ -4,6 +4,23 @@ import { findMatchesForItem } from './matching';
 
 export type NotificationCategory = 'message' | 'match' | 'claim' | 'item' | 'security' | 'system';
 
+export interface ClaimNotificationDetails {
+  claimantName: string;
+  claimantUid: string;
+  claimantPhone?: string;
+  claimantEmail?: string;
+  proofDescription: string;
+  proofImageUrl?: string;
+  serialNumberOrIdentifier?: string;
+  secretAnswer?: string;
+  status: 'pending' | 'verified' | 'rejected' | 'returned';
+  pickupLocation?: string;
+  rejectionReason?: string;
+  adminNotes?: string;
+  finderName?: string;
+  finderEmail?: string;
+}
+
 export interface AppNotificationItem {
   id: string;
   category: NotificationCategory;
@@ -19,9 +36,10 @@ export interface AppNotificationItem {
   claimId?: string;
   messageId?: string;
   actionLabel?: string;
-  actionType?: 'open_chat' | 'view_item' | 'compare_match' | 'view_claim' | 'open_security';
+  actionType?: 'open_chat' | 'view_item' | 'compare_match' | 'view_claim' | 'open_security' | 'review_claim';
   recipientId?: string;
   recipientEmail?: string;
+  claimDetails?: ClaimNotificationDetails;
 }
 
 const NOTIFICATIONS_STORAGE_KEY = 'sahayak_notifications_store_v2';
@@ -218,63 +236,128 @@ export function getStoredNotifications(
 
   // Check claims
   claims.forEach((claim) => {
-    const notifId = `notif_claim_${claim.id}_${claim.status}`;
-    if (deletedIds.has(notifId) || existingIds.has(notifId)) return;
-
-    const isClaimant =
-      (currentUserId && claim.claimantId === currentUserId) ||
-      (userEmailLower && claim.claimantEmail && claim.claimantEmail.toLowerCase() === userEmailLower);
-
     const targetItem = items.find((i) => i.id === claim.itemId);
-    const isItemOwner =
-      targetItem &&
-      ((currentUserId && targetItem.userId === currentUserId) ||
-        (userEmailLower && targetItem.userEmail && targetItem.userEmail.toLowerCase() === userEmailLower));
+    const finderEmail = (targetItem?.userEmail || claim.finderEmail || '').toLowerCase();
+    const finderId = targetItem?.userId || claim.finderId;
+    const claimantEmail = (claim.claimantEmail || '').toLowerCase();
 
-    if (isClaimant || isItemOwner) {
-      let statusTitle = 'Claim Update';
-      let statusType: AppNotificationItem['statusType'] = 'info';
-      let desc = '';
+    const claimDetails: ClaimNotificationDetails = {
+      claimantName: claim.claimantName,
+      claimantUid: claim.claimantUid,
+      claimantPhone: claim.claimantPhone,
+      claimantEmail: claim.claimantEmail,
+      proofDescription: claim.proofDescription,
+      proofImageUrl: claim.proofImageUrl,
+      serialNumberOrIdentifier: claim.serialNumberOrIdentifier,
+      secretAnswer: claim.secretAnswer,
+      status: claim.status,
+      pickupLocation: claim.pickupLocation,
+      rejectionReason: claim.rejectionReason,
+      adminNotes: claim.adminNotes,
+      finderName: claim.finderName || targetItem?.userName,
+      finderEmail: finderEmail || undefined,
+    };
 
-      if (claim.status === 'verified') {
-        statusTitle = `Claim Verified: "${claim.itemTitle}"`;
-        statusType = 'success';
-        desc = 'Security Desk has verified the ownership claim. Proceed to designated custody point for handover.';
-      } else if (claim.status === 'returned') {
-        statusTitle = `Item Handover Complete: "${claim.itemTitle}"`;
-        statusType = 'success';
-        desc = 'The item has been officially recovered and signed for at Chandigarh University Security Desk.';
-      } else if (claim.status === 'rejected') {
-        statusTitle = `Claim Status: "${claim.itemTitle}"`;
-        statusType = 'warning';
-        desc = 'Claim verification could not be approved based on the provided details.';
-      } else {
-        statusTitle = isItemOwner ? `New Claim Filed: "${claim.itemTitle}"` : `Claim Submitted: "${claim.itemTitle}"`;
-        statusType = 'unread';
-        desc = isItemOwner
-          ? `${claim.claimantName} filed an ownership claim for your found item.`
-          : 'Your claim has been submitted to Campus Security for review.';
+    // 1. ROUTE NOTIFICATION TO FINDER (Person who posted the found item)
+    if (finderEmail || finderId) {
+      const finderNotifId = `notif_claim_finder_${claim.id}_${claim.status}`;
+      if (!deletedIds.has(finderNotifId) && !existingIds.has(finderNotifId)) {
+        let title = `New Ownership Claim: "${claim.itemTitle}"`;
+        let desc = `${claim.claimantName} (${claim.claimantUid}) submitted proof: "${claim.proofDescription.slice(0, 90)}...". Open to review verification details and accept/reject handover.`;
+        let statusText = 'Needs Review';
+        let statusType: AppNotificationItem['statusType'] = 'urgent';
+
+        if (claim.status === 'verified') {
+          title = `Handover Approved for "${claim.itemTitle}"`;
+          desc = `You approved ${claim.claimantName}'s claim. Pickup location set to: ${claim.pickupLocation || 'Campus Security Desk'}.`;
+          statusText = 'Approved';
+          statusType = 'success';
+        } else if (claim.status === 'rejected') {
+          title = `Claim Rejected for "${claim.itemTitle}"`;
+          desc = `You rejected ${claim.claimantName}'s claim. Item remains active in the campus registry.`;
+          statusText = 'Rejected';
+          statusType = 'info';
+        } else if (claim.status === 'returned') {
+          title = `Handover Complete: "${claim.itemTitle}"`;
+          desc = `Item has been officially returned to owner ${claim.claimantName}.`;
+          statusText = 'Recovered';
+          statusType = 'success';
+        }
+
+        stored.unshift({
+          id: finderNotifId,
+          category: 'claim',
+          title,
+          description: desc,
+          timestamp: claim.updatedAt || claim.createdAt || new Date().toISOString(),
+          read: claim.status === 'verified' || claim.status === 'returned',
+          statusText,
+          statusType,
+          itemId: claim.itemId,
+          itemTitle: claim.itemTitle,
+          itemImage: targetItem?.imageUrl,
+          claimId: claim.id,
+          actionLabel: claim.status === 'pending' ? 'Review Claim' : 'View Details',
+          actionType: 'review_claim',
+          recipientId: finderId,
+          recipientEmail: finderEmail,
+          claimDetails,
+        });
+        existingIds.add(finderNotifId);
       }
+    }
 
-      stored.unshift({
-        id: notifId,
-        category: 'claim',
-        title: statusTitle,
-        description: desc,
-        timestamp: claim.updatedAt || claim.createdAt || new Date().toISOString(),
-        read: false,
-        statusText: claim.status.toUpperCase(),
-        statusType,
-        itemId: claim.itemId,
-        itemTitle: claim.itemTitle,
-        itemImage: targetItem?.imageUrl,
-        claimId: claim.id,
-        actionLabel: 'View Claim',
-        actionType: 'view_claim',
-        recipientId: claim.claimantId,
-        recipientEmail: claim.claimantEmail,
-      });
-      existingIds.add(notifId);
+    // 2. ROUTE NOTIFICATION TO CLAIMANT (Person who lost the item & claimed it)
+    if (claimantEmail || claim.claimantId) {
+      const claimantNotifId = `notif_claim_claimant_${claim.id}_${claim.status}`;
+      if (!deletedIds.has(claimantNotifId) && !existingIds.has(claimantNotifId)) {
+        let title = `Claim Submitted for "${claim.itemTitle}"`;
+        let desc = `Your verification details were routed to the finder. You will receive an alert once they review and confirm handover.`;
+        let statusText = 'Pending Review';
+        let statusType: AppNotificationItem['statusType'] = 'unread';
+        let actionLabel = 'Track Claim';
+
+        if (claim.status === 'verified') {
+          title = `🎉 Claim Approved for "${claim.itemTitle}"!`;
+          desc = `The finder verified your ownership proof! Collect your belonging at: ${claim.pickupLocation || 'Main Security Gate 1 Desk'}.`;
+          statusText = 'Verified & Ready';
+          statusType = 'success';
+          actionLabel = 'View Handover Pass';
+        } else if (claim.status === 'rejected') {
+          title = `Claim Not Approved: "${claim.itemTitle}"`;
+          desc = `The finder or security could not verify your claim. ${claim.rejectionReason ? `Reason: "${claim.rejectionReason}"` : 'Details did not match identifying marks.'}`;
+          statusText = 'Not Approved';
+          statusType = 'warning';
+          actionLabel = 'View Details';
+        } else if (claim.status === 'returned') {
+          title = `Item Handover Complete: "${claim.itemTitle}"`;
+          desc = `Official handover was completed and signed for at Chandigarh University Security Desk.`;
+          statusText = 'Recovered';
+          statusType = 'success';
+          actionLabel = 'View Receipt';
+        }
+
+        stored.unshift({
+          id: claimantNotifId,
+          category: 'claim',
+          title,
+          description: desc,
+          timestamp: claim.updatedAt || claim.createdAt || new Date().toISOString(),
+          read: claim.status === 'returned',
+          statusText,
+          statusType,
+          itemId: claim.itemId,
+          itemTitle: claim.itemTitle,
+          itemImage: targetItem?.imageUrl,
+          claimId: claim.id,
+          actionLabel,
+          actionType: 'view_claim',
+          recipientId: claim.claimantId,
+          recipientEmail: claimantEmail,
+          claimDetails,
+        });
+        existingIds.add(claimantNotifId);
+      }
     }
   });
 
@@ -283,8 +366,11 @@ export function getStoredNotifications(
     if (deletedIds.has(notif.id)) return false;
     // System notifications are visible to everyone
     if (notif.category === 'system' || !notif.recipientEmail) return true;
-    if (!userEmailLower) return true; // Guest view gets general seed
-    return notif.recipientEmail.toLowerCase() === userEmailLower;
+    if (!userEmailLower && !currentUserId) return true; // Guest view gets general seed
+
+    const matchesEmail = userEmailLower && notif.recipientEmail && notif.recipientEmail.trim().toLowerCase() === userEmailLower;
+    const matchesId = currentUserId && notif.recipientId && notif.recipientId === currentUserId;
+    return Boolean(matchesEmail || matchesId);
   });
 
   // Sort newest first
@@ -397,6 +483,162 @@ export function addAppNotification(
   list.unshift(newNotif);
   saveRawNotifications(list);
   return newNotif;
+}
+
+/**
+ * Automatically route a newly submitted claim notification to the user who posted the found listing
+ */
+export function routeClaimNotificationToFinder(claim: ItemClaim, item?: ItemReport): AppNotificationItem {
+  const targetItem = item || getStoredItems().find((i) => i.id === claim.itemId);
+  const finderEmail = (targetItem?.userEmail || claim.finderEmail || '').toLowerCase();
+  const finderId = targetItem?.userId || claim.finderId;
+
+  const claimDetails: ClaimNotificationDetails = {
+    claimantName: claim.claimantName,
+    claimantUid: claim.claimantUid,
+    claimantPhone: claim.claimantPhone,
+    claimantEmail: claim.claimantEmail,
+    proofDescription: claim.proofDescription,
+    proofImageUrl: claim.proofImageUrl,
+    serialNumberOrIdentifier: claim.serialNumberOrIdentifier,
+    secretAnswer: claim.secretAnswer,
+    status: claim.status,
+    pickupLocation: claim.pickupLocation,
+    rejectionReason: claim.rejectionReason,
+    adminNotes: claim.adminNotes,
+    finderName: claim.finderName || targetItem?.userName,
+    finderEmail: finderEmail || undefined,
+  };
+
+  const notifId = `notif_claim_finder_${claim.id}_${claim.status}`;
+  const newNotif: AppNotificationItem = {
+    id: notifId,
+    category: 'claim',
+    title: `🚨 New Ownership Claim: "${claim.itemTitle}"`,
+    description: `${claim.claimantName} (${claim.claimantUid}) filed a verification claim: "${claim.proofDescription.slice(0, 95)}...". Review proof details to accept or reject handover.`,
+    timestamp: claim.createdAt || new Date().toISOString(),
+    read: false,
+    statusText: 'Needs Review',
+    statusType: 'urgent',
+    itemId: claim.itemId,
+    itemTitle: claim.itemTitle,
+    itemImage: targetItem?.imageUrl || claim.proofImageUrl,
+    claimId: claim.id,
+    actionLabel: 'Review Claim',
+    actionType: 'review_claim',
+    recipientId: finderId,
+    recipientEmail: finderEmail,
+    claimDetails,
+  };
+
+  const list = loadStoredRawNotifications();
+  // Filter out any duplicate for this claim ID
+  const cleanList = list.filter((n) => !n.id.startsWith(`notif_claim_finder_${claim.id}`));
+  cleanList.unshift(newNotif);
+  saveRawNotifications(cleanList);
+
+  return newNotif;
+}
+
+/**
+ * Route claim acceptance / rejection decision updates to both finder and claimant
+ */
+export function routeClaimDecisionNotification(
+  claim: ItemClaim,
+  decision: 'verified' | 'rejected',
+  details?: { pickupLocation?: string; reason?: string; adminNotes?: string }
+): void {
+  const targetItem = getStoredItems().find((i) => i.id === claim.itemId);
+  const finderEmail = (targetItem?.userEmail || claim.finderEmail || '').toLowerCase();
+  const finderId = targetItem?.userId || claim.finderId;
+  const claimantEmail = (claim.claimantEmail || '').toLowerCase();
+
+  const claimDetails: ClaimNotificationDetails = {
+    claimantName: claim.claimantName,
+    claimantUid: claim.claimantUid,
+    claimantPhone: claim.claimantPhone,
+    claimantEmail: claim.claimantEmail,
+    proofDescription: claim.proofDescription,
+    proofImageUrl: claim.proofImageUrl,
+    serialNumberOrIdentifier: claim.serialNumberOrIdentifier,
+    secretAnswer: claim.secretAnswer,
+    status: decision,
+    pickupLocation: details?.pickupLocation || claim.pickupLocation,
+    rejectionReason: details?.reason || claim.rejectionReason,
+    adminNotes: details?.adminNotes || claim.adminNotes,
+    finderName: claim.finderName || targetItem?.userName,
+    finderEmail: finderEmail || undefined,
+  };
+
+  const list = loadStoredRawNotifications();
+  const now = new Date().toISOString();
+
+  // 1. Finder notification
+  const finderNotifId = `notif_claim_finder_${claim.id}_${decision}`;
+  const finderTitle = decision === 'verified'
+    ? `Handover Approved for "${claim.itemTitle}"`
+    : `Claim Rejected for "${claim.itemTitle}"`;
+  const finderDesc = decision === 'verified'
+    ? `You approved ${claim.claimantName}'s claim. Pickup location set to: ${details?.pickupLocation || claim.pickupLocation || 'Main Security Gate 1 Desk'}.`
+    : `You rejected ${claim.claimantName}'s claim. Item remains active in the campus registry.`;
+
+  const finderNotif: AppNotificationItem = {
+    id: finderNotifId,
+    category: 'claim',
+    title: finderTitle,
+    description: finderDesc,
+    timestamp: now,
+    read: true,
+    statusText: decision === 'verified' ? 'Approved' : 'Rejected',
+    statusType: decision === 'verified' ? 'success' : 'info',
+    itemId: claim.itemId,
+    itemTitle: claim.itemTitle,
+    itemImage: targetItem?.imageUrl,
+    claimId: claim.id,
+    actionLabel: 'View Details',
+    actionType: 'review_claim',
+    recipientId: finderId,
+    recipientEmail: finderEmail,
+    claimDetails,
+  };
+
+  // 2. Claimant notification
+  const claimantNotifId = `notif_claim_claimant_${claim.id}_${decision}`;
+  const claimantTitle = decision === 'verified'
+    ? `🎉 Claim Approved for "${claim.itemTitle}"!`
+    : `Claim Not Approved: "${claim.itemTitle}"`;
+  const claimantDesc = decision === 'verified'
+    ? `The finder verified your ownership proof! Collect your belonging at: ${details?.pickupLocation || claim.pickupLocation || 'Main Security Gate 1 Desk'}.`
+    : `The finder or security could not verify your claim. ${details?.reason ? `Reason: "${details.reason}"` : 'Details did not match identifying marks.'}`;
+
+  const claimantNotif: AppNotificationItem = {
+    id: claimantNotifId,
+    category: 'claim',
+    title: claimantTitle,
+    description: claimantDesc,
+    timestamp: now,
+    read: false,
+    statusText: decision === 'verified' ? 'Verified & Ready' : 'Not Approved',
+    statusType: decision === 'verified' ? 'success' : 'warning',
+    itemId: claim.itemId,
+    itemTitle: claim.itemTitle,
+    itemImage: targetItem?.imageUrl,
+    claimId: claim.id,
+    actionLabel: decision === 'verified' ? 'View Handover Pass' : 'View Details',
+    actionType: 'view_claim',
+    recipientId: claim.claimantId,
+    recipientEmail: claimantEmail,
+    claimDetails,
+  };
+
+  // Remove pending versions and prepend updated ones
+  const filtered = list.filter((n) => 
+    !n.id.startsWith(`notif_claim_finder_${claim.id}`) && 
+    !n.id.startsWith(`notif_claim_claimant_${claim.id}`)
+  );
+  filtered.unshift(claimantNotif);
+  filtered.unshift(finderNotif);
+  saveRawNotifications(filtered);
 }
 
 /**
