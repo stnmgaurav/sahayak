@@ -37,10 +37,9 @@ import {
 } from 'lucide-react';
 import { 
   getNotificationPermission, 
-  requestNotificationPermission, 
-  sendTestPushNotification, 
   NotificationPermissionState 
 } from '../lib/notifications';
+import { getUnreadNotificationCount, subscribeToNotificationStore } from '../lib/notificationStore';
 
 interface StudentDashboardProps {
   items: ItemReport[];
@@ -75,38 +74,20 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'lost' | 'found' | 'matches' | 'claims' | 'messages'>('lost');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'recovered'>('all');
   const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(() => getNotificationPermission());
-  const [isEnablingNotif, setIsEnablingNotif] = useState(false);
-  const [testNotifSent, setTestNotifSent] = useState(false);
+  const [unreadNotifCount, setUnreadNotifCount] = useState<number>(() =>
+    getUnreadNotificationCount(currentUser?.id, currentUser?.email)
+  );
 
-  const handleEnableNotifications = async () => {
-    setIsEnablingNotif(true);
-    try {
-      const res = await requestNotificationPermission();
-      setNotifPermission(res);
-      if (res === 'granted') {
-        await sendTestPushNotification();
-        setTestNotifSent(true);
-        setTimeout(() => setTestNotifSent(false), 5000);
-      }
-    } catch (e) {
-      console.warn(e);
-    } finally {
-      setIsEnablingNotif(false);
-    }
-  };
-
-  const handleSendTestNotification = async () => {
-    setIsEnablingNotif(true);
-    try {
-      await sendTestPushNotification();
-      setTestNotifSent(true);
-      setTimeout(() => setTestNotifSent(false), 5000);
-    } catch (e) {
-      console.warn(e);
-    } finally {
-      setIsEnablingNotif(false);
-    }
-  };
+  // Sync unread notification count
+  React.useEffect(() => {
+    const updateCount = () => {
+      setUnreadNotifCount(getUnreadNotificationCount(currentUser?.id, currentUser?.email));
+      setNotifPermission(getNotificationPermission());
+    };
+    updateCount();
+    const unsubscribe = subscribeToNotificationStore(updateCount);
+    return () => unsubscribe();
+  }, [currentUser]);
 
   if (!currentUser) {
     return (
@@ -277,81 +258,56 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         </div>
       </div>
 
-      {/* Real-time Browser Push Notifications Card - Vibrant Modern Accent */}
+      {/* Campus Notifications Bar - Clean, Focused, Distraction-Free */}
       <div className="bg-gradient-to-r from-white via-slate-50/50 to-white rounded-2xl border border-slate-100 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
-            notifPermission === 'granted'
-              ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-emerald-500/30'
-              : notifPermission === 'denied'
-              ? 'bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-rose-500/30'
-              : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-amber-500/30'
-          }`}>
-            {notifPermission === 'granted' ? (
-              <BellRing className="w-5 h-5 text-white animate-pulse" />
-            ) : (
-              <Bell className="w-5 h-5 text-white" />
-            )}
+          <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs bg-gradient-to-br from-red-600 via-rose-600 to-red-800 text-white shadow-rose-600/20">
+            <BellRing className="w-5 h-5 text-white" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
-                {notifPermission === 'granted'
-                  ? 'Browser Push Notifications Active'
-                  : notifPermission === 'denied'
-                  ? 'Browser Push Notifications Blocked'
-                  : 'Enable Browser Push Notifications'}
+                Campus Activity &amp; Notifications
               </h3>
-              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${
-                notifPermission === 'granted'
-                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                  : notifPermission === 'denied'
-                  ? 'bg-rose-100 text-rose-800 border-rose-300'
-                  : 'bg-amber-100 text-amber-900 border-amber-300'
-              }`}>
-                {notifPermission === 'granted' ? 'Live Alerting' : notifPermission === 'denied' ? 'Blocked' : 'Recommended'}
-              </span>
+              {unreadNotifCount > 0 ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide bg-red-100 text-red-800 border border-red-200 animate-pulse">
+                  {unreadNotifCount} New Alert{unreadNotifCount > 1 ? 's' : ''}
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  All Caught Up
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500 font-medium mt-0.5 leading-relaxed">
-              {notifPermission === 'granted'
-                ? 'You will receive instant system tray alerts on your device whenever another student or security messages about your items.'
-                : notifPermission === 'denied'
-                ? 'Notifications were blocked in your browser settings. Unblock them in your address bar to receive instant chat alerts.'
-                : 'Turn on push notifications to be alerted on your phone or computer the moment someone finds or inquires about your item.'}
+              Real-time feed for AI matches, finder chat messages, and official campus custody handovers.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-          {notifPermission !== 'granted' && (
-            <button
-              type="button"
-              onClick={handleEnableNotifications}
-              disabled={isEnablingNotif}
-              className="px-5 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold transition-all shadow-md shadow-rose-600/25 active:scale-95 cursor-pointer disabled:opacity-50"
-            >
-              {isEnablingNotif ? 'Requesting...' : 'Turn On Alerts'}
-            </button>
-          )}
-
-          {notifPermission === 'granted' && (
-            <button
-              type="button"
-              onClick={handleSendTestNotification}
-              disabled={isEnablingNotif}
-              className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-600 hover:from-emerald-400 hover:via-teal-500 hover:to-emerald-500 text-white rounded-full text-xs font-extrabold transition-all shadow-md shadow-emerald-600/25 active:scale-95 cursor-pointer disabled:opacity-50"
-            >
-              {testNotifSent ? 'Alert Dispatched!' : 'Send Test Alert'}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('sahayak:open_notifications'))}
+            className="px-4 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold transition-all shadow-md shadow-rose-600/25 active:scale-95 cursor-pointer flex items-center gap-2"
+          >
+            <Bell className="w-3.5 h-3.5" />
+            <span>View Notifications</span>
+            {unreadNotifCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-white text-red-700 text-[10px] font-black">
+                {unreadNotifCount}
+              </span>
+            )}
+          </button>
 
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent('sahayak:open_notification_settings'))}
-            className="p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full border border-slate-200/90 shadow-2xs transition-colors cursor-pointer"
-            title="Notification Settings"
+            className="p-2 sm:p-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full border border-slate-200/90 shadow-2xs transition-colors cursor-pointer"
+            title="Notification Preferences & Push Settings"
+            aria-label="Notification Preferences"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-4 h-4 text-slate-600" />
           </button>
         </div>
       </div>
@@ -1076,100 +1032,31 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             </div>
           </div>
 
-          {/* Browser Push Notifications Banner Card */}
-          <div className={`p-4 rounded-2xl border transition-all ${
-            notifPermission === 'granted' 
-              ? 'bg-emerald-50/80 border-emerald-200/90 text-emerald-950' 
-              : 'bg-white border-slate-200 text-slate-900 shadow-xs'
-          }`}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                  notifPermission === 'granted' ? 'bg-emerald-600 text-white' : 'bg-red-800 text-white'
-                }`}>
-                  {notifPermission === 'granted' ? <BellRing className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs sm:text-sm font-extrabold text-slate-900">
-                      {notifPermission === 'granted'
-                        ? 'Browser Push Alerts Active'
-                        : 'Never miss a message about your lost item'}
-                    </h4>
-                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border uppercase ${
-                      notifPermission === 'granted'
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                        : 'bg-amber-50 text-amber-800 border-amber-200'
-                    }`}>
-                      {notifPermission === 'granted' ? 'Enabled' : 'Recommended'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5 leading-relaxed">
-                    {notifPermission === 'granted'
-                      ? 'You will receive immediate notifications on your desktop or phone whenever someone chats about your reported belongings, even when this tab is closed.'
-                      : 'Enable browser push notifications to get alerted on your phone or computer as soon as a finder sends holding coordinates, photos, or inquiries.'}
-                  </p>
-                </div>
+          {/* Messages & Inquiries Header */}
+          <div className="p-4 rounded-2xl bg-white border border-slate-100 flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-violet-50 text-violet-700 flex items-center justify-center shrink-0 border border-violet-100 shadow-2xs">
+                <MessageSquare className="w-4 h-4 text-violet-600" />
               </div>
-
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                {notifPermission !== 'granted' ? (
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      disabled={isEnablingNotif}
-                      onClick={async () => {
-                        setIsEnablingNotif(true);
-                        try {
-                          const res = await requestNotificationPermission();
-                          setNotifPermission(res);
-                          if (res === 'granted') {
-                            await sendTestPushNotification();
-                          }
-                        } finally {
-                          setIsEnablingNotif(false);
-                        }
-                      }}
-                      className="px-4 py-2 bg-red-800 hover:bg-red-900 text-white rounded-full text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50 cursor-pointer active:scale-95"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      <span>{isEnablingNotif ? 'Enabling...' : 'Enable Push Alerts'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent('sahayak:open_notification_settings'))}
-                      className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 rounded-full text-xs font-semibold border border-slate-200 shadow-2xs transition-all cursor-pointer"
-                      title="Alert Settings"
-                    >
-                      <Settings className="w-4 h-4 text-slate-600" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setTestNotifSent(true);
-                        await sendTestPushNotification();
-                        setTimeout(() => setTestNotifSent(false), 4000);
-                      }}
-                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-full text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer active:scale-95"
-                    >
-                      <BellRing className="w-3.5 h-3.5" />
-                      <span>{testNotifSent ? 'Dispatched!' : 'Send Test Alert'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent('sahayak:open_notification_settings'))}
-                      className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 rounded-full text-xs font-semibold border border-slate-200 shadow-2xs transition-all cursor-pointer"
-                      title="Manage Notification Preferences"
-                    >
-                      <Settings className="w-4 h-4 text-slate-600" />
-                    </button>
-                  </div>
-                )}
+              <div>
+                <h4 className="text-xs sm:text-sm font-extrabold text-slate-900">
+                  Direct Finder Inquiries &amp; Messages
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Holding coordinates, photos, and recovery verification threads
+                </p>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('sahayak:open_notification_settings'))}
+              className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200/80 shadow-2xs transition-colors cursor-pointer"
+              title="Notification Preferences & Push Alerts"
+              aria-label="Notification Preferences"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
           </div>
 
           {/* VIEW 1: RECEIVED INQUIRIES ON MY ITEMS */}

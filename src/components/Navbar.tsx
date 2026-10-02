@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth, isUserAdmin } from '../context/AuthContext';
 import { SahayakLogo } from './SahayakLogo';
 import { 
@@ -20,10 +20,13 @@ import {
   Check,
   ChevronRight,
   BadgeCheck,
-  Bell
+  Bell,
+  Settings
 } from 'lucide-react';
 import { NotificationSettingsModal } from './NotificationSettingsModal';
+import { NotificationPanel } from './NotificationPanel';
 import { getNotificationPermission, NotificationPermissionState } from '../lib/notifications';
+import { getUnreadNotificationCount, subscribeToNotificationStore } from '../lib/notificationStore';
 
 type NavTab = 'browse' | 'student-dashboard' | 'admin-dashboard' | 'login';
 
@@ -34,6 +37,7 @@ interface NavbarProps {
   unreadMatchesCount: number;
   pendingClaimsCount: number;
   onOpenNotificationModal?: () => void;
+  onOpenNotificationPanel?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -43,6 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   unreadMatchesCount,
   pendingClaimsCount,
   onOpenNotificationModal,
+  onOpenNotificationPanel,
 }) => {
   const { 
     currentUser, 
@@ -56,14 +61,36 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionState>(() => getNotificationPermission());
+  const [unreadNotifCount, setUnreadNotifCount] = useState<number>(() =>
+    getUnreadNotificationCount(currentUser?.id, currentUser?.email)
+  );
   const [copiedUid, setCopiedUid] = useState(false);
+
+  // Sync unread notification count
+  useEffect(() => {
+    const updateCount = () => {
+      setUnreadNotifCount(getUnreadNotificationCount(currentUser?.id, currentUser?.email));
+    };
+    updateCount();
+    const unsubscribe = subscribeToNotificationStore(updateCount);
+    return () => unsubscribe();
+  }, [currentUser]);
 
   const handleOpenNotificationModal = () => {
     if (onOpenNotificationModal) {
       onOpenNotificationModal();
     } else {
       setIsNotificationModalOpen(true);
+    }
+  };
+
+  const handleOpenNotificationPanel = () => {
+    if (onOpenNotificationPanel) {
+      onOpenNotificationPanel();
+    } else {
+      setIsNotificationPanelOpen(true);
     }
   };
 
@@ -178,20 +205,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right: Glass Actions & Profile */}
           <div className="flex items-center gap-2">
-            {/* Browser Push Notifications Bell */}
+            {/* Campus Notification Center Bell */}
             <button
               type="button"
-              onClick={handleOpenNotificationModal}
+              onClick={handleOpenNotificationPanel}
               className="relative p-2 rounded-full border border-slate-200/90 bg-white/80 hover:bg-white text-slate-700 hover:text-red-800 transition-all shadow-2xs hover:shadow-xs group cursor-pointer"
-              title={notificationPermission === 'granted' ? 'Push Notifications: Active (Click to manage)' : 'Enable Browser Push Notifications for Item Chats'}
-              aria-label="Push notifications settings"
+              title={unreadNotifCount > 0 ? `${unreadNotifCount} unread notifications` : 'Notifications (Click to view)'}
+              aria-label="Campus notifications"
             >
               <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-600 group-hover:text-red-800 transition-colors" />
-              {notificationPermission === 'granted' ? (
+              {unreadNotifCount > 0 ? (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center ring-2 ring-white shadow-2xs animate-pulse">
+                  {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                </span>
+              ) : notificationPermission === 'granted' ? (
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white" />
-              ) : (
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white animate-pulse" />
-              )}
+              ) : null}
             </button>
 
             {/* Profile / Login Menu */}
@@ -377,26 +406,54 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <button
                             type="button"
                             onClick={() => {
+                              handleOpenNotificationPanel();
+                              setIsProfileDropdownOpen(false);
+                            }}
+                            className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-50 transition-all group text-left cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-red-50 text-red-700 flex items-center justify-center shrink-0 group-hover:bg-red-100 transition-colors">
+                                <Bell className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-800 group-hover:text-slate-950 leading-tight">Notifications</p>
+                                <p className="text-[10px] text-slate-400 leading-tight truncate">
+                                  {unreadNotifCount > 0 ? `${unreadNotifCount} unread alert${unreadNotifCount > 1 ? 's' : ''}` : 'View activity feed'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {unreadNotifCount > 0 ? (
+                                <span className="px-1.5 py-0.5 text-[10px] font-extrabold bg-red-600 text-white rounded-full">
+                                  {unreadNotifCount}
+                                </span>
+                              ) : (
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              )}
+                              <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
                               handleOpenNotificationModal();
                               setIsProfileDropdownOpen(false);
                             }}
                             className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-50 transition-all group text-left cursor-pointer"
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition-colors">
-                                <Bell className="w-3.5 h-3.5" />
+                              <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 group-hover:bg-slate-200 transition-colors">
+                                <Settings className="w-3.5 h-3.5" />
                               </div>
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-slate-800 group-hover:text-slate-950 leading-tight">Push Notifications</p>
+                                <p className="text-xs font-bold text-slate-800 group-hover:text-slate-950 leading-tight">Alert Preferences</p>
                                 <p className="text-[10px] text-slate-400 leading-tight truncate">
-                                  {notificationPermission === 'granted' ? 'Alerts active for item chats' : 'Enable browser alerts'}
+                                  Push notifications &amp; sound chime
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <span className={`w-2 h-2 rounded-full ${notificationPermission === 'granted' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-                              <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
-                            </div>
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
                           </button>
 
                           {currentUser && isUserAdmin(currentUser.email) && isAdmin && (
@@ -547,15 +604,35 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             type="button"
-            onClick={() => { handleOpenNotificationModal(); setIsMobileMenuOpen(false); }}
-            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-left text-slate-700 bg-slate-50 hover:bg-slate-100 cursor-pointer"
+            onClick={() => { handleOpenNotificationPanel(); setIsMobileMenuOpen(false); }}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-left text-slate-800 bg-slate-50 hover:bg-slate-100 cursor-pointer"
           >
             <div className="flex items-center gap-2.5">
-              <Bell className="w-4 h-4 text-amber-600" />
-              <span>Browser Push Alerts</span>
+              <Bell className="w-4 h-4 text-red-600" />
+              <span>Campus Notifications</span>
+            </div>
+            {unreadNotifCount > 0 ? (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-600 text-white">
+                {unreadNotifCount} new
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
+                All caught up
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { handleOpenNotificationModal(); setIsMobileMenuOpen(false); }}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-left text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/80 cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <Settings className="w-4 h-4 text-slate-500" />
+              <span>Notification Preferences</span>
             </div>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${notificationPermission === 'granted' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-              {notificationPermission === 'granted' ? 'Active' : 'Enable'}
+              {notificationPermission === 'granted' ? 'Push Active' : 'Configure'}
             </span>
           </button>
 
@@ -569,6 +646,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
         </div>
+      )}
+
+      {/* Render internal NotificationPanel if not handled by parent */}
+      {!onOpenNotificationPanel && (
+        <NotificationPanel
+          isOpen={isNotificationPanelOpen}
+          onClose={() => setIsNotificationPanelOpen(false)}
+          onOpenSettings={() => {
+            setIsNotificationPanelOpen(false);
+            handleOpenNotificationModal();
+          }}
+          onNavigateTab={setCurrentTab}
+        />
       )}
 
       {!onOpenNotificationModal && (

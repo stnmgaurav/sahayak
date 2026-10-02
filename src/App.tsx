@@ -19,6 +19,7 @@ import { UserProfileCompletionModal } from './components/UserProfileCompletionMo
 import { AdminVerificationModal } from './components/AdminVerificationModal';
 import { InAppNotificationBanner } from './components/InAppNotificationBanner';
 import { NotificationSettingsModal } from './components/NotificationSettingsModal';
+import { NotificationPanel } from './components/NotificationPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { 
   registerServiceWorker, 
@@ -169,14 +170,32 @@ function SahayakMain() {
   const [receiptItem, setReceiptItem] = useState<ItemReport | null>(null);
 
   const [notificationSettingsOpen, setNotificationSettingsOpen] = useState(false);
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
 
   useEffect(() => {
     const handleOpenSettings = () => setNotificationSettingsOpen(true);
+    const handleOpenNotifications = () => setNotificationPanelOpen(true);
+    const handleViewItemEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ itemId: string }>;
+      const targetId = customEvent.detail?.itemId;
+      if (targetId) {
+        const currentList = getStoredItems();
+        const found = currentList.find(i => i.id === targetId) || items.find(i => i.id === targetId);
+        if (found) {
+          handleViewDetails(found);
+        }
+      }
+    };
+
     window.addEventListener('sahayak:open_notification_settings', handleOpenSettings);
+    window.addEventListener('sahayak:open_notifications', handleOpenNotifications);
+    window.addEventListener('sahayak:view_item', handleViewItemEvent);
     return () => {
       window.removeEventListener('sahayak:open_notification_settings', handleOpenSettings);
+      window.removeEventListener('sahayak:open_notifications', handleOpenNotifications);
+      window.removeEventListener('sahayak:view_item', handleViewItemEvent);
     };
-  }, []);
+  }, [items]);
 
   // Register push notification service worker on mount
   useEffect(() => {
@@ -363,6 +382,7 @@ function SahayakMain() {
         unreadMatchesCount={unreadMatchesCount}
         pendingClaimsCount={pendingClaimsCount}
         onOpenNotificationModal={() => setNotificationSettingsOpen(true)}
+        onOpenNotificationPanel={() => setNotificationPanelOpen(true)}
       />
 
       {/* 2. Main Views */}
@@ -921,6 +941,43 @@ function SahayakMain() {
         onProfileCompleted={() => {
           setCurrentTab('student-dashboard');
         }}
+      />
+
+      <NotificationPanel
+        isOpen={notificationPanelOpen}
+        onClose={() => setNotificationPanelOpen(false)}
+        onOpenSettings={() => {
+          setNotificationPanelOpen(false);
+          setNotificationSettingsOpen(true);
+        }}
+        onOpenChatForItem={(itemId, messageId) => {
+          const currentList = getStoredItems();
+          const found = currentList.find(i => i.id === itemId) || items.find(i => i.id === itemId);
+          if (found) {
+            setMessageTargetItem(found);
+            setMessageModalOpen(true);
+          }
+        }}
+        onViewItemDetails={(itemId) => {
+          const currentList = getStoredItems();
+          const found = currentList.find(i => i.id === itemId) || items.find(i => i.id === itemId);
+          if (found) {
+            handleViewDetails(found);
+          }
+        }}
+        onOpenMatchComparison={(lostItemId) => {
+          const currentList = getStoredItems();
+          const lost = currentList.find(i => i.id === lostItemId) || items.find(i => i.id === lostItemId);
+          if (lost) {
+            const matches = findMatchesForItem(lost, currentList, 45);
+            if (matches.length > 0) {
+              handleOpenMatchComparison(lost, matches[0].candidateItem);
+            } else {
+              setCurrentTab('student-dashboard');
+            }
+          }
+        }}
+        onNavigateTab={(tab) => setCurrentTab(tab)}
       />
 
       <NotificationSettingsModal
