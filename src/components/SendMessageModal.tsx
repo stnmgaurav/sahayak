@@ -94,15 +94,40 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
   const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<string | null>(null);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [showItemSidebar, setShowItemSidebar] = useState(true);
-  const [reactionsMap, setReactionsMap] = useState<Record<string, string>>({});
+  const [reactionsMap, setReactionsMap] = useState<Record<string, string>>(() => {
+    try {
+      if (item?.id) {
+        const saved = localStorage.getItem(`sahayak_chat_reactions_${item.id}`);
+        if (saved) return JSON.parse(saved);
+      }
+    } catch {
+      // ignore
+    }
+    return {};
+  });
+  const [activeActionMsgId, setActiveActionMsgId] = useState<string | null>(null);
+  const [animatingHeartMsgId, setAnimatingHeartMsgId] = useState<string | null>(null);
+  const lastTapRef = useRef<{ [msgId: string]: number }>({});
   const [showPartnerProfile, setShowPartnerProfile] = useState(false);
   const [avatarImgError, setAvatarImgError] = useState(false);
+
+  useEffect(() => {
+    if (item?.id) {
+      try {
+        const saved = localStorage.getItem(`sahayak_chat_reactions_${item.id}`);
+        setReactionsMap(saved ? JSON.parse(saved) : {});
+      } catch {
+        setReactionsMap({});
+      }
+    }
+  }, [item?.id]);
 
   useEffect(() => {
     setAvatarImgError(false);
   }, [item?.id, recipientUser?.id]);
 
   const fileInputId = useId();
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -112,6 +137,9 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
 
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+
+    // Prevent any background parent page scrolling
+    window.scrollTo({ top: 0, left: 0 });
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -160,10 +188,15 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
     return unsubscribe;
   }, [isOpen, item, currentUser]);
 
-  // Smooth scroll to bottom on new messages
+  // Smooth scroll to bottom on new messages inside the messages container
   useEffect(() => {
     if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
     }
   }, [messages, isOpen]);
 
@@ -343,17 +376,43 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
   };
 
   const handleToggleReaction = (msgId: string, emoji: string) => {
-    setReactionsMap(prev => ({
-      ...prev,
-      [msgId]: prev[msgId] === emoji ? '' : emoji
-    }));
+    setReactionsMap(prev => {
+      const updated = {
+        ...prev,
+        [msgId]: prev[msgId] === emoji ? '' : emoji
+      };
+      if (item?.id) {
+        try {
+          localStorage.setItem(`sahayak_chat_reactions_${item.id}`, JSON.stringify(updated));
+        } catch {
+          // ignore
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleBubbleInteraction = (msgId: string) => {
+    const now = Date.now();
+    const lastTap = lastTapRef.current[msgId] || 0;
+    if (now - lastTap < 350) {
+      // Double tap detected: instant Heart reaction with burst animation
+      handleToggleReaction(msgId, '❤️');
+      setAnimatingHeartMsgId(msgId);
+      setTimeout(() => setAnimatingHeartMsgId(null), 850);
+      setActiveActionMsgId(null);
+    } else {
+      // Single tap: toggle action reaction dock (mobile friendly)
+      setActiveActionMsgId(prev => (prev === msgId ? null : msgId));
+    }
+    lastTapRef.current[msgId] = now;
   };
 
   const itemCover = item.imageUrl || (item.imageUrls && item.imageUrls[0]) || '';
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-[#0B0F19] text-white flex flex-col overflow-hidden select-none font-sans animate-in fade-in duration-200"
+      className="fixed inset-0 w-full h-[100dvh] z-50 bg-[#0B0F19] text-white flex flex-col overflow-hidden font-sans animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
     >
@@ -483,16 +542,20 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
       </header>
 
       {/* MAIN BODY: 2-COLUMN DESKTOP (iMessage Chat Canvas + Glass Item Sidebar) */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 min-h-0 flex overflow-hidden relative">
 
         {/* CHAT STREAM CANVAS */}
-        <div className="flex-1 flex flex-col min-w-0 h-full relative">
+        <div className="flex-1 min-h-0 flex flex-col min-w-0 relative">
           
           {/* Messages Scroll Area */}
-          <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-5 sm:py-6 space-y-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+          <div 
+            ref={messagesContainerRef}
+            onClick={() => setActiveActionMsgId(null)}
+            className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-8 py-3 sm:py-4 space-y-3.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent flex flex-col"
+          >
             
             {/* Top Item Summary Notice Pill (iMessage Context) */}
-            <div className="max-w-md mx-auto my-2 p-3 sm:p-3.5 rounded-2xl bg-white/[0.06] backdrop-blur-xl border border-white/[0.12] text-xs text-white/90 shadow-lg text-center space-y-1">
+            <div className="max-w-md mx-auto my-1.5 p-3 sm:p-3.5 rounded-2xl bg-white/[0.06] backdrop-blur-xl border border-white/[0.12] text-xs text-white/90 shadow-lg text-center space-y-1 shrink-0">
               <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-extrabold text-[11px] uppercase tracking-wider">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span>Verified Campus Discussion Channel</span>
@@ -503,15 +566,15 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
             </div>
 
             {/* Date Separator Pill */}
-            <div className="flex justify-center my-3">
-              <span className="px-3.5 py-1 rounded-full bg-white/[0.08] backdrop-blur-md text-slate-300 text-[11px] font-semibold border border-white/[0.12] shadow-2xs">
+            <div className="flex justify-center my-1.5 shrink-0">
+              <span className="px-3.5 py-0.5 rounded-full bg-white/[0.08] backdrop-blur-md text-slate-300 text-[11px] font-semibold border border-white/[0.12] shadow-2xs">
                 {new Date(item.dateTime).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
               </span>
             </div>
 
             {/* Empty Thread State */}
             {messages.length === 0 ? (
-              <div className="py-16 px-4 text-center space-y-4 max-w-sm mx-auto">
+              <div className="py-12 px-4 text-center space-y-4 max-w-sm mx-auto my-auto">
                 <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-xl">
                   <MessageSquare className="w-8 h-8" />
                 </div>
@@ -523,7 +586,8 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
                 </p>
               </div>
             ) : (
-              messages.map((msg, index) => {
+              <div className="space-y-3.5">
+                {messages.map((msg, index) => {
                 const isFromMe = currentUser && (
                   msg.senderId === currentUser.id || 
                   (currentUser.email && msg.senderEmail && currentUser.email.toLowerCase() === msg.senderEmail.toLowerCase())
@@ -553,15 +617,26 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
                     </div>
 
                     {/* Speech Bubble Container with Reaction Button Anchor */}
-                    <div className="relative max-w-[85%] sm:max-w-[70%]">
+                    <div className="relative max-w-[88%] sm:max-w-[70%]">
                       {/* Modern iMessage Bubble */}
                       <div
-                        className={`p-3.5 sm:p-4 rounded-3xl space-y-2.5 transition-all text-xs sm:text-sm font-normal leading-relaxed ${
+                        onClick={() => handleBubbleInteraction(msg.id)}
+                        className={`p-3.5 sm:p-4 rounded-3xl space-y-2.5 transition-all text-xs sm:text-sm font-normal leading-relaxed cursor-pointer select-text relative ${
                           isFromMe
-                            ? 'bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 text-white rounded-tr-xs shadow-lg shadow-emerald-950/40 border border-emerald-400/25'
-                            : 'bg-white/[0.1] hover:bg-white/[0.14] text-slate-100 backdrop-blur-2xl border border-white/[0.16] rounded-tl-xs shadow-md'
+                            ? 'bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 text-white rounded-tr-xs shadow-lg shadow-emerald-950/40 border border-emerald-400/25 active:brightness-95'
+                            : 'bg-white/[0.1] hover:bg-white/[0.14] text-slate-100 backdrop-blur-2xl border border-white/[0.16] rounded-tl-xs shadow-md active:bg-white/[0.16]'
                         }`}
+                        title="Double-tap to heart • Tap to react"
                       >
+                        {/* Double tap heart pop animation */}
+                        {animatingHeartMsgId === msg.id && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 animate-in zoom-in-50 fade-in duration-150">
+                            <span className="text-5xl animate-bounce drop-shadow-[0_4px_16px_rgba(244,63,94,0.9)]">
+                              ❤️
+                            </span>
+                          </div>
+                        )}
+
                         <p className="whitespace-pre-wrap break-words">
                           {msg.messageText}
                         </p>
@@ -586,7 +661,10 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
                           <div className="pt-1">
                             <button
                               type="button"
-                              onClick={() => setSelectedPhotoPreview(msg.proofImageUrl || null)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPhotoPreview(msg.proofImageUrl || null);
+                              }}
                               className="group/photo relative block rounded-2xl overflow-hidden border border-white/20 shadow-md max-w-xs cursor-pointer"
                             >
                               <img
@@ -601,41 +679,90 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
                             </button>
                           </div>
                         )}
-
-                       
                       </div>
 
                       {/* Floating Reaction Pill if added */}
-                      {currentReaction && (
-                        <div className={`absolute -bottom-2 ${isFromMe ? 'left-2' : 'right-2'} px-2 py-0.5 rounded-full bg-slate-800/95 border border-white/25 text-xs shadow-md flex items-center gap-1`}>
-                          <span>{currentReaction}</span>
-                        </div>
-                      )}
-
-                      {/* Hover Action Strip (Copy & Quick Reactions) */}
-                      <div className={`absolute top-1/2 -translate-y-1/2 ${
-                        isFromMe ? '-left-20' : '-right-20'
-                      } opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pointer-events-auto`}>
+                      {currentReaction ? (
                         <button
                           type="button"
-                          onClick={() => handleToggleReaction(msg.id, '👍')}
-                          className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-transform active:scale-90"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleReaction(msg.id, currentReaction);
+                          }}
+                          className={`absolute -bottom-2.5 ${isFromMe ? 'left-2' : 'right-2'} px-2 py-0.5 rounded-full bg-slate-900/95 hover:bg-slate-800 border border-white/25 text-xs shadow-md flex items-center gap-1 z-10 active:scale-75 transition-transform cursor-pointer touch-manipulation`}
+                          title="Tap to remove reaction"
+                        >
+                          <span>{currentReaction}</span>
+                        </button>
+                      ) : (
+                        /* Mobile-only subtle quick heart trigger button */
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleReaction(msg.id, '❤️');
+                            setAnimatingHeartMsgId(msg.id);
+                            setTimeout(() => setAnimatingHeartMsgId(null), 850);
+                          }}
+                          className={`sm:hidden absolute -bottom-2 ${isFromMe ? 'left-2' : 'right-2'} p-1 rounded-full bg-slate-900/90 border border-white/20 text-rose-400 hover:text-rose-300 active:scale-75 transition-transform shadow-xs z-10 touch-manipulation`}
+                          title="Heart this message"
+                          aria-label="Heart this message"
+                        >
+                          <Heart className="w-3 h-3 fill-rose-400/40 text-rose-400" />
+                        </button>
+                      )}
+
+                      {/* Action & Reaction Bar (Touch-friendly on mobile & Desktop hover) */}
+                      <div
+                        className={`absolute z-30 transition-all duration-200 ${
+                          activeActionMsgId === msg.id
+                            ? 'opacity-100 scale-100 pointer-events-auto'
+                            : 'opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto'
+                        } ${
+                          isFromMe
+                            ? '-top-9 right-1 sm:top-1/2 sm:-translate-y-1/2 sm:right-auto sm:-left-24'
+                            : '-top-9 left-1 sm:top-1/2 sm:-translate-y-1/2 sm:left-auto sm:-right-24'
+                        } flex items-center gap-1 p-1 rounded-full bg-slate-900/95 backdrop-blur-xl border border-white/25 shadow-xl`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleReaction(msg.id, '👍');
+                            setActiveActionMsgId(null);
+                          }}
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-transform active:scale-75 cursor-pointer touch-manipulation ${
+                            currentReaction === '👍' ? 'bg-emerald-500/30 text-emerald-300 ring-1 ring-emerald-400' : 'bg-white/10 hover:bg-white/20 text-white'
+                          }`}
                           title="Like"
                         >
                           <ThumbsUp className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleToggleReaction(msg.id, '❤️')}
-                          className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 text-rose-400 flex items-center justify-center transition-transform active:scale-90"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleReaction(msg.id, '❤️');
+                            setAnimatingHeartMsgId(msg.id);
+                            setTimeout(() => setAnimatingHeartMsgId(null), 850);
+                            setActiveActionMsgId(null);
+                          }}
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-transform active:scale-75 cursor-pointer touch-manipulation ${
+                            currentReaction === '❤️' ? 'bg-rose-500/30 text-rose-300 ring-1 ring-rose-400' : 'bg-white/10 hover:bg-white/20 text-rose-400'
+                          }`}
                           title="Heart"
                         >
                           <Heart className="w-3.5 h-3.5 fill-rose-400" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleCopyMessage(msg.id, msg.messageText)}
-                          className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-transform active:scale-90"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyMessage(msg.id, msg.messageText);
+                            setActiveActionMsgId(null);
+                          }}
+                          className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-transform active:scale-75 cursor-pointer touch-manipulation"
                           title="Copy text"
                         >
                           {copiedMsgId === msg.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -652,35 +779,36 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
                     )}
                   </div>
                 );
-              })
-            )}
+              })}
+            </div>
+          )}
 
-            <div ref={messagesEndRef} />
-          </div>
+          <div ref={messagesEndRef} className="h-0 shrink-0" />
+        </div>
 
-          {/* QUICK SUGGESTIONS CAROUSEL RIBBON */}
-          <div className="px-4 sm:px-6 py-2 bg-[#0D1322]/80 backdrop-blur-md border-t border-slate-700/50 flex items-center gap-2 overflow-x-auto scrollbar-none no-scrollbar shrink-0">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 shrink-0 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              Quick:
-            </span>
-            {QUICK_SUGGESTIONS.map((text, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  setMessageText(text);
-                  textareaRef.current?.focus();
-                }}
-                className="px-3.5 py-1.5 rounded-full bg-white/[0.08] hover:bg-emerald-500/25 text-slate-200 hover:text-white border border-white/[0.12] hover:border-emerald-500/40 text-xs font-semibold whitespace-nowrap transition-all shrink-0 active:scale-95 cursor-pointer shadow-xs"
-              >
-                {text}
-              </button>
-            ))}
-          </div>
+        {/* QUICK SUGGESTIONS CAROUSEL RIBBON */}
+        <div className="px-3 sm:px-6 py-1.5 bg-[#0D1322]/80 backdrop-blur-md border-t border-slate-700/50 flex items-center gap-2 overflow-x-auto scrollbar-none no-scrollbar shrink-0">
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 shrink-0 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5" />
+            Quick:
+          </span>
+          {QUICK_SUGGESTIONS.map((text, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => {
+                setMessageText(text);
+                textareaRef.current?.focus();
+              }}
+              className="px-3 py-1 rounded-full bg-white/[0.08] hover:bg-emerald-500/25 text-slate-200 hover:text-white border border-white/[0.12] hover:border-emerald-500/40 text-xs font-semibold whitespace-nowrap transition-all shrink-0 active:scale-95 cursor-pointer shadow-xs"
+            >
+              {text}
+            </button>
+          ))}
+        </div>
 
-          {/* FLOATING GLASSMORPHIC COMPOSER DOCK */}
-          <div className="p-3 sm:p-4 bg-[#0D1322]/95 backdrop-blur-2xl border-t border-slate-700/60 shrink-0 space-y-2.5">
+        {/* FLOATING GLASSMORPHIC COMPOSER DOCK */}
+        <div className="p-2.5 sm:p-4 pb-2.5 sm:pb-3 bg-[#0D1322]/95 backdrop-blur-2xl border-t border-slate-700/60 shrink-0 space-y-2">
             {error && (
               <div className="p-3 bg-rose-500/25 border border-rose-500/40 text-rose-200 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
                 <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
