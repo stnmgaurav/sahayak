@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ItemReport, MatchSuggestion } from '../types';
 import { updateItemStatus } from '../lib/storage';
@@ -15,7 +15,6 @@ import {
   CheckCircle2, 
   Clock, 
   HelpCircle,
-  Share2,
   PackageCheck,
   UserCheck,
   ArrowLeft,
@@ -25,7 +24,10 @@ import {
   Phone,
   EyeOff,
   Lock,
-  Layers
+  Layers,
+  ChevronRight,
+  User,
+  AlertCircle
 } from 'lucide-react';
 
 interface ItemDetailModalProps {
@@ -53,10 +55,18 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 }) => {
   const { currentUser, isAdmin, isAuthenticated, openAuthModal } = useAuth();
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Keyboard Escape listener to dismiss modal
+  // Lock background scroll and reset scroll position when opening full-page view
   useEffect(() => {
     if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -65,7 +75,10 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen || !item) return null;
@@ -84,8 +97,8 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     { key: isLost ? 'lost' : 'found', label: isLost ? 'Reported Lost' : 'Reported Found' },
     { key: 'match_found', label: 'Match Found' },
     { key: 'claim_pending', label: 'Claim Submitted' },
-    { key: 'verified', label: 'Verified by Security' },
-    { key: 'recovered', label: 'Recovered / Handed Over' },
+    { key: 'verified', label: 'Verified by Desk' },
+    { key: 'recovered', label: 'Recovered' },
   ];
 
   const getStepIndex = (status: ItemReport['status']) => {
@@ -134,110 +147,169 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     timeStyle: 'short',
   });
 
+  const getStatusBadge = () => {
+    switch (item.status) {
+      case 'recovered':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Recovered / Handed Over</span>
+          </span>
+        );
+      case 'claimed':
+      case 'returned':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-900 text-white">
+            <PackageCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Claimed &amp; Resolved</span>
+          </span>
+        );
+      case 'verified':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+            <span>Verified by Security Desk</span>
+          </span>
+        );
+      case 'claim_pending':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200">
+            <Clock className="w-3.5 h-3.5 text-sky-600" />
+            <span>Claim Review in Progress</span>
+          </span>
+        );
+      case 'match_found':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            <span>Potential Match Detected</span>
+          </span>
+        );
+      case 'found':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Available for Claim</span>
+          </span>
+        );
+      case 'lost':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-900 border border-rose-300">
+            <Clock className="w-3.5 h-3.5 text-rose-600" />
+            <span>Actively Seeking</span>
+          </span>
+        );
+    }
+  };
+
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-2.5 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
-      onClick={onClose}
+      ref={containerRef}
+      className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto overscroll-contain flex flex-col text-slate-800 animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
       aria-labelledby="item-detail-title"
     >
-      <div 
-        className="relative w-full max-w-3xl rounded-3xl border border-slate-200/90 bg-white shadow-2xl overflow-hidden my-auto max-h-[92vh] sm:max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Sticky Header with Clear Close 'X' Button */}
-        <div 
-          className={`sticky top-0 z-30 shrink-0 p-4 sm:p-6 pr-14 sm:pr-16 text-white transition-colors border-b ${
-            isLost 
-              ? 'bg-gradient-to-r from-red-900 via-rose-900 to-red-950 border-red-800/50' 
-              : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 border-slate-700/50'
-          }`}
-        >
-          {/* Prominent High-Contrast Close Button */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute top-4 right-4 sm:top-5 sm:right-5 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center text-white/90 hover:text-white rounded-full bg-white/10 hover:bg-white/25 active:scale-95 transition-all cursor-pointer ring-1 ring-white/20 shadow-sm"
-            aria-label="Close item details"
-            title="Close (Esc)"
-          >
-            <X className="w-5 h-5" />
-          </button>
+      {/* Sticky Full-Page Top Navigation Header */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
+          {/* Left: Back Button & Breadcrumbs */}
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200/80 text-xs sm:text-sm font-extrabold transition-all active:scale-95 cursor-pointer shadow-2xs shrink-0"
+              title="Return to listings (Esc)"
+              aria-label="Back to listings"
+            >
+              <ArrowLeft className="w-4 h-4 text-slate-600" />
+              <span className="hidden sm:inline">Back to Listings</span>
+              <span className="sm:hidden">Back</span>
+            </button>
 
-          {/* Top Metadata Kicker Row */}
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/20 text-white backdrop-blur-xs shadow-2xs">
-              <span className={`w-1.5 h-1.5 rounded-full ${isLost ? 'bg-amber-300' : 'bg-emerald-300'}`} />
-              <span>{isLost ? 'Campus Lost Report' : 'Campus Found Report'}</span>
-            </span>
-
-            <span className="text-white/70 text-xs font-mono">
-              ID: #{item.id.slice(-6)}
-            </span>
-
-            <span className="text-white/40">•</span>
-
-            <span className="text-xs font-semibold text-white/90 capitalize">
-              {item.status.replace('_', ' ')}
-            </span>
-          </div>
-
-          <h2 id="item-detail-title" className="text-xl sm:text-2xl font-black tracking-tight text-white leading-snug line-clamp-2">
-            {item.title}
-          </h2>
-
-          <p className="text-xs sm:text-sm text-white/80 font-medium mt-1 truncate">
-            Reported by <span className="text-white font-bold">{item.userName}</span> ({item.userUid || 'Student'}) • {item.locationBlock}
-          </p>
-        </div>
-
-        {/* Action feedback notification */}
-        {actionSuccess && (
-          <div className="bg-emerald-500/15 border-b border-emerald-500/30 px-6 py-3 flex items-center gap-2 text-xs font-bold text-emerald-950 shrink-0">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{actionSuccess}</span>
-          </div>
-        )}
-
-        {/* Scrollable Content Body with Polished Visual Hierarchy */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-6">
-          {/* Status Pipeline Tracker */}
-          <div className="bg-slate-50/90 rounded-2xl border border-slate-200/80 p-4 space-y-2.5 shadow-2xs">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
-              <span className="uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-red-700" />
-                <span>Resolution Pipeline</span>
+            <div className="hidden md:flex items-center gap-2 text-xs text-slate-500 font-medium truncate">
+              <span className="text-slate-400">SAHAYAK Registry</span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+              <span className={`font-bold ${isLost ? 'text-rose-700' : 'text-emerald-700'}`}>
+                {isLost ? 'Campus Lost Report' : 'Campus Found Report'}
               </span>
-              <span className="font-extrabold text-red-700 capitalize">
-                Stage {currentStepIdx + 1} of 5: {steps[currentStepIdx]?.label}
+              <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+              <span className="font-mono text-slate-600 truncate">
+                #{item.id.slice(-6)}
               </span>
             </div>
+          </div>
 
-            <div className="relative flex items-center justify-between min-w-[280px] sm:min-w-0 w-full pt-1 pb-1">
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-slate-200 w-full z-0 rounded-full"></div>
-              <div 
-                className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-red-700 transition-all duration-500 z-0 rounded-full"
-                style={{ width: `${(currentStepIdx / (steps.length - 1)) * 100}%` }}
-              ></div>
+          {/* Right: Status Pill & Direct Close 'X' */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="hidden sm:block">
+              {getStatusBadge()}
+            </div>
 
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 flex items-center justify-center transition-all active:scale-95 cursor-pointer border border-slate-200"
+              title="Close full-page view (Esc)"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Action feedback toast / alert banner */}
+      {actionSuccess && (
+        <div className="bg-emerald-500 text-white px-4 sm:px-6 py-3 flex items-center justify-center gap-2 text-xs sm:text-sm font-bold shadow-sm">
+          <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+          <span>{actionSuccess}</span>
+        </div>
+      )}
+
+      {/* Main Expansive Content Body */}
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+        
+        {/* Full-Width Resolution Pipeline Tracker */}
+        <section aria-label="Resolution pipeline" className="bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-7 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-700">
+              <Layers className="w-4 h-4 text-red-700 shrink-0" />
+              <span className="uppercase tracking-wider text-slate-500 font-extrabold text-[11px]">
+                Item Resolution Status
+              </span>
+            </div>
+            <div className="text-xs sm:text-sm font-extrabold text-red-700">
+              Stage {currentStepIdx + 1} of 5: <span className="text-slate-900 capitalize">{steps[currentStepIdx]?.label}</span>
+            </div>
+          </div>
+
+          <div className="relative pt-2 pb-2">
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 bg-slate-100 w-full z-0 rounded-full" />
+            <div 
+              className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 bg-red-700 transition-all duration-500 z-0 rounded-full"
+              style={{ width: `${(currentStepIdx / (steps.length - 1)) * 100}%` }}
+            />
+
+            <div className="relative z-10 flex items-center justify-between">
               {steps.map((step, idx) => {
                 const isPast = idx <= currentStepIdx;
                 const isCurrent = idx === currentStepIdx;
 
                 return (
-                  <div key={step.key} className="relative z-10 flex flex-col items-center">
+                  <div key={step.key} className="flex flex-col items-center">
                     <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs font-black transition-all ${
                         isPast
-                          ? 'bg-red-700 text-white shadow-xs ring-4 ring-red-100'
+                          ? 'bg-red-700 text-white shadow-sm ring-4 ring-red-100'
                           : 'bg-white border-2 border-slate-300 text-slate-400'
                       }`}
                     >
-                      {isPast ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+                      {isPast ? <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : idx + 1}
                     </div>
-                    <span className={`text-[10px] sm:text-[11px] font-bold mt-1.5 text-center max-w-[72px] leading-tight ${
-                      isCurrent ? 'text-red-950 font-black' : isPast ? 'text-slate-700' : 'text-slate-400'
+                    <span className={`text-[11px] sm:text-xs font-bold mt-2 text-center max-w-[85px] sm:max-w-[110px] leading-tight ${
+                      isCurrent ? 'text-red-950 font-black' : isPast ? 'text-slate-800' : 'text-slate-400'
                     }`}>
                       {step.label}
                     </span>
@@ -246,11 +318,16 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
               })}
             </div>
           </div>
+        </section>
 
-          {/* Top Section: Photo & Key Specifications */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-            {/* Left: Interactive E-Commerce Product Gallery */}
-            <div className="space-y-3">
+        {/* 2-Column Responsive Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Left Column (col-span-7): Product Gallery & Extensive Documentation */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* Interactive E-Commerce Product Image Gallery */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-4 sm:p-6 shadow-xs">
               <ItemProductGallery
                 itemId={item.id}
                 images={item.imageUrls}
@@ -262,385 +339,414 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                 locationBlock={item.locationBlock}
                 description={item.description}
               />
-
-              {/* Safe Custody Note for Found Items */}
-              {item.type === 'found' && item.currentHoldingLocation && (
-                <div className="p-3.5 bg-emerald-50/90 border border-emerald-200/90 rounded-2xl text-xs text-emerald-950 flex items-start gap-2.5 shadow-2xs">
-                  <Building2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-extrabold text-emerald-900 block text-[11px] uppercase tracking-wider">
-                      Safe Custody Handover Point
-                    </span>
-                    <span className="text-emerald-800 font-semibold leading-relaxed mt-0.5 block">
-                      {item.currentHoldingLocation}
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* Right: Metadata Specifications */}
-            <div className="space-y-3 flex flex-col justify-between">
-              {/* Specs Grid */}
-              <div className="grid grid-cols-2 gap-2.5 text-xs">
-                <div className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80">
-                  <span className="text-slate-500 uppercase tracking-wider font-extrabold text-[10px] block">
+            {/* Detailed Description & Identifying Notes */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-3">
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <span>Description &amp; Report Context</span>
+              </h3>
+              <p className="text-slate-800 text-sm sm:text-base leading-relaxed font-normal whitespace-pre-line">
+                {item.description}
+              </p>
+            </div>
+
+            {/* Unique Identifying Mark / Secret Identifier */}
+            {item.identifyingMark && (
+              <div className="p-5 sm:p-6 bg-amber-50/90 border border-amber-200/90 rounded-3xl space-y-1.5 shadow-2xs">
+                <div className="flex items-center gap-2 text-amber-950 font-extrabold text-xs uppercase tracking-wider">
+                  <Lock className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>Unique Identifying Feature / Mark</span>
+                </div>
+                <p className="text-sm font-semibold text-amber-900 pl-6 leading-relaxed">
+                  {item.identifyingMark}
+                </p>
+              </div>
+            )}
+
+            {/* Safe Custody Handover Point for Found Items */}
+            {item.type === 'found' && item.currentHoldingLocation && (
+              <div className="p-5 sm:p-6 bg-emerald-50/90 border border-emerald-200/90 rounded-3xl text-emerald-950 space-y-2 shadow-2xs">
+                <div className="flex items-center gap-2 text-emerald-950 font-extrabold text-xs uppercase tracking-wider">
+                  <Building2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>Safe Custody &amp; Handover Location</span>
+                </div>
+                <p className="text-sm font-bold text-emerald-900 pl-6 leading-relaxed">
+                  {item.currentHoldingLocation}
+                </p>
+                <p className="text-xs text-emerald-800/80 pl-6">
+                  Items deposited in safe custody can be inspected and claimed during campus operational hours.
+                </p>
+              </div>
+            )}
+
+            {/* Secret Verification Question for Found Items */}
+            {item.type === 'found' && item.secretVerificationQuestion && (
+              <div className="p-5 sm:p-6 bg-slate-100/80 border border-slate-200/90 rounded-3xl space-y-1.5 shadow-2xs">
+                <div className="flex items-center gap-2 text-slate-700 font-extrabold text-xs uppercase tracking-wider">
+                  <HelpCircle className="w-4 h-4 text-slate-500 shrink-0" />
+                  <span>Finder's Verification Challenge</span>
+                </div>
+                <p className="text-sm font-medium text-slate-800 pl-6">
+                  {item.secretVerificationQuestion}
+                </p>
+                <p className="text-[11px] text-slate-500 pl-6">
+                  When submitting a claim, you will be prompted to answer this question to establish ownership.
+                </p>
+              </div>
+            )}
+
+            {/* AI Automated Matches Section */}
+            {matches.length > 0 && (
+              <div className="bg-gradient-to-br from-amber-50/90 via-orange-50/50 to-white border border-amber-200/90 rounded-3xl p-6 sm:p-7 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 text-amber-950 font-black text-sm">
+                    <Sparkles className="w-4 h-4 text-amber-600" />
+                    <span>Potential Automated Matches ({matches.length})</span>
+                  </div>
+                  <span className="text-xs font-bold text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-200">
+                    Smart Match Engine
+                  </span>
+                </div>
+
+                <p className="text-xs text-amber-900/80 leading-relaxed">
+                  Our system identified complementary campus reports with high attribute similarity.
+                </p>
+
+                <div className="space-y-3 pt-1">
+                  {matches.map((match) => (
+                    <div
+                      key={match.candidateItem.id}
+                      className="p-4 bg-white rounded-2xl border border-amber-200 hover:border-amber-400 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <img
+                          src={match.candidateItem.imageUrl || match.candidateItem.imageUrls?.[0] || ''}
+                          alt={match.candidateItem.title}
+                          className="w-14 h-14 rounded-xl object-cover shrink-0 border border-slate-200"
+                        />
+                        <div className="min-w-0 text-xs space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-extrabold text-slate-900 text-sm truncate">
+                              {match.candidateItem.title}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-200">
+                              {match.matchScore}% Match
+                            </span>
+                          </div>
+                          <p className="text-slate-500 font-medium truncate">
+                            {match.candidateItem.locationBlock} • {match.reasons.slice(0, 2).join(', ')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isAuthenticated) {
+                            onClose();
+                            openAuthModal('login', 'Please sign in with your Chandigarh University ID to compare matches and claim your item.');
+                            return;
+                          }
+                          if (isLost) {
+                            onOpenMatchComparison(item, match.candidateItem);
+                          } else {
+                            onOpenMatchComparison(match.candidateItem, item);
+                          }
+                        }}
+                        className="px-5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white rounded-xl text-xs font-extrabold shadow-sm shrink-0 transition-all cursor-pointer active:scale-95 text-center"
+                      >
+                        Compare &amp; Claim
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </div>
+
+          {/* Right Column (col-span-5): Key Specs, Reporter Info & Elevated Primary Actions */}
+          <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-20">
+            
+            {/* Item Title & Core Summary Card */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <span className={`font-black uppercase tracking-wider text-[11px] ${
+                  isLost ? 'text-rose-700' : 'text-emerald-700'
+                }`}>
+                  {isLost ? 'Lost Item Report' : 'Found Item Listing'}
+                </span>
+                <span aria-hidden="true">·</span>
+                <span>ID: #{item.id.slice(-6)}</span>
+              </div>
+
+              <h1 id="item-detail-title" className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">
+                {item.title}
+              </h1>
+
+              {/* Status Banner */}
+              <div className="pt-1">
+                {getStatusBadge()}
+              </div>
+
+              {/* Specifications Grid */}
+              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 text-xs">
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
                     Category
                   </span>
-                  <span className="font-extrabold text-slate-900 text-sm mt-0.5 block truncate">
+                  <span className="text-sm font-extrabold text-slate-900 block truncate">
                     {item.category}
                   </span>
                 </div>
 
-                <div className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80">
-                  <span className="text-slate-500 uppercase tracking-wider font-extrabold text-[10px] block">
-                    Primary Color
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                    Color
                   </span>
-                  <span className="font-extrabold text-slate-900 text-sm mt-0.5 block truncate">
+                  <span className="text-sm font-extrabold text-slate-900 block truncate">
                     {item.color}
                   </span>
                 </div>
 
-                <div className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80">
-                  <span className="text-slate-500 uppercase tracking-wider font-extrabold text-[10px] block">
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
                     Brand / Model
                   </span>
-                  <span className="font-extrabold text-slate-900 text-sm mt-0.5 block truncate">
+                  <span className="text-sm font-extrabold text-slate-900 block truncate">
                     {item.brandOrModel || 'Not Specified'}
                   </span>
                 </div>
 
-                <div className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80">
-                  <span className="text-slate-500 uppercase tracking-wider font-extrabold text-[10px] block">
-                    Current Status
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                    Date &amp; Time
                   </span>
-                  <span className="font-extrabold text-red-700 text-sm mt-0.5 block capitalize truncate">
-                    {item.status.replace('_', ' ')}
+                  <span className="text-xs font-extrabold text-slate-800 block truncate" title={formattedDate}>
+                    {new Date(item.dateTime).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
                   </span>
                 </div>
               </div>
 
-              {/* Campus Location Info */}
-              <div className="p-3.5 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-1 text-xs shadow-2xs">
-                <div className="flex items-center gap-2 text-slate-500 font-extrabold text-[10px] uppercase tracking-wider">
+              {/* Campus Spot Landmark */}
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1 text-xs">
+                <div className="flex items-center gap-1.5 text-slate-400 font-extrabold text-[10px] uppercase tracking-wider">
                   <MapPin className="w-3.5 h-3.5 text-red-700" />
                   <span>Reported Campus Spot</span>
                 </div>
                 <p className="font-extrabold text-slate-900 text-sm">
                   {item.locationBlock}
                 </p>
-                <p className="text-slate-600 font-medium text-xs">
+                <p className="text-slate-500 font-medium text-xs mt-0.5">
                   Specific Landmark: {item.specificSpot || 'Not specified'}
                 </p>
               </div>
-
-              {/* Reported Timestamp */}
-              <div className="p-3 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-0.5 text-xs shadow-2xs">
-                <div className="flex items-center gap-2 text-slate-500 font-extrabold text-[10px] uppercase tracking-wider">
-                  <Calendar className="w-3.5 h-3.5 text-red-700" />
-                  <span>Reported Date &amp; Time</span>
-                </div>
-                <p className="font-semibold text-slate-800 text-xs pl-5">
-                  {formattedDate}
-                </p>
-              </div>
-
-              {/* Unique Identifying Mark */}
-              {item.identifyingMark && (
-                <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl text-xs space-y-0.5 shadow-2xs">
-                  <span className="font-extrabold text-amber-900 block text-[10px] uppercase tracking-wider">
-                    Unique Identifying Mark / Feature:
-                  </span>
-                  <p className="text-amber-900 font-medium">{item.identifyingMark}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Description Section */}
-          <div className="p-4 sm:p-5 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-2 shadow-2xs">
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
-              Detailed Description &amp; Identifying Notes
-            </h4>
-            <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
-              {item.description}
-            </p>
-          </div>
-
-          {/* Reporter Profile & Direct Contact Card */}
-          <div className="p-4 sm:p-5 bg-slate-50/90 rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-red-800 to-slate-900 text-white flex items-center justify-center font-black text-base shadow-sm ring-2 ring-white">
-                {item.userName.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-slate-900 text-sm">{item.userName}</span>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    CU Student
-                  </span>
-                </div>
-                <span className="text-[11px] text-slate-500 font-medium block mt-0.5">UID: {item.userUid || 'Registered'}</span>
-              </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Phone privacy check */}
-              {item.hidePhone ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200 font-bold text-xs">
-                  <EyeOff className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Phone Kept Private</span>
+            {/* Reporter Profile & Direct Contact Card */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                  Listing Reporter
                 </span>
-              ) : item.userPhone ? (
-                <a
-                  href={`tel:${item.userPhone}`}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 text-slate-800 hover:text-slate-950 font-bold hover:bg-slate-50 transition-colors shadow-2xs"
-                  title="Call reporter directly"
-                >
-                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{item.userPhone}</span>
-                </a>
-              ) : null}
+                <span className="text-xs font-bold text-slate-500">
+                  UID: {item.userUid || 'Student'}
+                </span>
+              </div>
 
-              {/* In-app chat button if not owner */}
-              {!isOwner && onSendMessage && (
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-800 to-slate-900 text-white flex items-center justify-center font-black text-lg shadow-sm">
+                  {item.userName.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-base font-extrabold text-slate-900 truncate">
+                    {item.userName}
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium truncate">
+                    Chandigarh University Registered User
+                  </p>
+                </div>
+              </div>
+
+              {/* Contact Options: Phone Call & Chat Button */}
+              <div className="pt-2 flex flex-col gap-2.5">
+                {/* Phone Call option */}
+                {item.hidePhone ? (
+                  <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200/80 flex items-center gap-2 text-xs font-bold text-amber-900">
+                    <EyeOff className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Phone number kept private by user</span>
+                  </div>
+                ) : item.userPhone ? (
+                  <a
+                    href={`tel:${item.userPhone}`}
+                    className="w-full py-3 px-4 rounded-xl bg-white border border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-900 font-extrabold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                  >
+                    <Phone className="w-4 h-4 text-emerald-600" />
+                    <span>Call Reporter ({item.userPhone})</span>
+                  </a>
+                ) : null}
+
+                {/* Direct In-App Message Button */}
+                {!isOwner && onSendMessage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        onClose();
+                        openAuthModal('login', `Please sign in with your Chandigarh University ID to message ${item.userName}.`);
+                        return;
+                      }
+                      onClose();
+                      onSendMessage(item);
+                    }}
+                    className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <MessageSquare className="w-4 h-4 text-white" />
+                    <span>Chat with {item.userName.split(' ')[0]}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Elevated Primary Action Center */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-3.5">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                Primary Actions
+              </span>
+
+              {/* If Found item and not returned: Claim Button */}
+              {item.type === 'found' && item.status !== 'returned' && item.status !== 'recovered' && !isOwner && (
                 <button
                   type="button"
                   onClick={() => {
                     if (!isAuthenticated) {
                       onClose();
-                      openAuthModal('login', `Please sign in with your Chandigarh University ID to message ${item.userName}.`);
+                      openAuthModal('login', 'Please sign in with your Chandigarh University ID to file an ownership claim for this found item.');
+                      return;
+                    }
+                    onClose();
+                    onClaim(item);
+                  }}
+                  className="w-full py-3.5 px-6 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-2xl font-black text-sm shadow-md shadow-red-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+                >
+                  <ShieldCheck className="w-5 h-5 text-white" />
+                  <span>Claim This Item</span>
+                </button>
+              )}
+
+              {/* If Lost item and not recovered: "I Found This" action */}
+              {item.type === 'lost' && item.status !== 'recovered' && !isOwner && onSendMessage && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      onClose();
+                      openAuthModal('login', `Please sign in with your Chandigarh University ID to notify ${item.userName} you found their item.`);
                       return;
                     }
                     onClose();
                     onSendMessage(item);
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full font-extrabold shadow-sm hover:shadow transition-all cursor-pointer active:scale-95 text-xs"
+                  className="w-full py-3.5 px-6 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-2xl font-black text-sm shadow-md shadow-emerald-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
                 >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Chat with {item.userName.split(' ')[0]}</span>
+                  <CheckCircle2 className="w-5 h-5 text-white" />
+                  <span>I Found This Item (Message Owner)</span>
                 </button>
               )}
-            </div>
-          </div>
 
-          {/* Suggested Matches Section */}
-          {matches.length > 0 && (
-            <div className="border border-amber-200 bg-amber-50/50 rounded-2xl p-4 sm:p-5 space-y-3 shadow-2xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-amber-950 font-black text-xs">
-                  <Sparkles className="w-4 h-4 text-amber-600" />
-                  <span>Automatically Detected Campus Matches ({matches.length})</span>
-                </div>
-                <span className="text-[11px] text-amber-800 font-bold">
-                  AI Matching Engine
-                </span>
-              </div>
+              {/* Owner Chat Thread */}
+              {isOwner && onSendMessage && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onSendMessage(item);
+                  }}
+                  className="w-full py-3 px-5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-2xl font-extrabold text-xs shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4 text-white" />
+                  <span>Open Item Chat &amp; Inquiries</span>
+                </button>
+              )}
 
-              <div className="space-y-2.5">
-                {matches.map((match) => (
-                  <div
-                    key={match.candidateItem.id}
-                    className="p-3 sm:p-3.5 bg-white rounded-2xl border border-amber-200 flex items-center justify-between gap-3 shadow-2xs hover:border-amber-400 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <img
-                        src={match.candidateItem.imageUrl}
-                        alt={match.candidateItem.title}
-                        className="w-12 h-12 rounded-xl object-cover shrink-0 border border-slate-200"
-                      />
-                      <div className="min-w-0 text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-slate-900 truncate">
-                            {match.candidateItem.title}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-200">
-                            {match.matchScore}% Match
-                          </span>
-                        </div>
-                        <p className="text-slate-500 font-medium truncate mt-0.5">
-                          {match.candidateItem.locationBlock} • {match.reasons.slice(0, 2).join(', ')}
-                        </p>
-                      </div>
-                    </div>
-
+              {/* Owner / Admin Management Operations */}
+              {canModify && (
+                <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                  {item.status !== 'recovered' && item.status !== 'returned' && (
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!isAuthenticated) {
-                          onClose();
-                          openAuthModal('login', 'Please sign in with your Chandigarh University ID to compare matches and claim your item.');
-                          return;
-                        }
-                        if (isLost) {
-                          onOpenMatchComparison(item, match.candidateItem);
-                        } else {
-                          onOpenMatchComparison(match.candidateItem, item);
-                        }
-                      }}
-                      className="px-4 py-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white rounded-full text-xs font-extrabold shadow-sm shrink-0 transition-all cursor-pointer active:scale-95"
+                      onClick={handleMarkRecovered}
+                      className="w-full py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      Compare &amp; Claim
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Mark as Recovered / Handed Over</span>
                     </button>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {onEditItem && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          onEditItem(item);
+                        }}
+                        className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                        <span>Edit Report</span>
+                      </button>
+                    )}
+
+                    {onDeleteItem && (
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        className="py-2.5 px-4 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Delete</span>
+                      </button>
+                    )}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {/* Secondary Back Navigation button in sidebar */}
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4 text-slate-500" />
+                <span>Return to Campus Registry</span>
+              </button>
             </div>
-          )}
+
+          </div>
+
         </div>
 
-        {/* Sticky Footer Actions with Clear Hierarchy */}
-        <div className="sticky bottom-0 z-20 shrink-0 p-3.5 sm:p-4 border-t border-slate-200 bg-slate-50/95 backdrop-blur-md flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      </main>
+
+      {/* Full-Page Bottom Footer */}
+      <footer className="mt-auto border-t border-slate-200/80 bg-white py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-slate-900">SAHAYAK</span>
+            <span>— Chandigarh University Campus Lost &amp; Found Portal</span>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-xs font-bold text-slate-700 hover:text-slate-950 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1.5 text-slate-700 hover:text-red-700 font-bold cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4 text-slate-500" />
-            <span>Close Details</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to All Listings</span>
           </button>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {/* Owner/Admin Actions: Edit & Delete strictly restricted to listing owner or admin */}
-            {canModify && (
-              <>
-                {item.status !== 'recovered' && item.status !== 'returned' && (
-                  <button
-                    type="button"
-                    onClick={handleMarkRecovered}
-                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-full text-xs font-extrabold shadow-xs transition-all cursor-pointer active:scale-95"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Mark Recovered</span>
-                  </button>
-                )}
-
-                {onEditItem && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onEditItem(item);
-                    }}
-                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-full text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-95"
-                    title="Edit listing details"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                    <span>Edit Report</span>
-                  </button>
-                )}
-
-                {onDeleteItem && (
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95"
-                    title="Delete your uploaded item report"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Delete</span>
-                  </button>
-                )}
-              </>
-            )}
-
-            {/* If Lost item and not recovered, send message to owner button */}
-            {item.type === 'lost' && item.status !== 'recovered' && !isOwner && onSendMessage && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isAuthenticated) {
-                    onClose();
-                    openAuthModal('login', `Please sign in with your Chandigarh University ID to message ${item.userName}.`);
-                    return;
-                  }
-                  onClose();
-                  onSendMessage(item);
-                }}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold shadow-sm transition-all cursor-pointer active:scale-95"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>Found This? Message Owner</span>
-              </button>
-            )}
-
-            {/* If Found item and not returned, message finder option */}
-            {item.type === 'found' && item.status !== 'returned' && item.status !== 'recovered' && !isOwner && onSendMessage && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isAuthenticated) {
-                    onClose();
-                    openAuthModal('login', `Please sign in with your Chandigarh University ID to message ${item.userName}.`);
-                    return;
-                  }
-                  onClose();
-                  onSendMessage(item);
-                }}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-full text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-95"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>Message Finder</span>
-              </button>
-            )}
-
-            {/* If Found item and not returned, Claim button */}
-            {item.type === 'found' && item.status !== 'returned' && item.status !== 'recovered' && !isOwner && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isAuthenticated) {
-                    onClose();
-                    openAuthModal('login', 'Please sign in with your Chandigarh University ID to file an ownership claim for this found item.');
-                    return;
-                  }
-                  onClose();
-                  onClaim(item);
-                }}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-sm hover:shadow transition-all cursor-pointer active:scale-95"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Claim Item</span>
-              </button>
-            )}
-
-            {/* If Owner, option to open Item Chat / Discussion thread */}
-            {isOwner && onSendMessage && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onSendMessage(item);
-                }}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold shadow-xs transition-all cursor-pointer active:scale-95"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>Open Item Chat &amp; Replies</span>
-              </button>
-            )}
-
-            {/* If Lost item and has matches, button to view matches */}
-            {item.type === 'lost' && item.status !== 'recovered' && matches.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isAuthenticated) {
-                    onClose();
-                    openAuthModal('login', 'Please sign in with your Chandigarh University ID to view AI matched items and claim them.');
-                    return;
-                  }
-                  onOpenMatchComparison(item, matches[0].candidateItem);
-                }}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white rounded-full text-xs font-extrabold shadow-xs transition-all cursor-pointer active:scale-95"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>View Matches ({matches[0].matchScore}%)</span>
-              </button>
-            )}
-          </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
 };
-

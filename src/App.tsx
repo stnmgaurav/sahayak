@@ -880,7 +880,7 @@ function SahayakMain() {
                 </div>
               </div>
 
-              {/* Items Grid with Clean Instamart Cards */}
+              {/* Items Grid with Clean Cards */}
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
                   <div>
@@ -888,14 +888,9 @@ function SahayakMain() {
                       <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
                         Campus Lost &amp; Found Registry
                       </h2>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-50 text-red-800 border border-red-200/60">
-                        Public View
-                      </span>
                     </div>
-                    <p className="text-xs text-slate-500 font-medium">
-                      Displaying {filteredItems.length} of {items.length} uploaded records • All items accessible without login
-                    </p>
                   </div>
+                  
                   <div className="flex items-center gap-2.5">
                     <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200/80">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>

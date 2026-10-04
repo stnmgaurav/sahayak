@@ -608,7 +608,7 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
                 readOnly={isExistingProfile}
                 value={phone}
                 onChange={handlePhoneChange}
-                placeholder="98765 43210"
+                placeholder="98765XXXXX"
                 maxLength={10}
                 className={`w-full px-3.5 py-3.5 sm:py-2.5 text-base sm:text-sm font-semibold tracking-wide border-0 focus:outline-none focus:ring-0 ${
                   isExistingProfile
