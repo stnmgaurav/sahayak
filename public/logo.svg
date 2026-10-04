@@ -1,21 +1,73 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" fill="none" className="w-full h-full">
-  <!-- Circular Target & Magnifier Outer Ring -->
-  <circle cx="230" cy="190" r="140" stroke="#b91c1c" stroke-width="26" fill="none" />
-  
-  <!-- Magnifier Handle -->
-  <path d="M330 290 L400 360" stroke="#b91c1c" stroke-width="32" stroke-linecap="round" />
-  
-  <!-- Inner Concentric Arc -->
-  <path d="M155 190 A 75 75 0 0 1 230 115" stroke="#b91c1c" stroke-width="14" stroke-linecap="round" fill="none" />
-  
-  <!-- Map Pin Location Marker in Center -->
-  <path d="M230 115 C195 115 168 142 168 178 C168 220 230 280 230 280 C230 280 292 220 292 178 C292 142 265 115 230 115 Z" fill="#b91c1c" />
-  <!-- Center Pin Hole -->
-  <circle cx="230" cy="172" r="26" fill="#ffffff" />
-  
-  <!-- Curved Orbit Swoosh from Pin to Star -->
-  <path d="M125 240 C110 200 135 150 170 110 C215 65 295 90 335 115" stroke="#b91c1c" stroke-width="16" stroke-linecap="round" fill="none" />
-  
-  <!-- Orbit Star -->
-  <polygon points="340,95 348,110 365,112 352,124 356,140 340,131 324,140 328,124 315,112 332,110" fill="#b91c1c" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <!-- Primary Red Gradient -->
+    <linearGradient id="cuRedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E01A22" />
+      <stop offset="100%" stop-color="#9B0B11" />
+    </linearGradient>
+
+    <!-- Metallic/Gloss Red Gradient -->
+    <linearGradient id="innerGleam" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FF3838" />
+      <stop offset="100%" stop-color="#B30D15" />
+    </linearGradient>
+  </defs>
+
+  <!-- Magnifying Glass Handle -->
+  <g transform="rotate(45 330 330)">
+    <rect x="315" y="310" width="36" height="110" rx="18" fill="url(#cuRedGrad)" />
+    <rect x="323" y="300" width="20" height="20" rx="5" fill="#78080C" />
+  </g>
+
+  <!-- Outer Magnifier Ring -->
+  <circle cx="215" cy="215" r="145" stroke="url(#cuRedGrad)" stroke-width="26" fill="none" />
+  <circle cx="215" cy="215" r="128" stroke="#ffffff" stroke-width="3" fill="none" opacity="0.6" />
+
+  <!-- Inner 'C' Ring Formation -->
+  <path d="M 285 130 
+           A 105 105 0 1 0 285 300" 
+        stroke="url(#cuRedGrad)" 
+        stroke-width="24" 
+        stroke-linecap="round" 
+        fill="none" />
+
+  <!-- Compass Star Behind Pin -->
+  <g fill="url(#cuRedGrad)">
+    <!-- Top Spike -->
+    <polygon points="200,90 207,135 193,135" />
+    <!-- Bottom Spike -->
+    <polygon points="200,280 207,235 193,235" />
+    <!-- Left Spike -->
+    <polygon points="105,185 150,178 150,192" />
+    <!-- Diagonal Spikes -->
+    <polygon points="133,118 165,155 155,165" opacity="0.85" />
+    <polygon points="133,252 155,205 165,215" opacity="0.85" />
+    <polygon points="267,118 245,165 235,155" opacity="0.85" />
+  </g>
+
+  <!-- Center Map Pin -->
+  <path d="M 200 120 
+           C 165 120 140 148 140 182 
+           C 140 226 200 278 200 278 
+           C 200 278 260 226 260 182 
+           C 260 148 235 120 200 120 Z" 
+        fill="url(#innerGleam)" 
+        stroke="#ffffff" 
+        stroke-width="4" />
+
+  <!-- Pin Center Compass Dial & Arrow -->
+  <circle cx="200" cy="180" r="28" fill="#ffffff" />
+  <!-- Direction Arrow inside Pin -->
+  <polygon points="200,160 216,198 200,188 184,198" fill="#B30D15" />
+
+  <!-- Bold 'U' Letter integrated on the right -->
+  <path d="M 290 165 
+           L 290 225 
+           A 35 35 0 0 0 360 225 
+           L 360 165 
+           L 336 165 
+           L 336 224 
+           A 12 12 0 0 1 314 224 
+           L 314 165 Z" 
+        fill="url(#cuRedGrad)" />
 </svg>

@@ -902,6 +902,7 @@ export function getStoredUsers(): UserProfile[] {
         uidOrRoll: item.userUid || '21BCS0000',
         department: 'Computer Science & Engineering (CSE)',
         role: (item.userEmail && (item.userEmail.includes('admin') || item.userEmail.includes('security'))) ? 'admin' : 'student',
+        avatarUrl: item.userAvatarUrl || (DEMO_USERS.find(d => d.id === item.userId || d.email === item.userEmail)?.avatarUrl),
         joinedDate: item.createdAt ? item.createdAt.split('T')[0] : '2026-09-01',
         profileCompleted: true,
       };

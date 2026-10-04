@@ -1017,6 +1017,11 @@ function SahayakMain() {
         onMessageSent={() => {
           setItems(getStoredItems());
         }}
+        onViewItemDetails={(item) => {
+          setMessageModalOpen(false);
+          setSelectedItem(item);
+          setDetailModalOpen(true);
+        }}
       />
 
       <MatchingModal

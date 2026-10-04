@@ -150,8 +150,8 @@ export async function deliverBrowserNotification(payload: PushNotificationPayloa
   const title = payload.title;
   const options: NotificationOptions = {
     body: payload.body,
-    icon: payload.icon || '/logo.svg',
-    badge: '/logo.svg',
+    icon: payload.icon || '/logosahayak.png',
+    badge: '/logosahayak.png',
     tag: payload.tag || `sahayak-msg-${Date.now()}`,
     data: {
       itemId: payload.itemId,

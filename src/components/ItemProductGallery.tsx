@@ -7,7 +7,6 @@ import {
   Star, 
   Image as ImageIcon,
   Images,
-  ZoomIn,
   Share2,
   Copy,
   Check,
@@ -68,8 +67,6 @@ export const ItemProductGallery: React.FC<ItemProductGalleryProps> = ({
   }, [images, imageUrl, image]);
 
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isZooming, setIsZooming] = useState(false);
-  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [failedImages, setFailedImages] = useState<Record<number, boolean>>({});
 
@@ -122,14 +119,6 @@ export const ItemProductGallery: React.FC<ItemProductGalleryProps> = ({
   const goToNext = () => {
     if (normalizedImages.length <= 1) return;
     setActiveIndex(prev => (prev === normalizedImages.length - 1 ? 0 : prev + 1));
-  };
-
-  // Zoom on hover handler
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
-    setZoomOrigin({ x, y });
   };
 
   // Mobile swipe handlers
@@ -245,9 +234,6 @@ ${shareUrl}`;
       {/* Main Large Image Container */}
       <div 
         className="relative aspect-4/3 sm:aspect-16/11 w-full rounded-2xl bg-slate-900/5 border border-slate-200/90 overflow-hidden shadow-xs select-none group flex items-center justify-center"
-        onMouseEnter={() => setIsZooming(true)}
-        onMouseLeave={() => setIsZooming(false)}
-        onMouseMove={handleMouseMove}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -285,19 +271,19 @@ ${shareUrl}`;
           </div>
         ) : (
           <>
-            {/* Interactive Image with Smooth Transition and Zoom on Hover */}
-            <div className="w-full h-full overflow-hidden flex items-center justify-center cursor-zoom-in">
+            {/* Static Image Display with Normal Containment */}
+            <div 
+              className="w-full h-full overflow-hidden flex items-center justify-center cursor-pointer"
+              onClick={() => setLightboxOpen(true)}
+              title="Click to view full-screen"
+            >
               <img
                 src={activeImageUrl}
                 alt={`${title} - Photo ${activeIndex + 1}`}
                 onError={() => handleImageError(activeIndex)}
                 referrerPolicy="no-referrer"
                 loading="eager"
-                className="w-full h-full object-cover transition-transform duration-300 ease-out will-change-transform"
-                style={{
-                  transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
-                  transform: isZooming ? 'scale(1.75)' : 'scale(1)',
-                }}
+                className="w-full h-full object-contain"
               />
             </div>
 
@@ -382,7 +368,7 @@ ${shareUrl}`;
               </>
             )}
 
-            {/* Bottom Bar: Image Count & Zoom Hint */}
+            {/* Bottom Bar: Image Count & Swipe Hint */}
             <div className="absolute bottom-2.5 inset-x-2.5 flex items-center justify-between text-white text-[10px] pointer-events-none z-10">
               <span className="bg-slate-950/75 backdrop-blur-md px-2 py-0.5 rounded-md font-semibold border border-white/10 flex items-center gap-1">
                 <Images className="w-3 h-3 text-red-400" />
@@ -390,8 +376,7 @@ ${shareUrl}`;
               </span>
 
               <span className="hidden sm:inline-flex items-center gap-1 bg-slate-950/75 backdrop-blur-md px-2 py-0.5 rounded-md font-medium text-white/80 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
-                <ZoomIn className="w-3 h-3 text-white" />
-                <span>Hover to zoom • Swipe on mobile</span>
+                <span>Click to expand full-screen</span>
               </span>
             </div>
           </>

@@ -82,6 +82,7 @@ export const DEMO_USERS: UserProfile[] = [
     phone: '+91 9878XXXXXX',
     department: 'Computer Science & Engineering (CSE)',
     role: 'student',
+    avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=250&auto=format&fit=crop&q=80',
     joinedDate: '2023-08-15',
   },
   {
@@ -92,6 +93,7 @@ export const DEMO_USERS: UserProfile[] = [
     phone: '+91 9878XXXXXX',
     department: 'University Institute of Business Studies (UIBS)',
     role: 'student',
+    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=250&auto=format&fit=crop&q=80',
     joinedDate: '2023-09-01',
   },
 ];
@@ -120,6 +122,7 @@ export const INITIAL_REPORTS: ItemReport[] = [
     userEmail: 'arjun.21bcs10482@cuchd.in',
     userPhone: '+91 9878XXXXXX',
     userUid: '21BCS10482',
+    userAvatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=250&auto=format&fit=crop&q=80',
     identifyingMark: 'Small Batman sticker residue at bottom',
     createdAt: '2026-09-11T16:00:00',
     updatedAt: '2026-09-11T16:00:00',
@@ -147,6 +150,7 @@ export const INITIAL_REPORTS: ItemReport[] = [
     userEmail: 'priya.22bba1420@cuchd.in',
     userPhone: '+91 9878XXXXXX',
     userUid: '22BBA1420',
+    userAvatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=250&auto=format&fit=crop&q=80',
     currentHoldingLocation: 'Deposited with Central Library Circulation Desk Incharge',
     secretVerificationQuestion: 'What specific mark or residue is visible on the underside of the case?',
     createdAt: '2026-09-11T17:45:00',
