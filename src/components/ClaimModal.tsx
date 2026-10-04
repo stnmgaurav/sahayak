@@ -18,7 +18,8 @@ import {
   Phone,
   Mail,
   User,
-  Trash2
+  Trash2,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface ClaimModalProps {
@@ -217,11 +218,17 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
 
         {/* Item Summary Card */}
         <div className="bg-slate-50/90 border-b border-slate-200 p-3.5 sm:p-4 flex items-center gap-3.5 shrink-0">
-          <img
-            src={item.imageUrl}
-            alt={item.title}
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
-          />
+          {(item.imageUrl || (item.imageUrls && item.imageUrls[0])) ? (
+            <img
+              src={item.imageUrl || item.imageUrls?.[0]}
+              alt={item.title}
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
+            />
+          ) : (
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-400 shrink-0">
+              <ImageIcon className="w-6 h-6" />
+            </div>
+          )}
           <div className="min-w-0 flex-1 text-xs">
             <span className="font-extrabold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-200">
               Found Item
@@ -410,7 +417,7 @@ export const ClaimModal: React.FC<ClaimModalProps> = ({
                   <input
                     type="tel"
                     required
-                    placeholder="+91 98765 43210"
+                    placeholder="+91 9878XXXXXX"
                     value={contactPhone}
                     onChange={e => setContactPhone(e.target.value)}
                     className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-red-600 focus:outline-none"

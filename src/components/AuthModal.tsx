@@ -109,7 +109,7 @@ export const AuthModal: React.FC = () => {
           password,
           uidOrRoll: uidOrRoll.trim().toUpperCase(),
           department,
-          phone: phone.trim() || '+91 98765 00000',
+          phone: phone.trim() || '+91 9878XXXXXX',
         });
       }
       closeAuthModal();
@@ -263,7 +263,7 @@ export const AuthModal: React.FC = () => {
                       <input
                         type="tel"
                         inputMode="numeric"
-                        placeholder="+91 98765 43210"
+                        placeholder="+91 9878XXXXXX"
                         value={phone}
                         onChange={e => setPhone(e.target.value)}
                         className="w-full pl-8 pr-3 py-3 sm:py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white"

@@ -90,7 +90,19 @@ function loadStoredRawNotifications(): AppNotificationItem[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed: AppNotificationItem[] = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Ensure all mock/seed demo notifications are removed
+    const realOnly = parsed.filter((n) => !n.id.startsWith('notif_seed_'));
+    if (realOnly.length !== parsed.length) {
+      try {
+        localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(realOnly));
+      } catch {
+        // ignore
+      }
+    }
+    return realOnly;
   } catch {
     return [];
   }
@@ -107,78 +119,17 @@ function saveRawNotifications(notifications: AppNotificationItem[]) {
 }
 
 /**
- * Generate initial welcome and system notifications if storage is empty
- */
-function getInitialSeedNotifications(): AppNotificationItem[] {
-  const now = new Date();
-  const timeMinus15m = new Date(now.getTime() - 15 * 60 * 1000).toISOString();
-  const timeMinus2h = new Date(now.getTime() - 2 * 3600 * 1000).toISOString();
-  const timeMinus1d = new Date(now.getTime() - 24 * 3600 * 1000).toISOString();
-
-  return [
-    {
-      id: 'notif_seed_match_01',
-      category: 'match',
-      title: 'AI High-Confidence Match Found (88%)',
-      description: 'A found boAt TWS Earbuds Charging Case turned in at Central Library matches your reported lost boAt Airdopes 141.',
-      timestamp: timeMinus15m,
-      read: false,
-      statusText: 'Action Required',
-      statusType: 'urgent',
-      itemId: 'rep_lost_01',
-      itemTitle: 'boAt Airdopes 141 Case (Black)',
-      itemImage: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&auto=format&fit=crop&q=80',
-      actionLabel: 'Review Match',
-      actionType: 'compare_match',
-      recipientEmail: 'arjun.21bcs10482@cuchd.in',
-    },
-    {
-      id: 'notif_seed_msg_01',
-      category: 'message',
-      title: 'New Finder Message from Priya Verma',
-      description: '"I deposited your black earbud case with Central Library Circulation Desk Incharge."',
-      timestamp: timeMinus2h,
-      read: false,
-      statusText: 'New Message',
-      statusType: 'unread',
-      itemId: 'rep_lost_01',
-      itemTitle: 'boAt Airdopes 141 Case (Black)',
-      itemImage: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&auto=format&fit=crop&q=80',
-      actionLabel: 'Open Chat',
-      actionType: 'open_chat',
-      recipientEmail: 'arjun.21bcs10482@cuchd.in',
-    },
-    {
-      id: 'notif_seed_sys_01',
-      category: 'system',
-      title: 'Welcome to SAHAYAK Campus Lost & Found',
-      description: 'Your official Chandigarh University student lost & found portal is active. You will receive live alerts for item updates and chat messages.',
-      timestamp: timeMinus1d,
-      read: true,
-      statusText: 'Verified Desk',
-      statusType: 'info',
-      actionLabel: 'View Registry',
-      actionType: 'view_item',
-    },
-  ];
-}
-
-/**
  * Returns all active notifications filtered and customized for the given user.
  * Automatically synchronizes with live messages, claims, and AI matches.
+ * Defaults to an empty array ([]) so only genuine interactions generate alerts.
  */
 export function getStoredNotifications(
   currentUserId?: string | null,
   currentUserEmail?: string | null
 ): AppNotificationItem[] {
   const deletedIds = getDeletedIds();
-  let stored = loadStoredRawNotifications();
-
-  // If storage is completely empty, initialize with seed notifications
-  if (stored.length === 0 && deletedIds.size === 0) {
-    stored = getInitialSeedNotifications();
-    saveRawNotifications(stored);
-  }
+  // Initialize with strictly real stored notifications (empty array if no interactions yet)
+  const stored: AppNotificationItem[] = [...loadStoredRawNotifications()];
 
   // Synthesize notifications from current messages in storage
   const messages = getStoredMessages();
@@ -360,6 +311,43 @@ export function getStoredNotifications(
       }
     }
   });
+
+  // Check & synthesize real AI match notifications for user's active reported items
+  if (items.length > 1) {
+    items.forEach((item) => {
+      const isItemOwner =
+        (currentUserId && item.userId === currentUserId) ||
+        (userEmailLower && item.userEmail && item.userEmail.toLowerCase() === userEmailLower);
+
+      if (isItemOwner && item.status !== 'returned' && item.status !== 'recovered') {
+        const matches = findMatchesForItem(item, items, 55);
+        matches.forEach((m) => {
+          const matchNotifId = `notif_match_${item.id}_${m.candidateItem.id}`;
+          if (deletedIds.has(matchNotifId) || existingIds.has(matchNotifId)) return;
+
+          const isHighConfidence = m.matchScore >= 75;
+          stored.unshift({
+            id: matchNotifId,
+            category: 'match',
+            title: `AI Match (${m.matchScore}%): "${m.candidateItem.title}"`,
+            description: `A ${m.candidateItem.type} item in ${m.candidateItem.locationBlock || 'Campus'} matches your ${item.type} listing "${item.title}". Reasons: ${m.reasons.slice(0, 2).join(' • ')}.`,
+            timestamp: m.candidateItem.createdAt || item.createdAt || new Date().toISOString(),
+            read: false,
+            statusText: isHighConfidence ? 'Strong Match' : 'Potential Match',
+            statusType: isHighConfidence ? 'urgent' : 'unread',
+            itemId: item.id,
+            itemTitle: item.title,
+            itemImage: m.candidateItem.imageUrl || item.imageUrl,
+            actionLabel: 'Compare Match',
+            actionType: 'compare_match',
+            recipientId: item.userId,
+            recipientEmail: item.userEmail,
+          });
+          existingIds.add(matchNotifId);
+        });
+      }
+    });
+  }
 
   // Filter out notifications not belonging to this user if user is logged in
   const filtered = stored.filter((notif) => {

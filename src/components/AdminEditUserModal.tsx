@@ -202,7 +202,7 @@ export const AdminEditUserModal: React.FC<AdminEditUserModalProps> = ({
                   type="tel"
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
+                  placeholder="+91 9878XXXXXX"
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-600"
                 />
               </div>

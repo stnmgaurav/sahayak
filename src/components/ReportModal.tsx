@@ -25,7 +25,13 @@ import {
   LogIn,
   ArrowLeft,
   EyeOff,
-  PhoneOff
+  PhoneOff,
+  Star,
+  Trash2,
+  Plus,
+  Images,
+  UploadCloud,
+  Check
 } from 'lucide-react';
 
 interface ReportModalProps {
@@ -38,14 +44,14 @@ interface ReportModalProps {
 }
 
 const PRESET_PHOTOS = [
-  { label: 'AirPods / TWS', url: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&auto=format&fit=crop&q=80' },
-  { label: 'Laptop Charger', url: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600&auto=format&fit=crop&q=80' },
-  { label: 'ID Card & Lanyard', url: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&auto=format&fit=crop&q=80' },
-  { label: 'Scientific Calculator', url: 'https://images.unsplash.com/photo-1611125832047-1d7ad1e8e48f?w=600&auto=format&fit=crop&q=80' },
-  { label: 'Hostel Keys', url: 'https://images.unsplash.com/photo-1582139329536-e7284fece509?w=600&auto=format&fit=crop&q=80' },
-  { label: 'College Backpack', url: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80' },
-  { label: 'Water Bottle', url: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=600&auto=format&fit=crop&q=80' },
-  { label: 'Wrist Watch', url: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=600&auto=format&fit=crop&q=80' },
+  { label: 'AirPods / TWS', url: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80' },
+  { label: 'Laptop Charger', url: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=800&auto=format&fit=crop&q=80' },
+  { label: 'ID Card & Lanyard', url: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&auto=format&fit=crop&q=80' },
+  { label: 'Scientific Calculator', url: 'https://images.unsplash.com/photo-1611125832047-1d7ad1e8e48f?w=800&auto=format&fit=crop&q=80' },
+  { label: 'Hostel Keys', url: 'https://images.unsplash.com/photo-1582139329536-e7284fece509?w=800&auto=format&fit=crop&q=80' },
+  { label: 'College Backpack', url: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80' },
+  { label: 'Water Bottle', url: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=800&auto=format&fit=crop&q=80' },
+  { label: 'Wrist Watch', url: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800&auto=format&fit=crop&q=80' },
 ];
 
 export const ReportModal: React.FC<ReportModalProps> = ({
@@ -69,12 +75,19 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     const now = new Date();
     return now.toISOString().slice(0, 16);
   });
-  const [imageUrl, setImageUrl] = useState(PRESET_PHOTOS[0].url);
+  const [images, setImages] = useState<string[]>(() => {
+    if (editingItem?.imageUrls && editingItem.imageUrls.length > 0) return editingItem.imageUrls;
+    if (editingItem?.imageUrl) return [editingItem.imageUrl];
+    if (editingItem?.image) return [editingItem.image];
+    return [PRESET_PHOTOS[0].url];
+  });
+  const [isDragging, setIsDragging] = useState(false);
   const [identifyingMark, setIdentifyingMark] = useState('');
   const [currentHoldingLocation, setCurrentHoldingLocation] = useState('Main Security Gate 1 (NH-95 Entrance) Lost & Found Cupboard');
   const [secretVerificationQuestion, setSecretVerificationQuestion] = useState('');
   const [hidePhone, setHidePhone] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -92,7 +105,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       setLocationBlock(editingItem.locationBlock);
       setSpecificSpot(editingItem.specificSpot);
       setDateTime(editingItem.dateTime.slice(0, 16));
-      setImageUrl(editingItem.imageUrl);
+      const loadedImages = editingItem.imageUrls && editingItem.imageUrls.length > 0
+        ? editingItem.imageUrls
+        : (editingItem.imageUrl ? [editingItem.imageUrl] : (editingItem.image ? [editingItem.image] : [PRESET_PHOTOS[0].url]));
+      setImages(loadedImages);
       setIdentifyingMark(editingItem.identifyingMark || '');
       setHidePhone(editingItem.hidePhone || false);
       if (editingItem.currentHoldingLocation) setCurrentHoldingLocation(editingItem.currentHoldingLocation);
@@ -107,7 +123,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       setLocationBlock(CU_CAMPUS_LOCATIONS[0]);
       setSpecificSpot('');
       setDateTime(new Date().toISOString().slice(0, 16));
-      setImageUrl(PRESET_PHOTOS[0].url);
+      setImages([PRESET_PHOTOS[0].url]);
       setIdentifyingMark('');
       setHidePhone(currentUser?.hidePhone || false);
       setCurrentHoldingLocation('Main Security Gate 1 (NH-95 Entrance) Lost & Found Cupboard');
@@ -132,24 +148,116 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Process multiple file uploads with validation
+  const processFiles = async (filesList: FileList | File[]) => {
+    const rawFiles = Array.from(filesList).filter(f => f.type.startsWith('image/'));
+    if (rawFiles.length === 0) return;
+
+    // Check if only default single preset exists and user hasn't modified it yet
+    const isOnlyDefaultPreset = images.length === 1 && images[0] === PRESET_PHOTOS[0].url && !editingItem;
+    const baseImages = isOnlyDefaultPreset ? [] : images;
+
+    const availableSlots = 5 - baseImages.length;
+    if (availableSlots <= 0) {
+      setErrorMessage('Maximum of 5 photos reached. Remove an existing image to upload another.');
+      return;
+    }
+
+    const filesToUpload = rawFiles.slice(0, availableSlots);
+    if (rawFiles.length > availableSlots) {
+      setErrorMessage(`Only ${availableSlots} more photo${availableSlots === 1 ? '' : 's'} could be added (max 5 photos per listing).`);
+    } else {
+      setErrorMessage(null);
+    }
 
     setUploading(true);
-    setErrorMessage(null);
-    try {
-      const dataUrl = await uploadImageFile(file);
-      setImageUrl(dataUrl);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to upload photo.');
-    } finally {
-      setUploading(false);
+    const newUrls: string[] = [];
+
+    for (let i = 0; i < filesToUpload.length; i++) {
+      const file = filesToUpload[i];
+      setUploadProgress(`Uploading ${i + 1} of ${filesToUpload.length}...`);
+      try {
+        const dataUrl = await uploadImageFile(file);
+        newUrls.push(dataUrl);
+      } catch (err: any) {
+        console.error('File upload failed:', err);
+        setErrorMessage(err.message || 'Failed to upload one or more photos.');
+      }
     }
+
+    setImages(prev => {
+      const current = isOnlyDefaultPreset ? [] : prev;
+      return [...current, ...newUrls].slice(0, 5);
+    });
+    setUploading(false);
+    setUploadProgress(null);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      processFiles(e.target.files);
+      e.target.value = ''; // Reset input so same file can be re-uploaded if desired
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleSelectPreset = (presetUrl: string) => {
+    if (images.includes(presetUrl)) return;
+
+    if (images.length === 1 && images[0] === PRESET_PHOTOS[0].url && !editingItem) {
+      setImages([presetUrl]);
+      return;
+    }
+
+    if (images.length >= 5) {
+      setErrorMessage('Maximum 5 photos reached. Remove an image to select this preset.');
+      return;
+    }
+
+    setImages(prev => [...prev, presetUrl]);
+    setErrorMessage(null);
+  };
+
+  const handleSetCover = (index: number) => {
+    if (index === 0) return;
+    setImages(prev => {
+      const target = prev[index];
+      const others = prev.filter((_, i) => i !== index);
+      return [target, ...others];
+    });
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImages(prev => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [PRESET_PHOTOS[0].url];
+    });
   };
 
   // Find instant potential matches as user types
   const oppositeType = type === 'lost' ? 'found' : 'lost';
+  const primaryCoverImage = images[0] || PRESET_PHOTOS[0].url;
+
   const instantMatches = existingItems
     .filter(i => i.type === oppositeType && i.status !== 'returned' && i.status !== 'recovered')
     .map(candidate => {
@@ -164,7 +272,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         locationBlock,
         specificSpot,
         dateTime,
-        imageUrl,
+        imageUrl: primaryCoverImage,
+        imageUrls: images,
         status: type,
         userId: currentUser?.id || 'guest',
         userName: currentUser?.name || 'Student',
@@ -207,6 +316,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
     setSubmitting(true);
     try {
+      const coverPhoto = images[0] || PRESET_PHOTOS[0].url;
+      const finalImageArray = images.length > 0 ? images : [coverPhoto];
+
       if (editingItem) {
         // Update existing item in database
         const updates: Partial<ItemReport> = {
@@ -218,7 +330,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           locationBlock,
           specificSpot: specificSpot.trim() || 'Not specified',
           dateTime,
-          imageUrl: imageUrl || editingItem.imageUrl,
+          imageUrl: coverPhoto,
+          imageUrls: finalImageArray,
+          image: coverPhoto,
           identifyingMark: identifyingMark.trim() || undefined,
           hidePhone,
           currentHoldingLocation: type === 'found' ? currentHoldingLocation : undefined,
@@ -255,7 +369,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         locationBlock,
         specificSpot: specificSpot.trim() || 'Not specified',
         dateTime,
-        imageUrl: imageUrl || PRESET_PHOTOS[0].url,
+        imageUrl: coverPhoto,
+        imageUrls: finalImageArray,
+        image: coverPhoto,
         status: finalStatus,
         userId: reporterId,
         userName: reporterName,
@@ -437,78 +553,184 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Photo Upload */}
-          <div className="space-y-3 pt-2 border-t border-slate-100">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              2. Photo of Item
-            </h3>
+          {/* Section 2: Multi-Photo Upload (E-Commerce Gallery Style) */}
+          <div className="space-y-4 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <Images className="w-3.5 h-3.5 text-red-600" />
+                  <span>2. Item Photos ({images.length}/5)</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Upload up to 5 photos from various angles. The first photo serves as the primary cover card.
+                </p>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Image Preview Box */}
-              <div className="relative aspect-4/3 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center overflow-hidden">
-                {imageUrl ? (
-                  <img
-                    src={imageUrl}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-center p-3 text-slate-400">
-                    <ImageIcon className="w-8 h-8 mx-auto mb-1" />
-                    <span className="text-xs">No image selected</span>
-                  </div>
-                )}
-                {uploading && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xs font-medium">
-                    Uploading image...
-                  </div>
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor={fileInputId}
+                  className={`cursor-pointer inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold shadow-2xs transition-all active:scale-95 ${
+                    images.length >= 5
+                      ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                      : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 hover:border-slate-400'
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5 text-red-600" />
+                  <span>{images.length === 0 ? 'Select Photos' : 'Add More Photos'}</span>
+                </label>
+                <input
+                  id={fileInputId}
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  disabled={images.length >= 5 || uploading}
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </div>
+            </div>
+
+            {/* Drag & Drop Main Zone */}
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`relative rounded-2xl border-2 border-dashed p-4 transition-all ${
+                isDragging
+                  ? 'border-red-600 bg-red-50/70 scale-[1.01]'
+                  : 'border-slate-200 bg-slate-50/60 hover:border-slate-300'
+              }`}
+            >
+              {uploading && (
+                <div className="absolute inset-0 z-20 bg-white/90 backdrop-blur-xs rounded-2xl flex flex-col items-center justify-center p-4 space-y-2">
+                  <div className="w-8 h-8 rounded-full border-3 border-red-600 border-t-transparent animate-spin" />
+                  <span className="text-xs font-bold text-slate-800">
+                    {uploadProgress || 'Processing photos...'}
+                  </span>
+                </div>
+              )}
+
+              {/* Uploaded Photos Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {images.map((imgUrl, index) => {
+                  const isCover = index === 0;
+
+                  return (
+                    <div
+                      key={index}
+                      className={`group relative aspect-square rounded-xl overflow-hidden border-2 bg-slate-100 transition-all ${
+                        isCover 
+                          ? 'border-red-600 shadow-sm ring-2 ring-red-600/30' 
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`Upload ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+
+                      {/* Top Badges & Actions */}
+                      <div className="absolute inset-x-1.5 top-1.5 flex items-center justify-between pointer-events-none">
+                        {isCover ? (
+                          <span className="pointer-events-auto inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-700 text-white text-[9px] font-black uppercase shadow-xs">
+                            <Star className="w-2.5 h-2.5 fill-white" />
+                            <span>Cover</span>
+                          </span>
+                        ) : (
+                          <span className="pointer-events-auto px-1.5 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-bold backdrop-blur-xs">
+                            #{index + 1}
+                          </span>
+                        )}
+
+                        {/* Remove Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(index)}
+                          className="pointer-events-auto p-1 rounded-full bg-slate-950/75 hover:bg-rose-600 text-white backdrop-blur-xs transition-colors shadow-xs cursor-pointer"
+                          title="Remove this photo"
+                          aria-label={`Remove photo ${index + 1}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      {/* Hover action bar for non-cover images */}
+                      {!isCover && (
+                        <div className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-slate-950/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-center">
+                          <button
+                            type="button"
+                            onClick={() => handleSetCover(index)}
+                            className="px-2 py-0.5 rounded-md bg-white hover:bg-slate-100 text-slate-900 text-[9px] font-extrabold shadow-xs transition-transform active:scale-95 cursor-pointer flex items-center gap-1"
+                            title="Set as primary cover photo"
+                          >
+                            <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                            <span>Set Cover</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Dropzone Tile to add more if under 5 photos */}
+                {images.length < 5 && (
+                  <label
+                    htmlFor={fileInputId}
+                    className="aspect-square rounded-xl border-2 border-dashed border-slate-300 hover:border-red-500 bg-white hover:bg-red-50/40 flex flex-col items-center justify-center p-3 text-center cursor-pointer transition-all group"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-red-100 text-slate-400 group-hover:text-red-700 flex items-center justify-center transition-colors">
+                      <Plus className="w-4 h-4" />
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-700 group-hover:text-red-800 mt-1.5 block">
+                      Add Photo
+                    </span>
+                    <span className="text-[9px] text-slate-400 block font-medium">
+                      ({images.length}/5)
+                    </span>
+                  </label>
                 )}
               </div>
 
-              {/* Upload Controls */}
-              <div className="md:col-span-2 space-y-3">
-                <div className="flex items-center gap-2">
-                  <label
-                    htmlFor={fileInputId}
-                    className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 rounded-full text-xs font-bold text-slate-700 shadow-2xs transition-all active:scale-95"
-                  >
-                    <Upload className="w-4 h-4 text-slate-500" />
-                    <span>Upload from Device (Cloudinary / File)</span>
-                  </label>
-                  <input
-                    id={fileInputId}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <span className="text-[11px] text-slate-400 font-medium">Max 5MB (PNG, JPG, WEBP)</span>
-                </div>
+              {/* Drag & Drop Prompt footer */}
+              <div className="mt-3 pt-2.5 border-t border-slate-200/70 flex flex-wrap items-center justify-between text-[11px] text-slate-500 gap-2">
+                <span className="flex items-center gap-1">
+                  <UploadCloud className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Drag &amp; drop image files directly onto this box</span>
+                </span>
+                <span className="text-slate-400 font-mono text-[10px]">
+                  Supports PNG, JPG, WEBP (Max 5MB each)
+                </span>
+              </div>
+            </div>
 
-                {/* Preset Campus Items Selector */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
-                    Or select a common campus item photography preset:
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {PRESET_PHOTOS.map(p => (
-                      <button
-                        key={p.label}
-                        type="button"
-                        onClick={() => setImageUrl(p.url)}
-                        className={`px-3 py-1 text-xs rounded-full border transition-all cursor-pointer active:scale-95 ${
-                          imageUrl === p.url
-                            ? type === 'lost'
-                              ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white font-extrabold border-transparent shadow-xs'
-                              : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold border-transparent shadow-xs'
-                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 font-medium hover:border-slate-300'
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            {/* Preset Campus Items Selector */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                Or pick standard campus photo references:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {PRESET_PHOTOS.map(p => {
+                  const isSelected = images.includes(p.url);
+
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => handleSelectPreset(p.url)}
+                      className={`px-3 py-1 text-xs rounded-full border transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 ${
+                        isSelected
+                          ? type === 'lost'
+                            ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white font-extrabold border-transparent shadow-xs'
+                            : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold border-transparent shadow-xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 font-medium hover:border-slate-300'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3" />}
+                      <span>{p.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

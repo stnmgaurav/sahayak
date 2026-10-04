@@ -19,7 +19,7 @@ service cloud.firestore {
     // Bootstraps project owner (gauravsinghrajpoot2019@gmail.com) and security/admin emails
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == 'gauravsinghrajpoot2019@gmail.com' ||
+        request.auth.token.email == 'gsrajpoot2019@gmail.com' ||
         (request.auth.token.email != null && (
           request.auth.token.email.matches('(?i).*admin.*') ||
           request.auth.token.email.matches('(?i).*security.*')

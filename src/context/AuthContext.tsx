@@ -77,8 +77,9 @@ export const isUserAdmin = (email?: string | null, _role?: string): boolean => {
 // Check if a profile requires student details (name, UID, phone, avatarUrl) completion
 export const checkProfileIncomplete = (profile: UserProfile | null): boolean => {
   if (!profile) return false;
-  // Admin & Security Staff never require student profile completion
+  // Admin & Security Staff or standard demo accounts never require student profile completion
   if (profile.role === 'admin') return false;
+  if (profile.id?.startsWith('user_arjun') || profile.id?.startsWith('user_priya')) return false;
   if (profile.profileCompleted === false) return true;
   const name = (profile.name || '').trim();
   const uid = (profile.uidOrRoll || '').trim();
@@ -90,7 +91,7 @@ export const checkProfileIncomplete = (profile: UserProfile | null): boolean => 
   // UID must be present and at least 3 characters
   if (!uid || uid.length < 3) return true;
   // Phone must be a valid 10+ digit number and not dummy/placeholder
-  if (!phone || phone === '+91 98765 00000' || phone === '9876500000' || phone === '0000000000') return true;
+  if (!phone || phone === '+91 9878XXXXXX' || phone === '+91 98765 00000' || phone === '9876500000' || phone === '0000000000') return true;
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 10) return true;
   // Avatar / profile photo must be present

@@ -609,7 +609,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <td className="p-3.5">
                             <div className="flex items-center gap-3">
                               <img
-                                src={item.imageUrl || 'https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=200&auto=format&fit=crop&q=80'}
+                                src={item.imageUrl || (item.imageUrls && item.imageUrls[0]) || 'https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=200&auto=format&fit=crop&q=80'}
                                 alt={item.title || 'Reported Item'}
                                 className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
                               />
@@ -1068,7 +1068,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                           <div className="flex items-center gap-3 pt-1">
                             <img
-                              src={item.imageUrl}
+                              src={item.imageUrl || (item.imageUrls && item.imageUrls[0]) || 'https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?w=200&auto=format&fit=crop&q=80'}
                               alt={item.title}
                               className="w-14 h-14 rounded-xl object-cover shrink-0 border border-slate-200"
                             />
@@ -1159,7 +1159,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     claimantId: item.userId || '',
                     claimantName: item.userName || 'Student',
                     claimantEmail: item.userEmail || '',
-                    claimantPhone: item.userPhone || '+91 98765 00000',
+                    claimantPhone: item.userPhone || '+91 9878XXXXXX',
                     claimantUid: item.userUid || '21BCS10482',
                     proofDescription: 'Verified with physical ID card check at security desk.',
                     status: 'returned' as const,

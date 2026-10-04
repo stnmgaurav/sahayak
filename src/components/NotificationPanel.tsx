@@ -412,46 +412,113 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
         {/* Scrollable Notification Items Feed */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 divide-y divide-slate-100/80">
           {displayedNotifications.length === 0 ? (
-            /* Empty State */
-            <div className="h-full min-h-[360px] flex flex-col items-center justify-center text-center p-6 space-y-3">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center border border-slate-200/60 shadow-2xs">
-                {filter === 'unread' ? (
-                  <Check className="w-7 h-7 text-emerald-600" />
-                ) : (
-                  <BellOff className="w-7 h-7 text-slate-400" />
-                )}
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-extrabold text-slate-900">
-                  {filter === 'unread' ? 'No Unread Notifications' : 'All Caught Up!'}
-                </h3>
-                <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                  {filter === 'unread'
-                    ? 'You have reviewed all campus notifications. Switch back to "All" to browse your history.'
-                    : 'There are no active notifications at this moment. You will be alerted whenever someone messages, claims, or matches your items.'}
-                </p>
-              </div>
-
-              {filter === 'unread' ? (
-                <button
-                  type="button"
-                  onClick={() => setFilter('all')}
-                  className="mt-2 px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-full text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
-                >
-                  View All Notifications
-                </button>
+            /* Friendly Clean Empty State */
+            <div className="h-full min-h-[380px] flex flex-col items-center justify-center text-center p-4 sm:p-6 space-y-4">
+              {filter === 'unread' && notifications.length > 0 ? (
+                /* Unread Filter Empty State */
+                <>
+                  <div className="w-16 h-16 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200/80 shadow-xs">
+                    <CheckCheck className="w-8 h-8 text-emerald-600" />
+                  </div>
+                  <div className="space-y-1.5 max-w-sm">
+                    <h3 className="text-base font-extrabold text-slate-950">
+                      All Caught Up!
+                    </h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      You've reviewed all your notifications. Switch back to "All" to browse your notification history anytime.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFilter('all')}
+                    className="mt-2 px-5 py-2.5 bg-slate-900 hover:bg-black text-white rounded-full text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
+                  >
+                    View All ({notifications.length}) Notifications
+                  </button>
+                </>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenSettings();
-                  }}
-                  className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200/90 text-slate-800 rounded-full text-xs font-bold border border-slate-200 transition-all cursor-pointer"
-                >
-                  <Settings className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Configure Alert Settings</span>
-                </button>
+                /* Zero State - Clean & Friendly */
+                <>
+                  <div className="relative">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-tr from-slate-100 via-red-50/60 to-amber-50/50 flex items-center justify-center border border-slate-200/90 shadow-xs">
+                      <Bell className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" />
+                    </div>
+                    <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center shadow-xs">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 max-w-xs">
+                    <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-950">
+                      No Notifications Yet
+                    </h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Only genuine interactions generate alerts. Your feed will automatically update when someone interacts with your campus listings.
+                    </p>
+                  </div>
+
+                  {/* Informative Trigger Feature Strip */}
+                  <div className="w-full max-w-sm grid grid-cols-1 gap-2 pt-2 text-left">
+                    <div className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/70 flex items-center gap-2.5 text-xs">
+                      <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-800 text-[11px]">Finder &amp; Owner Chat</p>
+                        <p className="text-[10px] text-slate-500 truncate">Direct messages about lost or found items</p>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/70 flex items-center gap-2.5 text-xs">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-800 text-[11px]">Ownership Claims</p>
+                        <p className="text-[10px] text-slate-500 truncate">Verification requests &amp; handover approvals</p>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/70 flex items-center gap-2.5 text-xs">
+                      <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-800 text-[11px]">AI Smart Matches</p>
+                        <p className="text-[10px] text-slate-500 truncate">Automated match suggestions for your listings</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Clean CTA Actions */}
+                  <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onNavigateTab) {
+                          onNavigateTab('browse');
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-full text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Package className="w-3.5 h-3.5" />
+                      <span>Browse Registry</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenSettings();
+                      }}
+                      className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200/90 text-slate-800 rounded-full text-xs font-bold border border-slate-200 transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Alert Settings</span>
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           ) : (

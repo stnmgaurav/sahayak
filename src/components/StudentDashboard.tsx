@@ -35,7 +35,8 @@ import {
   BellRing,
   Settings,
   Eye,
-  XCircle
+  XCircle,
+  Image as ImageIcon
 } from 'lucide-react';
 import { 
   getNotificationPermission, 
@@ -556,11 +557,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 flex-1">
-                        <img
-                          src={item.imageUrl}
-                          alt={item.title}
-                          className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-slate-200/80 shrink-0"
-                        />
+                        {(item.imageUrl || (item.imageUrls && item.imageUrls[0])) ? (
+                          <img
+                            src={item.imageUrl || item.imageUrls?.[0]}
+                            alt={item.title}
+                            className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-slate-200/80 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-400 shrink-0">
+                            <ImageIcon className="w-6 h-6" />
+                          </div>
+                        )}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-extrabold text-slate-950 text-sm sm:text-base truncate max-w-full">
@@ -755,11 +762,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     className="glass-card rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 overflow-hidden"
                   >
                     <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 flex-1">
-                      <img
-                        src={item.imageUrl}
-                        alt={item.title}
-                        className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover border border-slate-200/80 shrink-0"
-                      />
+                      {(item.imageUrl || (item.imageUrls && item.imageUrls[0])) ? (
+                        <img
+                          src={item.imageUrl || item.imageUrls?.[0]}
+                          alt={item.title}
+                          className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover border border-slate-200/80 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-400 shrink-0">
+                          <ImageIcon className="w-6 h-6" />
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-bold text-slate-950 text-sm sm:text-base truncate max-w-full">{item.title}</h4>
@@ -877,11 +890,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     </div>
 
                     <div className="flex items-center gap-3 min-w-0">
-                      <img
-                        src={match.candidateItem.imageUrl}
-                        alt={match.candidateItem.title}
-                        className="w-13 h-13 sm:w-14 sm:h-14 rounded-xl object-cover border border-slate-200/80 shrink-0"
-                      />
+                      {(match.candidateItem.imageUrl || (match.candidateItem.imageUrls && match.candidateItem.imageUrls[0])) ? (
+                        <img
+                          src={match.candidateItem.imageUrl || match.candidateItem.imageUrls?.[0]}
+                          alt={match.candidateItem.title}
+                          className="w-13 h-13 sm:w-14 sm:h-14 rounded-xl object-cover border border-slate-200/80 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
+                          <ImageIcon className="w-5 h-5" />
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <h4 className="font-bold text-slate-950 text-sm sm:text-base truncate">
                           {match.candidateItem.title}
@@ -1297,12 +1316,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                           {/* Item Preview */}
                           <div className="flex items-center gap-3 min-w-0 flex-1">
-                            {targetItem?.imageUrl && (
+                            {(targetItem?.imageUrl || (targetItem?.imageUrls && targetItem.imageUrls[0])) ? (
                               <img
-                                src={targetItem.imageUrl}
+                                src={targetItem.imageUrl || targetItem.imageUrls?.[0]}
                                 alt={targetItem.title}
                                 className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover border border-slate-200 shrink-0"
                               />
+                            ) : (
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                                <ImageIcon className="w-5 h-5" />
+                              </div>
                             )}
                             <div className="min-w-0 flex-1">
                               <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-100 text-rose-800 shrink-0">
@@ -1437,12 +1460,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                           {/* Item Preview */}
                           <div className="flex items-center gap-3">
-                            {targetItem?.imageUrl && (
+                            {(targetItem?.imageUrl || (targetItem?.imageUrls && targetItem.imageUrls[0])) ? (
                               <img
-                                src={targetItem.imageUrl}
+                                src={targetItem.imageUrl || targetItem.imageUrls?.[0]}
                                 alt={targetItem.title}
                                 className="w-14 h-14 rounded-xl object-cover border border-slate-200 shrink-0"
                               />
+                            ) : (
+                              <div className="w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                                <ImageIcon className="w-5 h-5" />
+                              </div>
                             )}
                             <div>
                               <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">

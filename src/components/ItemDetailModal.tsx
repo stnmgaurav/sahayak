@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ItemReport, MatchSuggestion } from '../types';
 import { updateItemStatus } from '../lib/storage';
+import { ItemProductGallery } from './ItemProductGallery';
 import { 
   X, 
   MapPin, 
@@ -248,18 +249,19 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
           {/* Top Section: Photo & Key Specifications */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-            {/* Left: Image Container */}
+            {/* Left: Interactive E-Commerce Product Gallery */}
             <div className="space-y-3">
-              <div className="aspect-4/3 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden shadow-xs relative group">
-                <img
-                  src={item.imageUrl}
-                  alt={item.title}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-                <div className="absolute bottom-2.5 left-2.5 bg-slate-950/70 backdrop-blur-xs text-white px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1">
-                  <span>Photo Attachment</span>
-                </div>
-              </div>
+              <ItemProductGallery
+                itemId={item.id}
+                images={item.imageUrls}
+                imageUrl={item.imageUrl}
+                image={item.image}
+                title={item.title}
+                category={item.category}
+                itemType={item.type}
+                locationBlock={item.locationBlock}
+                description={item.description}
+              />
 
               {/* Safe Custody Note for Found Items */}
               {item.type === 'found' && item.currentHoldingLocation && (

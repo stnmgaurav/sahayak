@@ -18,7 +18,8 @@ import {
   Mail,
   Phone,
   Tag,
-  Lock
+  Lock,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface AdminUserListingsModalProps {
@@ -236,11 +237,17 @@ export const AdminUserListingsModal: React.FC<AdminUserListingsModalProps> = ({
                 >
                   {/* Left: Thumbnail & Info */}
                   <div className="flex items-start gap-3.5 flex-1 min-w-0">
-                    <img
-                      src={item.imageUrl}
-                      alt={item.title}
-                      className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
-                    />
+                    {(item.imageUrl || (item.imageUrls && item.imageUrls[0])) ? (
+                      <img
+                        src={item.imageUrl || item.imageUrls?.[0]}
+                        alt={item.title}
+                        className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                        <ImageIcon className="w-6 h-6" />
+                      </div>
+                    )}
                     <div className="space-y-1 min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${

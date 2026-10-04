@@ -52,6 +52,28 @@ function sanitizeForFirestore(obj: Record<string, any>): Record<string, any> {
   return clean;
 }
 
+// Helper to mask demo phone numbers into standard +91 9878XXXXXX format
+function maskDemoPhone(phone?: string): string {
+  if (!phone) return '+91 9878XXXXXX';
+  const trimmed = phone.trim();
+  if (
+    trimmed === '+91 98765 43210' ||
+    trimmed === '+91 98123 45678' ||
+    trimmed === '+91 98888 11223' ||
+    trimmed === '+91 98888 22334' ||
+    trimmed === '+91 98765 00000' ||
+    trimmed === '9876543210' ||
+    trimmed === '9812345678' ||
+    trimmed === '9888811223' ||
+    trimmed === '9888822334' ||
+    trimmed === '9876500000' ||
+    trimmed === '0000000000'
+  ) {
+    return '+91 9878XXXXXX';
+  }
+  return trimmed;
+}
+
 function loadLocalItems(): ItemReport[] {
   try {
     const raw = localStorage.getItem(ITEMS_KEY);
@@ -59,7 +81,54 @@ function loadLocalItems(): ItemReport[] {
       localStorage.setItem(ITEMS_KEY, JSON.stringify(INITIAL_REPORTS));
       return INITIAL_REPORTS;
     }
-    return JSON.parse(raw);
+    const parsed: ItemReport[] = JSON.parse(raw);
+    let mutated = false;
+    const sanitized = parsed.map(item => {
+      let changed = false;
+      let userPhone = item.userPhone;
+      let imageUrls = item.imageUrls;
+
+      if (userPhone && (userPhone.includes('98765') || userPhone.includes('98123') || userPhone.includes('98888'))) {
+        userPhone = '+91 9878XXXXXX';
+        changed = true;
+      }
+
+      // Backwards compatibility for single image field
+      let imageUrl = item.imageUrl || (item as any).image || '';
+      if (!item.imageUrl && (item as any).image) {
+        changed = true;
+      }
+
+      // Backfill multi-image array if missing
+      const initialMatch = INITIAL_REPORTS.find(r => r.id === item.id);
+      if (!imageUrls || imageUrls.length === 0) {
+        if (initialMatch && initialMatch.imageUrls && initialMatch.imageUrls.length > 0) {
+          imageUrls = initialMatch.imageUrls;
+          changed = true;
+        } else if (imageUrl) {
+          imageUrls = [imageUrl];
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        mutated = true;
+        return { ...item, userPhone, imageUrl, imageUrls, image: imageUrl };
+      }
+      return item;
+    });
+
+    // Ensure any newly added mock reports are merged into local cache
+    INITIAL_REPORTS.forEach(initialRep => {
+      if (!sanitized.some(s => s.id === initialRep.id)) {
+        sanitized.push(initialRep);
+        mutated = true;
+      }
+    });
+    if (mutated) {
+      localStorage.setItem(ITEMS_KEY, JSON.stringify(sanitized));
+    }
+    return sanitized;
   } catch (err) {
     console.error('Failed to read items from localStorage:', err);
     return INITIAL_REPORTS;
@@ -73,7 +142,19 @@ function loadLocalClaims(): ItemClaim[] {
       localStorage.setItem(CLAIMS_KEY, JSON.stringify(INITIAL_CLAIMS));
       return INITIAL_CLAIMS;
     }
-    return JSON.parse(raw);
+    const parsed: ItemClaim[] = JSON.parse(raw);
+    let mutated = false;
+    const sanitized = parsed.map(claim => {
+      if (claim.claimantPhone && (claim.claimantPhone.includes('98765') || claim.claimantPhone.includes('98123') || claim.claimantPhone.includes('98888'))) {
+        mutated = true;
+        return { ...claim, claimantPhone: '+91 9878XXXXXX' };
+      }
+      return claim;
+    });
+    if (mutated) {
+      localStorage.setItem(CLAIMS_KEY, JSON.stringify(sanitized));
+    }
+    return sanitized;
   } catch (err) {
     console.error('Failed to read claims from localStorage:', err);
     return INITIAL_CLAIMS;
@@ -105,22 +186,11 @@ function loadLocalUsers(): UserProfile[] {
       const initialUsers: UserProfile[] = [
         ...DEMO_USERS,
         {
-          id: 'user_admin_satnam',
-          name: 'Inspector Satnam Singh',
-          email: 'security.admin@cumail.in',
-          uidOrRoll: 'EMP-CU-SEC-409',
-          phone: '+91 98888 11223',
-          department: 'CU Campus Security & Welfare Cell',
-          role: 'admin',
-          joinedDate: '2021-01-10',
-          profileCompleted: true,
-        },
-        {
           id: 'user_admin_gaurav',
           name: 'Gaurav Singh (Platform Superadmin)',
-          email: 'gauravsinghrajpoot2019@gmail.com',
-          uidOrRoll: 'EMP-CU-ADMIN-001',
-          phone: '+91 98888 22334',
+          email: 'gsrajpoot2019@gmail.com',
+          uidOrRoll: 'SAHAYAK4CU-ADMIN',
+          phone: '+91 9800000000',
           department: 'Campus Security & Administration',
           role: 'admin',
           joinedDate: '2022-01-15',
@@ -130,7 +200,19 @@ function loadLocalUsers(): UserProfile[] {
       localStorage.setItem(USERS_KEY, JSON.stringify(initialUsers));
       return initialUsers;
     }
-    return JSON.parse(raw);
+    const parsed: UserProfile[] = JSON.parse(raw);
+    let mutated = false;
+    const sanitized = parsed.map(user => {
+      if (user.phone && (user.phone.includes('98765') || user.phone.includes('98123') || user.phone.includes('98888'))) {
+        mutated = true;
+        return { ...user, phone: '+91 9878XXXXXX' };
+      }
+      return user;
+    });
+    if (mutated) {
+      localStorage.setItem(USERS_KEY, JSON.stringify(sanitized));
+    }
+    return sanitized;
   } catch (err) {
     console.error('Failed to read users from localStorage:', err);
     return DEMO_USERS;
@@ -816,7 +898,7 @@ export function getStoredUsers(): UserProfile[] {
         id: item.userId,
         name: item.userName || 'Student',
         email: item.userEmail || 'student@cuchd.in',
-        phone: item.userPhone || '+91 98765 00000',
+        phone: item.userPhone || '+91 9878XXXXXX',
         uidOrRoll: item.userUid || '21BCS0000',
         department: 'Computer Science & Engineering (CSE)',
         role: (item.userEmail && (item.userEmail.includes('admin') || item.userEmail.includes('security'))) ? 'admin' : 'student',

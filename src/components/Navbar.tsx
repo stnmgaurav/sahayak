@@ -110,7 +110,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
     if (tab === 'admin-dashboard') {
       if (!isAuthenticated || !currentUser || !isUserAdmin(currentUser.email)) {
-        openAuthModal('login', 'Access Restricted: Campus Security Desk is reserved strictly for campus administrator (gauravsinghrajpoot2019@gmail.com).');
+        openAuthModal('login', 'Access Restricted: Campus Security Desk is reserved strictly for campus administrator.');
         return;
       }
       if (!isAdmin) {
@@ -182,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
-            {/* Security Desk tab - strictly visible ONLY to authorized campus admin: gauravsinghrajpoot2019@gmail.com */}
+            {/* Security Desk tab - strictly visible ONLY to authorized campus admin */}
             {currentUser && isUserAdmin(currentUser.email) && (
               <button
                 onClick={() => handleTabClick('admin-dashboard')}

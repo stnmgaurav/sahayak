@@ -13,7 +13,8 @@ import {
   Tag, 
   Palette,
   Building2,
-  ArrowLeft
+  ArrowLeft,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface MatchingModalProps {
@@ -111,12 +112,19 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
                 </span>
               </div>
 
-              <div className="aspect-16/10 rounded-xl bg-white border border-rose-200 overflow-hidden">
-                <img
-                  src={lostItem.imageUrl}
-                  alt={lostItem.title}
-                  className="w-full h-full object-cover"
-                />
+              <div className="aspect-16/10 rounded-xl bg-white border border-rose-200 overflow-hidden flex items-center justify-center">
+                {lostItem.imageUrl || (lostItem.imageUrls && lostItem.imageUrls[0]) ? (
+                  <img
+                    src={lostItem.imageUrl || lostItem.imageUrls?.[0]}
+                    alt={lostItem.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-3 text-slate-400">
+                    <ImageIcon className="w-6 h-6 mb-1 text-slate-400" />
+                    <span className="text-[10px] font-bold">No Photo Available</span>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -143,12 +151,19 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
                 </span>
               </div>
 
-              <div className="aspect-16/10 rounded-xl bg-white border border-emerald-200 overflow-hidden">
-                <img
-                  src={foundItem.imageUrl}
-                  alt={foundItem.title}
-                  className="w-full h-full object-cover"
-                />
+              <div className="aspect-16/10 rounded-xl bg-white border border-emerald-200 overflow-hidden flex items-center justify-center">
+                {foundItem.imageUrl || (foundItem.imageUrls && foundItem.imageUrls[0]) ? (
+                  <img
+                    src={foundItem.imageUrl || foundItem.imageUrls?.[0]}
+                    alt={foundItem.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-3 text-slate-400">
+                    <ImageIcon className="w-6 h-6 mb-1 text-slate-400" />
+                    <span className="text-[10px] font-bold">No Photo Available</span>
+                  </div>
+                )}
               </div>
 
               <div>

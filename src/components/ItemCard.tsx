@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ItemReport } from '../types';
 import { 
@@ -8,11 +8,13 @@ import {
   ShieldCheck, 
   CheckCircle2, 
   Clock, 
-  PackageCheck,
-  MessageSquare,
-  HandHeart,
-  Eye,
-  Check
+  PackageCheck, 
+  MessageSquare, 
+  HandHeart, 
+  Eye, 
+  Check,
+  Images,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface ItemCardProps {
@@ -37,7 +39,17 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   onViewMatch,
 }) => {
   const { currentUser, isAdmin } = useAuth();
+  const [imgError, setImgError] = useState(false);
   const isLost = item.type === 'lost';
+
+  // Backwards compatible cover image resolution
+  const coverImage = (item.imageUrls && item.imageUrls.length > 0 && item.imageUrls[0])
+    ? item.imageUrls[0]
+    : (item.imageUrl || item.image || '');
+
+  const photoCount = (item.imageUrls && item.imageUrls.length > 0)
+    ? item.imageUrls.length
+    : (coverImage ? 1 : 0);
 
   const isOwner = Boolean(
     currentUser && (
@@ -124,13 +136,25 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           }}
           className="relative aspect-16/10 bg-slate-100 overflow-hidden cursor-pointer"
         >
-          <img
-            src={item.imageUrl}
-            alt={item.title}
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500 ease-out"
-            loading="lazy"
-          />
+          {!coverImage || imgError ? (
+            /* Clean Fallback Placeholder */
+            <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-gradient-to-br from-slate-100 via-slate-50 to-slate-200 text-slate-400">
+              <div className="w-10 h-10 rounded-xl bg-white shadow-2xs border border-slate-200 flex items-center justify-center mb-1 text-slate-400 group-hover:scale-105 transition-transform">
+                <ImageIcon className="w-5 h-5 text-slate-400" />
+              </div>
+              <span className="text-[11px] font-bold text-slate-700">No Image</span>
+              <span className="text-[9px] text-slate-500 font-medium">Registry Listing</span>
+            </div>
+          ) : (
+            <img
+              src={coverImage}
+              alt={item.title}
+              onError={() => setImgError(true)}
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500 ease-out"
+              loading="lazy"
+            />
+          )}
 
           {/* Clean Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/5 to-black/20 pointer-events-none" />
@@ -151,6 +175,16 @@ export const ItemCard: React.FC<ItemCardProps> = ({
               {getStatusBadge()}
             </div>
           </div>
+
+          {/* Multi-Photo E-Commerce Indicator Badge */}
+          {photoCount > 1 && (
+            <div className="absolute top-10 right-2.5 z-10 pointer-events-none">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-md text-white text-[9px] font-extrabold shadow-sm border border-white/20">
+                <Images className="w-2.5 h-2.5 text-red-400" />
+                <span>{photoCount} photos</span>
+              </span>
+            </div>
+          )}
 
           {/* Click to Claim Pill Overlay for Found Items */}
           {item.type === 'found' && (

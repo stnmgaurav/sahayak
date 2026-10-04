@@ -261,11 +261,17 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <img
-              src={item.imageUrl}
-              alt={item.title}
-              className="w-12 h-12 rounded-xl object-cover border border-white/20 shrink-0"
-            />
+            {(item.imageUrl || (item.imageUrls && item.imageUrls[0])) ? (
+              <img
+                src={item.imageUrl || item.imageUrls?.[0]}
+                alt={item.title}
+                className="w-12 h-12 rounded-xl object-cover border border-white/20 shrink-0"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white/60 shrink-0">
+                <ImageIcon className="w-5 h-5" />
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-black text-white truncate">

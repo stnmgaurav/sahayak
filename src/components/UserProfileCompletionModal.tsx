@@ -73,7 +73,8 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
     currentUser.profileCompleted &&
     currentUser.uidOrRoll &&
     currentUser.phone &&
-    !currentUser.phone.includes('00000')
+    !currentUser.phone.includes('00000') &&
+    !currentUser.phone.includes('XXXXXX')
   );
 
   // Initialize and prefill details fetched from Google or current session
@@ -83,7 +84,7 @@ export const UserProfileCompletionModal: React.FC<UserProfileCompletionModalProp
       if (currentUser.uidOrRoll && !currentUser.uidOrRoll.startsWith('21BCS10000') && !currentUser.uidOrRoll.startsWith('EMP-')) {
         setUidOrRoll(currentUser.uidOrRoll);
       }
-      if (currentUser.phone && !currentUser.phone.includes('00000')) {
+      if (currentUser.phone && !currentUser.phone.includes('00000') && !currentUser.phone.includes('XXXXXX')) {
         // Strip country code for the input field if it starts with +91
         const clean = currentUser.phone.replace(/^\+91\s?/, '');
         setPhone(clean);

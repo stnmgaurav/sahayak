@@ -57,7 +57,9 @@ export interface ItemReport {
   locationBlock: string; // e.g., "Academic Block 1 (A1 - Computer Science)"
   specificSpot: string; // e.g., "2nd Floor Lab 204 near window"
   dateTime: string; // ISO date string
-  imageUrl: string;
+  imageUrl: string; // Primary / Cover image URL
+  imageUrls?: string[]; // Multiple photos (up to 5) for e-commerce gallery view
+  image?: string; // Backwards-compatible alias for single image field
   status: ItemStatus;
   userId: string;
   userName: string;

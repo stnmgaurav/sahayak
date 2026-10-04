@@ -17,7 +17,8 @@ import {
   ArrowRight,
   Sparkles,
   Calendar,
-  MessageSquare
+  MessageSquare,
+  Image as ImageIcon
 } from 'lucide-react';
 import { ItemClaim, ItemReport } from '../types';
 import { CU_CAMPUS_LOCATIONS } from '../data/mockData';
@@ -217,11 +218,17 @@ export const ReviewClaimModal: React.FC<ReviewClaimModalProps> = ({
           {/* 1. Item Quick Info */}
           {item && (
             <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 flex items-center gap-3.5">
-              <img
-                src={item.imageUrl}
-                alt={item.title}
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover border border-slate-200 shrink-0"
-              />
+              {(item.imageUrl || (item.imageUrls && item.imageUrls[0])) ? (
+                <img
+                  src={item.imageUrl || item.imageUrls?.[0]}
+                  alt={item.title}
+                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover border border-slate-200 shrink-0"
+                />
+              ) : (
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-400 shrink-0">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+              )}
               <div className="min-w-0 flex-1">
                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
                   Your Found Listing

@@ -99,7 +99,7 @@ function SahayakMain() {
     } else if (isAuthenticated && currentTab === 'admin-dashboard') {
       if (!currentUser || !isUserAdmin(currentUser.email)) {
         setCurrentTab('browse');
-        openAuthModal('login', 'Access Restricted: Campus Security Desk is strictly reserved for campus administrator (gauravsinghrajpoot2019@gmail.com).');
+        openAuthModal('login', 'Access Restricted: Campus Security Desk is strictly reserved for campus administrator.');
       } else if (!isAdmin) {
         openAdminVerificationModal();
       }
@@ -148,7 +148,7 @@ function SahayakMain() {
     };
   }, [items]);
 
-  // Check URL parameter on load (e.g. redirected from Service Worker push notification click)
+  // Check URL parameter on load (e.g. redirected from Service Worker push notification or shared item link)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -159,6 +159,17 @@ function SahayakMain() {
         if (found) {
           setMessageTargetItem(found);
           setMessageModalOpen(true);
+        }
+      }
+
+      // Deep link to shared item listing
+      const openItemId = params.get('item') || params.get('itemId');
+      if (openItemId) {
+        const currentList = getStoredItems();
+        const found = currentList.find(i => i.id === openItemId) || items.find(i => i.id === openItemId);
+        if (found) {
+          setSelectedItem(found);
+          setDetailModalOpen(true);
         }
       }
     }
