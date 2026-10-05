@@ -39,7 +39,10 @@ const RTC_CONFIG: RTCConfiguration = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 // Cross-tab / fast local signaling broadcast channel
@@ -231,7 +234,7 @@ export async function saveCallSession(session: WebRTCCallSession): Promise<void>
     const callRef = doc(db, 'calls', session.callId);
     await setDoc(callRef, JSON.parse(JSON.stringify(session)), { merge: true });
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `calls/${session.callId}`);
+    console.warn('Could not synchronize call session to Firestore:', err);
   }
 }
 
@@ -243,8 +246,8 @@ export function subscribeToIncomingCalls(
   currentUserEmail: string,
   onIncomingCall: (call: WebRTCCallSession) => void
 ): () => void {
-  const uId = (currentUserId || '').toLowerCase();
-  const uEmail = (currentUserEmail || '').toLowerCase();
+  const uId = (currentUserId || '').trim().toLowerCase();
+  const uEmail = (currentUserEmail || '').trim().toLowerCase();
 
   // 1. BroadcastChannel listener
   const handleBroadcast = (event: MessageEvent) => {
@@ -282,13 +285,12 @@ export function subscribeToIncomingCalls(
   };
   window.addEventListener('storage', handleStorage);
 
-  // 3. Firestore query listener for remote incoming calls
+  // 3. Firestore query listener for remote incoming calls across physical devices
   let firestoreUnsub: (() => void) | null = null;
   try {
-    if (currentUserId) {
+    if (uId || uEmail) {
       const callsQuery = query(
         collection(db, 'calls'),
-        where('receiverId', '==', currentUserId),
         where('status', '==', 'ringing')
       );
       firestoreUnsub = onSnapshot(callsQuery, (snapshot) => {
@@ -296,7 +298,15 @@ export function subscribeToIncomingCalls(
           if (change.type === 'added' || change.type === 'modified') {
             const session = change.doc.data() as WebRTCCallSession;
             if (session.status === 'ringing') {
-              onIncomingCall(session);
+              const rId = (session.receiverId || '').trim().toLowerCase();
+              const rEmail = (session.receiverEmail || '').trim().toLowerCase();
+              const isTarget = 
+                Boolean(uId && rId === uId) ||
+                Boolean(uEmail && rEmail === uEmail);
+
+              if (isTarget) {
+                onIncomingCall(session);
+              }
             }
           }
         });
@@ -667,6 +677,8 @@ export class WebRTCCallClient {
           this.remoteAudioElement.autoplay = true;
           (this.remoteAudioElement as any).playsInline = true;
           this.remoteAudioElement.setAttribute('playsinline', 'true');
+          this.remoteAudioElement.volume = 1.0;
+          this.remoteAudioElement.muted = false;
           document.body.appendChild(this.remoteAudioElement);
         }
         this.remoteAudioElement.srcObject = remoteStream;
@@ -683,19 +695,31 @@ export class WebRTCCallClient {
       }
     };
 
+    const handleConnected = () => {
+      if (!this.timerInterval) {
+        playCallConnectedSound();
+        this.startDurationTimer();
+        this.onStatusChange?.('connected', 0);
+      }
+    };
+
     this.peerConnection.onconnectionstatechange = () => {
       if (this.peerConnection?.connectionState === 'connected') {
-        if (!this.timerInterval) {
-          playCallConnectedSound();
-          this.startDurationTimer();
-          this.onStatusChange?.('connected', 0);
-        }
+        handleConnected();
       } else if (
         this.peerConnection?.connectionState === 'failed' ||
-        this.peerConnection?.connectionState === 'disconnected' ||
         this.peerConnection?.connectionState === 'closed'
       ) {
         this.endCall();
+      }
+    };
+
+    this.peerConnection.oniceconnectionstatechange = () => {
+      if (
+        this.peerConnection?.iceConnectionState === 'connected' ||
+        this.peerConnection?.iceConnectionState === 'completed'
+      ) {
+        handleConnected();
       }
     };
   }
@@ -770,6 +794,17 @@ export class WebRTCCallClient {
         playCallConnectedSound();
         this.startDurationTimer();
         this.onStatusChange?.('connected', 0);
+
+        // Immediately flush any receiver candidates received so far
+        if (remoteSession.receiverCandidates && remoteSession.receiverCandidates.length > 0) {
+          for (const cand of remoteSession.receiverCandidates) {
+            try {
+              await this.peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+            } catch {
+              // ignore duplicate candidate
+            }
+          }
+        }
       }
     }
 

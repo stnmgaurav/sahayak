@@ -570,6 +570,23 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
     targetRecipientName = targetRecipientName || chatPartnerName;
     targetRecipientUid = targetRecipientUid || chatPartnerUid;
     targetRecipientAvatarUrl = targetRecipientAvatarUrl || chatPartnerAvatar;
+    targetRecipientEmail = targetRecipientEmail || chatPartnerEmail;
+
+    // Cross-link ID and Email using user directory to ensure cross-phone recipient matching
+    if (!targetRecipientId && targetRecipientEmail) {
+      try {
+        const storedUsers = getStoredUsers();
+        const found = storedUsers.find(u => u.email?.toLowerCase() === targetRecipientEmail?.toLowerCase());
+        if (found) targetRecipientId = found.id;
+      } catch {}
+    }
+    if (!targetRecipientEmail && targetRecipientId) {
+      try {
+        const storedUsers = getStoredUsers();
+        const found = storedUsers.find(u => u.id === targetRecipientId);
+        if (found?.email) targetRecipientEmail = found.email;
+      } catch {}
+    }
 
     setCallError(null);
     setIsMuted(false);

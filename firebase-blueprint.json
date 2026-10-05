@@ -135,6 +135,26 @@
         "createdAt": { "type": "string", "description": "ISO timestamp" }
       },
       "required": ["id", "itemId", "itemTitle", "senderName", "messageText", "createdAt"]
+    },
+    "WebRTCCallSession": {
+      "title": "WebRTCCallSession",
+      "description": "Peer-to-peer WebRTC voice call signaling session between students",
+      "type": "object",
+      "properties": {
+        "callId": { "type": "string", "description": "Unique call session ID" },
+        "threadId": { "type": "string", "description": "Associated chat thread ID" },
+        "itemId": { "type": "string", "description": "Target item ID" },
+        "itemTitle": { "type": "string", "description": "Item title" },
+        "callerId": { "type": "string", "description": "Caller user ID" },
+        "callerName": { "type": "string", "description": "Caller display name" },
+        "callerEmail": { "type": "string", "description": "Caller email address" },
+        "receiverId": { "type": "string", "description": "Receiver user ID" },
+        "receiverName": { "type": "string", "description": "Receiver display name" },
+        "receiverEmail": { "type": "string", "description": "Receiver email address" },
+        "status": { "type": "string", "enum": ["ringing", "connected", "ended", "rejected", "busy", "missed"], "description": "Current call status" },
+        "createdAt": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["callId", "threadId", "itemId", "callerId", "callerName", "receiverId", "receiverName", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -157,6 +177,10 @@
     "/messages/{messageId}": {
       "schema": "ItemMessage",
       "description": "Direct finder messages for reported lost items"
+    },
+    "/calls/{callId}": {
+      "schema": "WebRTCCallSession",
+      "description": "Real-time WebRTC audio call signaling and session state"
     }
   }
 }
