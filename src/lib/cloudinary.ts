@@ -21,9 +21,9 @@ export function isCloudinaryConfigured(): boolean {
 }
 
 /**
- * Compresses an image file before upload or fallback
+ * Compresses an image file before upload or fallback (compacted to prevent localStorage quota exhaustion)
  */
-async function compressImage(file: File, maxWidth = 1200, quality = 0.82): Promise<Blob | File> {
+async function compressImage(file: File, maxWidth = 800, quality = 0.68): Promise<Blob | File> {
   return new Promise((resolve) => {
     // If not an image, return raw file
     if (!file.type.startsWith('image/')) {

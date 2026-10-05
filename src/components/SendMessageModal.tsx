@@ -7,7 +7,11 @@ import {
   getItemMessages, 
   markMessageAsRead,
   subscribeToStorage,
-  getStoredUsers
+  getStoredUsers,
+  getItemInquiriesForPoster,
+  getItemThreadId,
+  resolveMessageThreadId,
+  ItemInquiryThread
 } from '../lib/storage';
 import { DEMO_USERS } from '../data/mockData';
 import { 
@@ -15,6 +19,15 @@ import {
   MapPin, 
   Building2, 
   Phone, 
+  PhoneCall,
+  PhoneOff,
+  PhoneIncoming,
+  PhoneOutgoing,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Radio,
   Upload, 
   CheckCircle2, 
   AlertCircle,
@@ -32,10 +45,23 @@ import {
   Maximize2,
   ChevronRight,
   User,
+  Users,
+  Lock,
   Mail,
   X,
   ExternalLink
 } from 'lucide-react';
+import {
+  WebRTCCallClient,
+  WebRTCCallSession,
+  subscribeToThreadCall,
+  formatCallDuration,
+  playIncomingRingtoneSound,
+  playOutgoingRingSound,
+  playCallConnectedSound,
+  playCallEndedSound,
+  stopAllCallSounds
+} from '../lib/webrtcCallService';
 
 interface SendMessageModalProps {
   item: ItemReport | null;
@@ -51,7 +77,9 @@ interface SendMessageModalProps {
     role?: string;
     avatarUrl?: string;
   } | null;
+  initialThreadId?: string;
   onViewItemDetails?: (item: ItemReport) => void;
+  autoAcceptCallSession?: WebRTCCallSession | null;
 }
 
 const QUICK_SUGGESTIONS = [
@@ -79,7 +107,9 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
   onClose,
   onMessageSent,
   recipientUser,
+  initialThreadId,
   onViewItemDetails,
+  autoAcceptCallSession,
 }) => {
   const { currentUser, isAuthenticated, openAuthModal } = useAuth();
   
@@ -94,10 +124,33 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
   const [selectedPhotoPreview, setSelectedPhotoPreview] = useState<string | null>(null);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [showItemSidebar, setShowItemSidebar] = useState(true);
+
+  // 1-on-1 Thread Isolation & Inquiry Management State
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(initialThreadId || null);
+  const [inquiryThreads, setInquiryThreads] = useState<ItemInquiryThread[]>([]);
+  const [selectedInquiryClaimant, setSelectedInquiryClaimant] = useState<ItemInquiryThread | null>(null);
+
+  // WebRTC In-App Audio Calling State
+  const [callState, setCallState] = useState<'idle' | 'outgoing' | 'incoming' | 'connected' | 'ended'>('idle');
+  const [activeCallSession, setActiveCallSession] = useState<WebRTCCallSession | null>(null);
+  const [callDuration, setCallDuration] = useState<number>(0);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [callError, setCallError] = useState<string | null>(null);
+  const callClientRef = useRef<WebRTCCallClient | null>(null);
+
+  // Determine if active user is the poster of the item
+  const isOwner = Boolean(
+    currentUser && item && (
+      currentUser.id === item.userId || 
+      (currentUser.email && item.userEmail && currentUser.email.toLowerCase() === item.userEmail.toLowerCase())
+    )
+  );
+
+  const currentThreadKey = activeThreadId || (item?.id ? `item_${item.id}` : 'temp');
   const [reactionsMap, setReactionsMap] = useState<Record<string, string>>(() => {
     try {
-      if (item?.id) {
-        const saved = localStorage.getItem(`sahayak_chat_reactions_${item.id}`);
+      if (currentThreadKey) {
+        const saved = localStorage.getItem(`sahayak_chat_reactions_${currentThreadKey}`);
         if (saved) return JSON.parse(saved);
       }
     } catch {
@@ -112,19 +165,19 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
   const [avatarImgError, setAvatarImgError] = useState(false);
 
   useEffect(() => {
-    if (item?.id) {
+    if (currentThreadKey) {
       try {
-        const saved = localStorage.getItem(`sahayak_chat_reactions_${item.id}`);
+        const saved = localStorage.getItem(`sahayak_chat_reactions_${currentThreadKey}`);
         setReactionsMap(saved ? JSON.parse(saved) : {});
       } catch {
         setReactionsMap({});
       }
     }
-  }, [item?.id]);
+  }, [currentThreadKey]);
 
   useEffect(() => {
     setAvatarImgError(false);
-  }, [item?.id, recipientUser?.id]);
+  }, [item?.id, recipientUser?.id, selectedInquiryClaimant?.claimantId]);
 
   const fileInputId = useId();
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -160,33 +213,97 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
     };
   }, [isOpen, onClose, showPartnerProfile, selectedPhotoPreview]);
 
-  // Load and subscribe to real-time messages for this item
+  // Synchronize and initialize 1-on-1 thread state
+  useEffect(() => {
+    if (!isOpen || !item) {
+      setActiveThreadId(null);
+      setSelectedInquiryClaimant(null);
+      setInquiryThreads([]);
+      return;
+    }
+
+    if (!isOwner) {
+      // Claimant: private thread keyed by item and claimant
+      const myThreadId = currentUser ? getItemThreadId(item.id, currentUser.id || currentUser.email) : '';
+      setActiveThreadId(myThreadId);
+      setSelectedInquiryClaimant(null);
+    } else {
+      // Poster: discover all distinct claimant inquiries
+      const inquiries = getItemInquiriesForPoster(item.id, currentUser);
+      setInquiryThreads(inquiries);
+
+      if (initialThreadId) {
+        setActiveThreadId(initialThreadId);
+        const matched = inquiries.find(inq => inq.threadId === initialThreadId);
+        setSelectedInquiryClaimant(matched || null);
+      } else if (recipientUser?.id || recipientUser?.email) {
+        const targetThreadId = getItemThreadId(item.id, recipientUser.id || recipientUser.email || '');
+        setActiveThreadId(targetThreadId);
+        const matched = inquiries.find(inq => inq.threadId === targetThreadId);
+        setSelectedInquiryClaimant(matched || null);
+      } else if (inquiries.length > 0) {
+        setActiveThreadId(inquiries[0].threadId);
+        setSelectedInquiryClaimant(inquiries[0]);
+      } else {
+        setActiveThreadId(null);
+        setSelectedInquiryClaimant(null);
+      }
+    }
+  }, [isOpen, item?.id, isOwner, initialThreadId, recipientUser?.id, currentUser?.id]);
+
+  // Load and subscribe to real-time messages with strict 1-on-1 participant isolation
   useEffect(() => {
     if (!isOpen || !item) return;
 
     const refreshThread = () => {
-      const thread = getItemMessages(item.id);
-      setMessages(thread);
+      // Access control: Unauthenticated users are strictly barred from viewing messages
+      if (!currentUser) {
+        setMessages([]);
+        return;
+      }
 
-      // Auto-mark incoming unread messages as read
-      if (currentUser) {
+      if (!isOwner) {
+        // Claimant: isolated to their own dialogue
+        const myThreadId = getItemThreadId(item.id, currentUser.id || currentUser.email);
+        const thread = getItemMessages(item.id, currentUser, myThreadId);
+        setMessages(thread);
+
+        // Auto-mark incoming unread messages as read
         thread.forEach(msg => {
-          const isForMe = 
-            msg.recipientId === currentUser.id || 
-            (currentUser.email && msg.recipientEmail && currentUser.email.toLowerCase() === msg.recipientEmail.toLowerCase()) ||
-            (!msg.recipientId && msg.senderId !== currentUser.id && item.userId === currentUser.id);
-          
-          if (isForMe && msg.status === 'unread') {
+          if (msg.senderId !== currentUser.id && msg.status === 'unread') {
             markMessageAsRead(msg.id);
           }
         });
+      } else {
+        // Poster: update inquiries list and load active claimant thread
+        const inquiries = getItemInquiriesForPoster(item.id, currentUser);
+        setInquiryThreads(inquiries);
+
+        const currentThreadId = activeThreadId || (inquiries.length > 0 ? inquiries[0].threadId : null);
+        if (currentThreadId) {
+          const thread = getItemMessages(item.id, currentUser, currentThreadId);
+          setMessages(thread);
+
+          const matchedInq = inquiries.find(inq => inq.threadId === currentThreadId);
+          if (matchedInq) {
+            setSelectedInquiryClaimant(matchedInq);
+          }
+
+          thread.forEach(msg => {
+            if (msg.senderId !== currentUser.id && msg.status === 'unread') {
+              markMessageAsRead(msg.id);
+            }
+          });
+        } else {
+          setMessages([]);
+        }
       }
     };
 
     refreshThread();
     const unsubscribe = subscribeToStorage(refreshThread);
     return unsubscribe;
-  }, [isOpen, item, currentUser]);
+  }, [isOpen, item, currentUser, isOwner, activeThreadId]);
 
   // Smooth scroll to bottom on new messages inside the messages container
   useEffect(() => {
@@ -207,41 +324,138 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
     }
   }, [isOpen]);
 
-  // Determine who the current user and other party are (safe when item is null/closed)
-  const isOwner = Boolean(
-    currentUser && item && (
-      currentUser.id === item.userId || 
-      (currentUser.email && item.userEmail && currentUser.email.toLowerCase() === item.userEmail.toLowerCase())
-    )
-  );
+  // WebRTC Audio Calling Subscription on Active 1-on-1 Thread
+  useEffect(() => {
+    if (!isOpen || !item || !currentUser || !activeThreadId) {
+      if (callClientRef.current) {
+        callClientRef.current.cleanup();
+        callClientRef.current = null;
+      }
+      stopAllCallSounds();
+      setCallState('idle');
+      setActiveCallSession(null);
+      setCallDuration(0);
+      setIsMuted(false);
+      setCallError(null);
+      return;
+    }
 
-  const otherSender = [...messages].reverse().find(m => 
-    m.senderId !== currentUser?.id && 
-    (!currentUser?.email || m.senderEmail?.toLowerCase() !== currentUser.email.toLowerCase())
-  );
+    const currentUid = (currentUser.id || '').toLowerCase();
+    const currentEmail = (currentUser.email || '').toLowerCase();
 
-  const chatPartnerName = recipientUser?.name || (isOwner ? (otherSender?.senderName || 'Student Finder / Claimant') : (item?.userName || 'Item Owner'));
-  const chatPartnerUid = recipientUser?.uid || (isOwner ? (otherSender?.senderUid || 'CU Student') : (item?.userUid || 'CU Student'));
-  const chatPartnerEmail = recipientUser?.email || (isOwner ? (otherSender?.senderEmail || 'student@cuchd.in') : item?.userEmail);
-  const chatPartnerPhone = isOwner ? otherSender?.senderPhone : item?.userPhone;
-  const chatPartnerRole = isOwner ? 'Finder / Claimant' : (item?.type === 'lost' ? 'Lost Item Reporter' : 'Found Item Reporter');
+    const unsubscribe = subscribeToThreadCall(
+      activeThreadId,
+      currentUser.id,
+      currentUser.email,
+      (remoteSession) => {
+        // Strict participant check: Only the designated caller and receiver can participate
+        const rReceiverId = (remoteSession.receiverId || '').toLowerCase();
+        const rReceiverEmail = (remoteSession.receiverEmail || '').toLowerCase();
+        const rCallerId = (remoteSession.callerId || '').toLowerCase();
+        const rCallerEmail = (remoteSession.callerEmail || '').toLowerCase();
+
+        const isReceiver = (currentUid && rReceiverId === currentUid) || (currentEmail && rReceiverEmail === currentEmail);
+        const isCaller = (currentUid && rCallerId === currentUid) || (currentEmail && rCallerEmail === currentEmail);
+
+        if (!isReceiver && !isCaller) {
+          return; // Strict 1-on-1 privacy: ignore calls for other people
+        }
+
+        if (remoteSession.status === 'ringing') {
+          if (isReceiver && callState === 'idle') {
+            setActiveCallSession(remoteSession);
+            setCallState('incoming');
+            playIncomingRingtoneSound();
+          }
+        } else if (remoteSession.status === 'connected') {
+          setActiveCallSession(remoteSession);
+          if (callState === 'outgoing' || callState === 'incoming') {
+            setCallState('connected');
+          }
+        } else if (
+          remoteSession.status === 'ended' ||
+          remoteSession.status === 'rejected' ||
+          remoteSession.status === 'busy' ||
+          remoteSession.status === 'missed'
+        ) {
+          if (callState !== 'idle') {
+            stopAllCallSounds();
+            playCallEndedSound();
+            setCallState('ended');
+            if (remoteSession.durationSeconds) {
+              setCallDuration(remoteSession.durationSeconds);
+            }
+            if (callClientRef.current) {
+              callClientRef.current.cleanup();
+            }
+            setTimeout(() => {
+              setCallState('idle');
+              setActiveCallSession(null);
+              setCallDuration(0);
+            }, 2500);
+          }
+        }
+      }
+    );
+
+    return () => {
+      unsubscribe();
+      if (callClientRef.current) {
+        callClientRef.current.cleanup();
+        callClientRef.current = null;
+      }
+      stopAllCallSounds();
+    };
+  }, [isOpen, item?.id, currentUser?.id, activeThreadId, callState]);
+
+  // Support auto-accepting when answering from external incoming call toast
+  useEffect(() => {
+    if (autoAcceptCallSession && isOpen && currentUser) {
+      setActiveCallSession(autoAcceptCallSession);
+      const timer = setTimeout(() => {
+        handleAcceptCallWithSession(autoAcceptCallSession);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [autoAcceptCallSession, isOpen, currentUser?.id]);
+
+  const chatPartnerName = isOwner
+    ? (selectedInquiryClaimant?.claimantName || recipientUser?.name || 'Claimant / Finder')
+    : (recipientUser?.name || item?.userName || 'Item Reporter');
+
+  const chatPartnerUid = isOwner
+    ? (selectedInquiryClaimant?.claimantUid || recipientUser?.uid || 'CU Student')
+    : (recipientUser?.uid || item?.userUid || 'CU Student');
+
+  const chatPartnerEmail = isOwner
+    ? (selectedInquiryClaimant?.claimantEmail || recipientUser?.email || '')
+    : (recipientUser?.email || item?.userEmail || '');
+
+  const chatPartnerPhone = isOwner
+    ? (selectedInquiryClaimant?.claimantPhone || recipientUser?.phone)
+    : (recipientUser?.phone || item?.userPhone);
+
+  const chatPartnerRole = isOwner
+    ? 'Claimant / Inquiring Student'
+    : (item?.type === 'lost' ? 'Lost Item Reporter' : 'Found Item Finder');
 
   // Resolve chat partner's avatar / profile photo (Hook must be called unconditionally on every render)
   const chatPartnerAvatar = useMemo(() => {
     if (!item) return '';
 
-    // 1. Direct recipientUser avatar if provided
-    if (recipientUser?.avatarUrl) return recipientUser.avatarUrl;
-
-    // 2. If item reporter is the partner, check item.userAvatarUrl
-    if (!isOwner && item.userAvatarUrl) {
-      return item.userAvatarUrl;
+    if (isOwner) {
+      if (selectedInquiryClaimant?.claimantAvatarUrl) return selectedInquiryClaimant.claimantAvatarUrl;
+      if (recipientUser?.avatarUrl) return recipientUser.avatarUrl;
+    } else {
+      if (recipientUser?.avatarUrl) return recipientUser.avatarUrl;
+      if (item.userAvatarUrl) return item.userAvatarUrl;
     }
 
-    const partnerId = recipientUser?.id || (isOwner ? otherSender?.senderId : item.userId);
+    const partnerId = isOwner
+      ? (selectedInquiryClaimant?.claimantId || recipientUser?.id)
+      : (recipientUser?.id || item.userId);
     const partnerEmail = chatPartnerEmail?.toLowerCase();
 
-    // 3. Search cached/stored users by ID or email
     try {
       const storedUsers = getStoredUsers();
       const matched = storedUsers.find(u => 
@@ -254,14 +468,13 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
       // fallback
     }
 
-    // 4. Check DEMO_USERS
     const demo = DEMO_USERS.find(d => 
       (partnerId && d.id === partnerId) || 
       (partnerEmail && d.email?.toLowerCase() === partnerEmail)
     );
     if (demo?.avatarUrl) return demo.avatarUrl;
 
-    // 5. Stable deterministic fallback student avatar
+    // Stable deterministic fallback student avatar
     const seedStr = chatPartnerName + (partnerEmail || chatPartnerUid || '');
     const seed = seedStr.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
     const fallbackAvatars = [
@@ -273,10 +486,183 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
       'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=250&auto=format&fit=crop&q=80',
     ];
     return fallbackAvatars[seed % fallbackAvatars.length];
-  }, [recipientUser, isOwner, item, otherSender, chatPartnerEmail, chatPartnerUid, chatPartnerName]);
+  }, [recipientUser, isOwner, item, selectedInquiryClaimant, chatPartnerEmail, chatPartnerUid, chatPartnerName]);
 
   // Early return after ALL hooks have been registered
   if (!isOpen || !item) return null;
+
+  const handleAcceptCallWithSession = async (session: WebRTCCallSession) => {
+    if (!currentUser) return;
+    stopAllCallSounds();
+    setCallError(null);
+    setIsMuted(false);
+
+    const client = new WebRTCCallClient(currentUser.id, currentUser.email);
+    callClientRef.current = client;
+
+    client.onStatusChange = (status, durSec) => {
+      if (status === 'connected') {
+        setCallState('connected');
+        setCallDuration(durSec);
+      } else if (status === 'ended' || status === 'rejected' || status === 'busy' || status === 'missed') {
+        setCallState('ended');
+        setCallDuration(durSec);
+        setTimeout(() => {
+          setCallState('idle');
+          setActiveCallSession(null);
+          setCallDuration(0);
+        }, 2500);
+      }
+    };
+
+    client.onError = (errText) => {
+      setCallError(errText);
+      setCallState('idle');
+      stopAllCallSounds();
+    };
+
+    const ok = await client.acceptIncomingCall(session);
+    if (ok) {
+      setCallState('connected');
+    } else {
+      setCallState('idle');
+    }
+  };
+
+  const handleInitiateCall = async () => {
+    if (!isAuthenticated || !currentUser) {
+      openAuthModal('login', 'Please sign in with your Chandigarh University ID to make in-app voice calls.');
+      return;
+    }
+
+    if (!activeThreadId) {
+      setError('Chat thread is initializing. Please wait a moment.');
+      return;
+    }
+
+    if (callState !== 'idle') return;
+
+    // Resolve target recipient details
+    let targetRecipientId = recipientUser?.id;
+    let targetRecipientEmail = recipientUser?.email;
+    let targetRecipientName = recipientUser?.name;
+    let targetRecipientUid = recipientUser?.uid;
+    let targetRecipientAvatarUrl = recipientUser?.avatarUrl;
+
+    if (!targetRecipientId && !targetRecipientEmail) {
+      if (isOwner) {
+        if (selectedInquiryClaimant) {
+          targetRecipientId = selectedInquiryClaimant.claimantId;
+          targetRecipientEmail = selectedInquiryClaimant.claimantEmail;
+          targetRecipientName = selectedInquiryClaimant.claimantName;
+          targetRecipientUid = selectedInquiryClaimant.claimantUid;
+          targetRecipientAvatarUrl = selectedInquiryClaimant.claimantAvatarUrl;
+        }
+      } else {
+        targetRecipientId = item.userId;
+        targetRecipientEmail = item.userEmail;
+        targetRecipientName = item.userName;
+        targetRecipientUid = item.userUid;
+        targetRecipientAvatarUrl = item.userAvatarUrl;
+      }
+    }
+
+    targetRecipientName = targetRecipientName || chatPartnerName;
+    targetRecipientUid = targetRecipientUid || chatPartnerUid;
+    targetRecipientAvatarUrl = targetRecipientAvatarUrl || chatPartnerAvatar;
+
+    setCallError(null);
+    setIsMuted(false);
+    setCallDuration(0);
+
+    const client = new WebRTCCallClient(currentUser.id, currentUser.email);
+    callClientRef.current = client;
+
+    client.onStatusChange = (status, durSec) => {
+      if (status === 'ringing') {
+        setCallState('outgoing');
+      } else if (status === 'connected') {
+        setCallState('connected');
+        setCallDuration(durSec);
+      } else if (status === 'ended' || status === 'rejected' || status === 'busy' || status === 'missed') {
+        setCallState('ended');
+        setCallDuration(durSec);
+        setTimeout(() => {
+          setCallState('idle');
+          setActiveCallSession(null);
+          setCallDuration(0);
+        }, 2500);
+      }
+    };
+
+    client.onError = (errText) => {
+      setCallError(errText);
+      setCallState('idle');
+      stopAllCallSounds();
+    };
+
+    setCallState('outgoing');
+
+    const success = await client.startCall({
+      threadId: activeThreadId,
+      itemId: item.id,
+      itemTitle: item.title,
+      callerId: currentUser.id,
+      callerName: currentUser.name || 'CU Student',
+      callerEmail: currentUser.email,
+      callerAvatarUrl: currentUser.avatarUrl,
+      callerUid: currentUser.uidOrRoll || 'CU-STUDENT',
+      receiverId: targetRecipientId || '',
+      receiverName: targetRecipientName,
+      receiverEmail: targetRecipientEmail || '',
+      receiverAvatarUrl: targetRecipientAvatarUrl,
+      receiverUid: targetRecipientUid || 'CU-STUDENT',
+    });
+
+    if (!success) {
+      setCallState('idle');
+    }
+  };
+
+  const handleAcceptCall = async () => {
+    if (!activeCallSession || !currentUser) return;
+    await handleAcceptCallWithSession(activeCallSession);
+  };
+
+  const handleRejectCall = async () => {
+    stopAllCallSounds();
+    if (activeCallSession && currentUser) {
+      if (!callClientRef.current) {
+        callClientRef.current = new WebRTCCallClient(currentUser.id, currentUser.email);
+      }
+      await callClientRef.current.rejectCall(activeCallSession);
+    }
+    setCallState('ended');
+    setTimeout(() => {
+      setCallState('idle');
+      setActiveCallSession(null);
+      setCallDuration(0);
+    }, 1500);
+  };
+
+  const handleEndCall = async () => {
+    stopAllCallSounds();
+    if (callClientRef.current) {
+      await callClientRef.current.endCall();
+    }
+    setCallState('ended');
+    setTimeout(() => {
+      setCallState('idle');
+      setActiveCallSession(null);
+      setCallDuration(0);
+    }, 2000);
+  };
+
+  const handleToggleMute = () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    callClientRef.current?.setMute(next);
+  };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -318,10 +704,10 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
 
       if (!targetRecipientId) {
         if (isOwner) {
-          if (otherSender) {
-            targetRecipientId = otherSender.senderId;
-            targetRecipientEmail = otherSender.senderEmail;
-            targetRecipientName = otherSender.senderName;
+          if (selectedInquiryClaimant) {
+            targetRecipientId = selectedInquiryClaimant.claimantId;
+            targetRecipientEmail = selectedInquiryClaimant.claimantEmail;
+            targetRecipientName = selectedInquiryClaimant.claimantName;
           }
         } else {
           targetRecipientId = item.userId;
@@ -330,9 +716,15 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
         }
       }
 
+      // Compute isolated 1-on-1 threadId
+      const threadId = isOwner
+        ? (activeThreadId || (targetRecipientId ? getItemThreadId(item.id, targetRecipientId) : getItemThreadId(item.id, 'claimant')))
+        : getItemThreadId(item.id, currentUser?.id || currentUser?.email || 'claimant');
+
       const newMsg: ItemMessage = {
         id: `msg_${Date.now()}`,
         itemId: item.id,
+        threadId,
         itemTitle: item.title,
         itemType: item.type,
         senderId: currentUser?.id || 'guest',
@@ -525,21 +917,299 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
           </div>
         </button>
 
-        {/* Right: Direct Actions (Call button if available) */}
-        {!isOwner && !item.hidePhone && item.userPhone && (
-          <div className="flex items-center shrink-0">
+        {/* Right: Calling Actions */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Primary: In-App Peer-to-Peer Numberless Audio Call */}
+          <button
+            type="button"
+            onClick={handleInitiateCall}
+            disabled={callState !== 'idle'}
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-bold text-xs transition-all shadow-xs cursor-pointer active:scale-95 ${
+              callState !== 'idle'
+                ? 'bg-emerald-500/10 text-emerald-400/50 border border-emerald-500/20 cursor-not-allowed'
+                : 'bg-gradient-to-r from-emerald-500/25 to-teal-500/25 hover:from-emerald-500/35 hover:to-teal-500/35 text-emerald-300 hover:text-emerald-200 border border-emerald-500/50 hover:border-emerald-400 shadow-emerald-500/10'
+            }`}
+            title="Start secure, 100% numberless In-App Voice Call"
+            aria-label="In-App Voice Call"
+          >
+            <PhoneCall className={`w-4 h-4 text-emerald-400 ${callState === 'idle' ? 'animate-pulse' : ''}`} />
+            <span className="hidden sm:inline font-extrabold">Voice Call</span>
+            <span className="sm:hidden font-bold">Call</span>
+            <span className="hidden md:inline px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-400/20 text-emerald-300 border border-emerald-400/40">
+              Private
+            </span>
+          </button>
+
+          {/* Secondary: Cellular Dial fallback only if available and not hidden */}
+          {!item.hidePhone && chatPartnerPhone && (
             <a
-              href={`tel:${item.userPhone}`}
-              className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 active:scale-95 transition-all shadow-xs"
-              title={`Call ${chatPartnerName} (${item.userPhone})`}
-              aria-label="Call reporter directly"
+              href={`tel:${chatPartnerPhone}`}
+              className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 hover:text-white border border-white/[0.1] transition-all text-xs"
+              title={`Direct cellular dial: ${chatPartnerPhone}`}
+              aria-label="Cellular phone"
             >
-              <Phone className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs font-bold hidden sm:inline">Call</span>
+              <Phone className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-[11px] font-medium text-slate-400">Cellular</span>
             </a>
-          </div>
-        )}
+          )}
+        </div>
       </header>
+
+      {/* WEB-RTC IN-APP AUDIO CALL DOCK / ACTIVE CALL CONTROLS */}
+      {callState !== 'idle' && (
+        <div className="z-25 px-3 sm:px-6 py-2.5 bg-gradient-to-r from-slate-900/98 via-[#0D1527]/98 to-slate-900/98 backdrop-blur-2xl border-b border-emerald-500/30 shadow-2xl transition-all animate-in slide-in-from-top-3 duration-200">
+          
+          {/* Outgoing Call State */}
+          {callState === 'outgoing' && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 max-w-4xl mx-auto py-1">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="relative shrink-0">
+                  {chatPartnerAvatar ? (
+                    <img src={chatPartnerAvatar} alt="" className="w-11 h-11 rounded-2xl object-cover ring-2 ring-emerald-400" />
+                  ) : (
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-700 text-white font-bold flex items-center justify-center text-sm">
+                      {chatPartnerName.charAt(0)}
+                    </div>
+                  )}
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-slate-900 animate-ping" />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-slate-900" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-white text-sm truncate">
+                      Calling {chatPartnerName}...
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
+                      <Radio className="w-2.5 h-2.5 text-emerald-400" />
+                      Ringing
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 flex items-center gap-1.5 mt-0.5">
+                    <Lock className="w-3 h-3 text-emerald-400 shrink-0" />
+                    <span>Numberless Voice Call • Re: <span className="text-white font-semibold">{item.title}</span></span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={handleToggleMute}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    isMuted
+                      ? 'bg-rose-500/25 text-rose-300 border border-rose-500/50'
+                      : 'bg-white/[0.08] hover:bg-white/[0.14] text-slate-200 border border-white/[0.12]'
+                  }`}
+                  title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+                >
+                  {isMuted ? <MicOff className="w-4 h-4 text-rose-400" /> : <Mic className="w-4 h-4 text-slate-300" />}
+                  <span>{isMuted ? 'Muted' : 'Mute'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEndCall}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs font-extrabold shadow-lg shadow-rose-900/40 transition-all cursor-pointer"
+                >
+                  <PhoneOff className="w-4 h-4" />
+                  <span>Cancel Call</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Incoming Call State */}
+          {callState === 'incoming' && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 max-w-4xl mx-auto py-1">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="relative shrink-0">
+                  {chatPartnerAvatar ? (
+                    <img src={chatPartnerAvatar} alt="" className="w-11 h-11 rounded-2xl object-cover ring-2 ring-emerald-400 animate-pulse" />
+                  ) : (
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-700 text-white font-bold flex items-center justify-center text-sm">
+                      {chatPartnerName.charAt(0)}
+                    </div>
+                  )}
+                  <span className="absolute -inset-1 rounded-2xl border-2 border-emerald-400/60 animate-ping pointer-events-none" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-white text-sm sm:text-base truncate">
+                      Incoming Call from {chatPartnerName}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 animate-pulse">
+                      <PhoneIncoming className="w-3 h-3 text-emerald-400" />
+                      Incoming
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 flex items-center gap-1.5 mt-0.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>In-App Audio Call • Item: <span className="text-white font-semibold">{item.title}</span></span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={handleRejectCall}
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600/90 hover:bg-rose-600 active:scale-95 text-white text-xs font-extrabold shadow-md transition-all cursor-pointer"
+                >
+                  <PhoneOff className="w-4 h-4" />
+                  <span>Decline</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAcceptCall}
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-95 text-white text-xs font-black shadow-lg shadow-emerald-600/40 ring-2 ring-emerald-400/50 transition-all cursor-pointer animate-pulse"
+                >
+                  <PhoneCall className="w-4 h-4" />
+                  <span>Accept Voice Call</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Connected Call State */}
+          {callState === 'connected' && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 max-w-4xl mx-auto py-1">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="relative shrink-0">
+                  {chatPartnerAvatar ? (
+                    <img src={chatPartnerAvatar} alt="" className="w-11 h-11 rounded-2xl object-cover ring-2 ring-emerald-400 shadow-md" />
+                  ) : (
+                    <div className="w-11 h-11 rounded-2xl bg-emerald-700 text-white font-bold flex items-center justify-center text-sm">
+                      {chatPartnerName.charAt(0)}
+                    </div>
+                  )}
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-slate-900" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5">
+                    <span className="font-extrabold text-white text-sm sm:text-base truncate">
+                      {chatPartnerName}
+                    </span>
+                    {/* Live Voice Waves Equalizer Animation */}
+                    <div className="flex items-center gap-0.5 px-2 py-1 rounded-md bg-emerald-500/20 border border-emerald-500/40" title="Audio connected">
+                      <span className="w-0.5 h-3 bg-emerald-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                      <span className="w-0.5 h-4 bg-emerald-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                      <span className="w-0.5 h-2.5 bg-emerald-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                      <span className="w-0.5 h-3.5 bg-emerald-400 rounded-full animate-bounce [animation-delay:75ms]" />
+                    </div>
+                    <span className="font-mono font-black text-emerald-300 text-sm tracking-wider">
+                      {formatCallDuration(callDuration)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 flex items-center gap-1.5 mt-0.5">
+                    <Lock className="w-3 h-3 text-emerald-400 shrink-0" />
+                    <span>Connected • Encrypted P2P Voice • Re: <span className="text-white font-semibold">{item.title}</span></span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={handleToggleMute}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    isMuted
+                      ? 'bg-rose-500/25 text-rose-300 border border-rose-500/50 shadow-xs'
+                      : 'bg-white/[0.08] hover:bg-white/[0.14] text-slate-200 border border-white/[0.12]'
+                  }`}
+                  title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+                >
+                  {isMuted ? <MicOff className="w-4 h-4 text-rose-400" /> : <Mic className="w-4 h-4 text-emerald-400" />}
+                  <span>{isMuted ? 'Muted' : 'Mute'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEndCall}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs font-extrabold shadow-lg shadow-rose-900/40 transition-all cursor-pointer"
+                >
+                  <PhoneOff className="w-4 h-4" />
+                  <span>End Call</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Ended State */}
+          {callState === 'ended' && (
+            <div className="flex items-center justify-between gap-3 max-w-4xl mx-auto py-1">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                  <PhoneOff className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-white text-xs sm:text-sm">Voice Call Ended</span>
+                  {callDuration > 0 && (
+                    <span className="text-slate-400 text-xs ml-2">Duration: {formatCallDuration(callDuration)}</span>
+                  )}
+                </div>
+              </div>
+              <span className="text-[11px] text-slate-400">Call record logged to 1-on-1 thread</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Call Error Banner */}
+      {callError && (
+        <div className="z-25 px-4 py-2 bg-rose-950/90 border-b border-rose-500/40 text-xs text-rose-200 flex items-center justify-between gap-2 shadow-lg">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span className="truncate">{callError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCallError(null)}
+            className="p-1 rounded-md text-rose-300 hover:text-white hover:bg-rose-800/40 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* POSTER INQUIRY SELECTOR / INBOX BAR */}
+      {isOwner && inquiryThreads.length > 1 && (
+        <div className="px-3 sm:px-6 py-2 bg-[#0C1220]/95 backdrop-blur-xl border-b border-slate-700/60 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 z-20">
+          <span className="text-[10px] uppercase font-extrabold tracking-wider text-emerald-400 shrink-0 flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5" />
+            Claimant Threads ({inquiryThreads.length}):
+          </span>
+          {inquiryThreads.map((inq) => {
+            const isActive = inq.threadId === activeThreadId;
+            return (
+              <button
+                key={inq.threadId}
+                type="button"
+                onClick={() => {
+                  setActiveThreadId(inq.threadId);
+                  setSelectedInquiryClaimant(inq);
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer active:scale-95 ${
+                  isActive
+                    ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/50 shadow-sm font-bold ring-1 ring-emerald-400/40'
+                    : 'bg-white/[0.06] hover:bg-white/[0.12] text-slate-300 border border-white/[0.1]'
+                }`}
+              >
+                {inq.claimantAvatarUrl ? (
+                  <img src={inq.claimantAvatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-emerald-700 text-[10px] font-bold flex items-center justify-center text-white">
+                    {inq.claimantName.charAt(0)}
+                  </div>
+                )}
+                <span className="truncate max-w-[120px]">{inq.claimantName}</span>
+                {inq.unreadCount > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-emerald-500 text-[9px] font-black text-white flex items-center justify-center animate-pulse">
+                    {inq.unreadCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* MAIN BODY: 2-COLUMN DESKTOP (iMessage Chat Canvas + Glass Item Sidebar) */}
       <div className="flex-1 min-h-0 flex overflow-hidden relative">
@@ -557,11 +1227,13 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
             {/* Top Item Summary Notice Pill (iMessage Context) */}
             <div className="max-w-md mx-auto my-1.5 p-3 sm:p-3.5 rounded-2xl bg-white/[0.06] backdrop-blur-xl border border-white/[0.12] text-xs text-white/90 shadow-lg text-center space-y-1 shrink-0">
               <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-extrabold text-[11px] uppercase tracking-wider">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Verified Campus Discussion Channel</span>
+                <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Private 1-on-1 Dialogue Channel</span>
               </div>
               <p className="text-slate-300 text-[11px] leading-relaxed font-medium">
-                Messages are protected under Chandigarh University guidelines. Arrange all personal handovers at designated security desks.
+                {isOwner
+                  ? `Isolated dialogue with ${chatPartnerName}. Other students cannot view this conversation.`
+                  : `Private inquiry with ${chatPartnerName} (${item.userName}). Only you and the item poster can access this thread.`}
               </p>
             </div>
 
@@ -572,17 +1244,36 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
               </span>
             </div>
 
-            {/* Empty Thread State */}
-            {messages.length === 0 ? (
+            {/* Empty Thread / Auth Gate State */}
+            {!isAuthenticated ? (
+              <div className="py-16 px-4 text-center space-y-4 max-w-sm mx-auto my-auto animate-in fade-in">
+                <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-xl">
+                  <Lock className="w-8 h-8 text-emerald-400" />
+                </div>
+                <h3 className="text-lg font-black text-white">Private 1-on-1 Student Chat</h3>
+                <p className="text-xs text-slate-300 leading-relaxed font-normal">
+                  To protect student privacy, item communications are restricted to private 1-on-1 dialogues. Sign in with your Chandigarh University account to view or start this discussion.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openAuthModal('login', 'Please sign in with your Chandigarh University ID to chat with the reporter.')}
+                  className="px-6 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 active:scale-95 cursor-pointer transition-all"
+                >
+                  Sign In with CU ID
+                </button>
+              </div>
+            ) : messages.length === 0 ? (
               <div className="py-12 px-4 text-center space-y-4 max-w-sm mx-auto my-auto">
                 <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-xl">
-                  <MessageSquare className="w-8 h-8" />
+                  {isOwner ? <Users className="w-8 h-8" /> : <MessageSquare className="w-8 h-8" />}
                 </div>
-                <h3 className="text-lg font-black text-white">Start Campus Conversation</h3>
+                <h3 className="text-lg font-black text-white">
+                  {isOwner ? 'No Claimant Inquiries Yet' : 'Start Private Campus Conversation'}
+                </h3>
                 <p className="text-xs text-slate-300 leading-relaxed font-normal">
                   {isOwner
-                    ? 'No inquiries yet for your report. When another student finds your item or sends a verification reply, it will appear here instantly.'
-                    : `Have you spotted or recovered this ${item.title}? Reach out to ${chatPartnerName} with custody spot and handover instructions.`}
+                    ? 'No inquiries yet for this item. When students message you or submit an ownership claim, their private 1-on-1 threads will appear here.'
+                    : `Have you spotted or recovered this ${item.title}? Reach out to ${chatPartnerName} with custody spot and return instructions. Only ${chatPartnerName} will see your messages.`}
                 </p>
               </div>
             ) : (
@@ -637,9 +1328,34 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
                           </div>
                         )}
 
-                        <p className="whitespace-pre-wrap break-words">
-                          {msg.messageText}
-                        </p>
+                        {msg.messageText.startsWith('📞 In-App Voice Call:') ? (
+                          <div className="flex items-center gap-2.5 py-1">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                              msg.messageText.includes('Declined') || msg.messageText.includes('Cancelled')
+                                ? 'bg-rose-500/25 text-rose-300 border border-rose-500/40'
+                                : 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40'
+                            }`}>
+                              {msg.messageText.includes('Declined') || msg.messageText.includes('Cancelled') ? (
+                                <PhoneOff className="w-4 h-4 text-rose-400" />
+                              ) : (
+                                <PhoneCall className="w-4 h-4 text-emerald-400" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="font-extrabold text-xs block leading-tight">
+                                {msg.messageText.replace('📞 In-App Voice Call:', '').trim() || 'In-App Voice Call'}
+                              </span>
+                              <span className="text-[10px] opacity-80 flex items-center gap-1 mt-0.5 font-medium">
+                                <Lock className="w-2.5 h-2.5 text-emerald-400" />
+                                <span>Numberless & Encrypted Audio</span>
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap break-words">
+                            {msg.messageText}
+                          </p>
+                        )}
 
                         {/* Custody / Campus Meeting Spot Badge */}
                         {msg.currentFoundLocation && (

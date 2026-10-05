@@ -31,7 +31,7 @@ interface ReviewClaimModalProps {
   onClose: () => void;
   onAcceptClaim: (claimId: string, pickupLocation: string, adminNotes?: string) => void;
   onRejectClaim: (claimId: string, reason: string) => void;
-  onOpenChatWithClaimant?: (itemId: string) => void;
+  onOpenChatWithClaimant?: (itemId: string, claimantUser?: { id: string; name: string; email: string; phone?: string; uid?: string; avatarUrl?: string }) => void;
 }
 
 export const ReviewClaimModal: React.FC<ReviewClaimModalProps> = ({
@@ -292,7 +292,14 @@ export const ReviewClaimModal: React.FC<ReviewClaimModalProps> = ({
                     type="button"
                     onClick={() => {
                       onClose();
-                      onOpenChatWithClaimant(item.id);
+                      onOpenChatWithClaimant(item.id, {
+                        id: claim.claimantId,
+                        name: claim.claimantName,
+                        email: claim.claimantEmail,
+                        phone: claim.claimantPhone,
+                        uid: claim.claimantUid,
+                        avatarUrl: claim.claimantAvatarUrl
+                      });
                     }}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-white bg-slate-900 hover:bg-black transition-colors cursor-pointer"
                   >

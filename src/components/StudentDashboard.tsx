@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useAuth, isUserAdmin } from '../context/AuthContext';
 import { ItemReport, ItemClaim, MatchSuggestion, ItemMessage } from '../types';
 import { findMatchesForItem } from '../lib/matching';
-import { updateItemStatus, deleteItem, getStoredMessages, updateMessage } from '../lib/storage';
+import { updateItemStatus, deleteItem, getStoredMessages, updateMessage, getStoredCalls, deleteCallRecord, clearCallHistory } from '../lib/storage';
+import { formatCallDuration } from '../lib/webrtcCallService';
 import { 
   PlusCircle, 
   HandHeart, 
@@ -30,6 +31,10 @@ import {
   Camera,
   MessageSquare,
   Phone,
+  PhoneCall,
+  PhoneIncoming,
+  PhoneOutgoing,
+  PhoneOff,
   Send,
   Bell,
   BellRing,
@@ -55,7 +60,7 @@ interface StudentDashboardProps {
   onEditItem?: (item: ItemReport) => void;
   onDeleteItem?: (itemId: string) => void;
   onClaimItem?: (item: ItemReport) => void;
-  onSendMessage?: (item: ItemReport) => void;
+  onSendMessage?: (item: ItemReport, recipientUser?: any, threadId?: string) => void;
   onOpenSecurityDesk?: () => void;
 }
 
@@ -162,7 +167,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   );
   const unreadMessagesCount = myReceivedMessages.filter(m => m.status === 'unread').length;
 
-  const [messageSubTab, setMessageSubTab] = useState<'received' | 'sent'>('received');
+  const [messageSubTab, setMessageSubTab] = useState<'received' | 'sent' | 'calls'>('received');
+  // Strictly retrieve calls where this authenticated student is caller or receiver
+  const myCallHistory = getStoredCalls(currentUser.id, currentUser.email);
 
   // Compute all matches for this student's lost items
   const myMatches: { target: ItemReport; match: MatchSuggestion }[] = [];
@@ -1234,11 +1241,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             </div>
 
             {/* Sub-tabs toggle */}
-            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl border border-slate-200 shrink-0">
+            <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-2xl border border-slate-200 shrink-0 overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setMessageSubTab('received')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                   messageSubTab === 'received'
                     ? 'bg-emerald-700 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -1249,13 +1256,25 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <button
                 type="button"
                 onClick={() => setMessageSubTab('sent')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                   messageSubTab === 'sent'
                     ? 'bg-emerald-700 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Chats I Sent ({mySentMessages.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setMessageSubTab('calls')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  messageSubTab === 'calls'
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <PhoneCall className="w-3.5 h-3.5" />
+                <span>Call Logs ({myCallHistory.length})</span>
               </button>
             </div>
           </div>
@@ -1345,7 +1364,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             {targetItem && onSendMessage && (
                               <button
                                 type="button"
-                                onClick={() => onSendMessage(targetItem)}
+                                onClick={() => {
+                                  const otherUser = {
+                                    id: msg.senderId,
+                                    name: msg.senderName,
+                                    email: msg.senderEmail,
+                                    phone: msg.senderPhone,
+                                    uid: msg.senderUid,
+                                  };
+                                  onSendMessage(targetItem, otherUser, msg.threadId);
+                                }}
                                 className="px-3.5 py-2 bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-800 hover:to-teal-900 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
                               >
                                 <MessageSquare className="w-3.5 h-3.5" />
@@ -1489,7 +1517,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             {targetItem && onSendMessage && (
                               <button
                                 type="button"
-                                onClick={() => onSendMessage(targetItem)}
+                                onClick={() => {
+                                  const otherUser = msg.recipientId ? {
+                                    id: msg.recipientId,
+                                    name: msg.recipientName,
+                                    email: msg.recipientEmail,
+                                  } : undefined;
+                                  onSendMessage(targetItem, otherUser, msg.threadId);
+                                }}
                                 className="px-3.5 py-2 bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-800 hover:to-teal-900 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 active:scale-95"
                               >
                                 <MessageSquare className="w-3.5 h-3.5" />
@@ -1515,6 +1550,197 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           <div className="text-[10px] text-slate-400 pt-1">
                             Sent on {new Date(msg.createdAt).toLocaleString()}
                           </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sub-tab 3: In-App Voice Calls (Filtered strictly by currentUser.id) */}
+          {messageSubTab === 'calls' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <PhoneCall className="w-4 h-4 text-emerald-700" />
+                    <span>Private 1-on-1 Voice Call Logs</span>
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Encrypted and numberless audio calls conducted directly inside SAHAYAK.
+                  </p>
+                </div>
+                {myCallHistory.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to clear your call logs?')) {
+                        clearCallHistory(currentUser.id);
+                      }
+                    }}
+                    className="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors flex items-center gap-1 border border-rose-200"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear Call History</span>
+                  </button>
+                )}
+              </div>
+
+              {myCallHistory.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-2xl border border-slate-100 shadow-xs p-6 space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto border border-emerald-100">
+                    <PhoneCall className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-extrabold text-slate-900">No Call Logs Yet</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Initiate or receive secure, numberless WebRTC audio calls directly inside any chat thread to protect your personal phone number.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {myCallHistory.map((call) => {
+                    const isCaller = call.callerId?.toLowerCase() === currentUser.id.toLowerCase() ||
+                      (currentUser.email && call.callerEmail?.toLowerCase() === currentUser.email.toLowerCase());
+                    const partnerName = isCaller ? call.receiverName : call.callerName;
+                    const partnerUid = isCaller ? call.receiverUid : call.callerUid;
+                    const partnerAvatar = isCaller ? call.receiverAvatarUrl : call.callerAvatarUrl;
+                    const partnerId = isCaller ? call.receiverId : call.callerId;
+                    const partnerEmail = isCaller ? call.receiverEmail : call.callerEmail;
+                    
+                    const isConnected = call.status === 'connected' || (call.status === 'ended' && (call.durationSeconds || 0) > 0);
+                    const isDeclined = call.status === 'rejected';
+
+                    const targetItem = items.find(i => i.id === call.itemId);
+
+                    return (
+                      <div
+                        key={call.callId}
+                        className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 transition-all shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Direction & Status Icon */}
+                          <div
+                            className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
+                              isConnected
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : isDeclined
+                                ? 'bg-rose-50 text-rose-600 border-rose-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
+                          >
+                            {isCaller ? (
+                              <PhoneOutgoing className="w-5 h-5" />
+                            ) : (
+                              <PhoneIncoming className="w-5 h-5" />
+                            )}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs sm:text-sm font-bold text-slate-900">
+                                {partnerName || 'CU Student'}
+                              </span>
+                              {partnerUid && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 font-mono text-[10px]">
+                                  {partnerUid}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-slate-400">
+                                ({isCaller ? 'Outgoing' : 'Incoming'})
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 flex-wrap">
+                              {call.itemTitle && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                                  <span>Regarding:</span>
+                                  <strong className="font-semibold truncate max-w-[150px]">{call.itemTitle}</strong>
+                                </span>
+                              )}
+                              <span className="text-slate-300">•</span>
+                              <span className="text-[11px] text-slate-500">
+                                {new Date(call.createdAt).toLocaleString(undefined, {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Call Duration & Actions */}
+                        <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                          <div className="text-right">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wide ${
+                                isConnected
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : isDeclined
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {isConnected ? 'Completed' : isDeclined ? 'Declined' : 'Missed'}
+                            </span>
+                            {(call.durationSeconds || 0) > 0 && (
+                              <div className="text-[11px] font-mono font-medium text-slate-500 mt-0.5">
+                                {formatCallDuration(call.durationSeconds || 0)}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Quick Callback / Chat Action */}
+                          {onSendMessage && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const resolvedItem = targetItem || {
+                                  id: call.itemId,
+                                  title: call.itemTitle,
+                                  type: 'lost' as const,
+                                  category: 'Other Items' as const,
+                                  color: 'Black' as const,
+                                  description: 'Item discussed in call',
+                                  locationBlock: 'Campus',
+                                  specificSpot: 'Chandigarh University',
+                                  dateTime: call.createdAt,
+                                  imageUrl: '',
+                                  status: 'lost' as const,
+                                  userId: isCaller ? call.receiverId : call.callerId,
+                                  userName: partnerName,
+                                  userEmail: partnerEmail || '',
+                                  createdAt: call.createdAt,
+                                  updatedAt: call.createdAt,
+                                };
+                                const otherUser = {
+                                  id: partnerId,
+                                  name: partnerName,
+                                  email: partnerEmail,
+                                  avatarUrl: partnerAvatar,
+                                  uid: partnerUid,
+                                };
+                                onSendMessage(resolvedItem, otherUser, call.threadId);
+                              }}
+                              className="p-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors border border-emerald-200"
+                              title="Open chat & voice call"
+                            >
+                              <PhoneCall className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {/* Delete from log */}
+                          <button
+                            type="button"
+                            onClick={() => deleteCallRecord(call.callId, currentUser.id)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                            title="Delete from call log"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     );

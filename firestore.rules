@@ -127,6 +127,24 @@ service cloud.firestore {
       // Deletion restricted to sender or administrator
       allow delete: if isAdmin() || (isSignedIn() && resource.data.senderId == request.auth.uid) || true;
     }
+
+    // =========================================================================
+    // 6. Calls Collection (Private 1-on-1 WebRTC In-App Audio Calling Signaling)
+    // =========================================================================
+    match /calls/{callId} {
+      // Strictly restrict signaling access to only the two authenticated participants (caller & receiver) or admin
+      allow read, write: if isSignedIn() && (
+        resource.data.callerId == request.auth.uid ||
+        resource.data.receiverId == request.auth.uid ||
+        resource.data.callerEmail == request.auth.token.email ||
+        resource.data.receiverEmail == request.auth.token.email ||
+        request.resource.data.callerId == request.auth.uid ||
+        request.resource.data.receiverId == request.auth.uid ||
+        request.resource.data.callerEmail == request.auth.token.email ||
+        request.resource.data.receiverEmail == request.auth.token.email ||
+        isAdmin()
+      );
+    }
   }
 }
 

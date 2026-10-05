@@ -101,6 +101,7 @@ export interface ItemClaim {
   claimantEmail: string;
   claimantPhone: string;
   claimantUid: string;
+  claimantAvatarUrl?: string;
   // Finder information (user who posted the found listing)
   finderId?: string;
   finderEmail?: string;
@@ -158,5 +159,27 @@ export interface ItemMessage {
   threadId?: string;
   replyToId?: string;
   hideSenderPhone?: boolean;
+}
+
+export interface WebRTCCallRecord {
+  callId: string;
+  threadId: string;
+  itemId: string;
+  itemTitle: string;
+  callerId: string;
+  callerName: string;
+  callerEmail?: string;
+  callerAvatarUrl?: string;
+  callerUid?: string;
+  receiverId: string;
+  receiverName: string;
+  receiverEmail?: string;
+  receiverAvatarUrl?: string;
+  receiverUid?: string;
+  status: 'ringing' | 'connected' | 'ended' | 'rejected' | 'busy' | 'missed';
+  createdAt: string;
+  startedAt?: string;
+  endedAt?: string;
+  durationSeconds?: number;
 }
 

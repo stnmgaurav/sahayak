@@ -10,7 +10,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { uploadImageToCloudinary } from './cloudinary';
-import { ItemReport, ItemClaim, HandoverReceipt, ItemMessage, UserProfile } from '../types';
+import { ItemReport, ItemClaim, HandoverReceipt, ItemMessage, UserProfile, WebRTCCallRecord } from '../types';
 import { INITIAL_REPORTS, INITIAL_CLAIMS, DEMO_USERS } from '../data/mockData';
 import { 
   handleIncomingMessageNotification, 
@@ -24,6 +24,7 @@ const CLAIMS_KEY = 'sahayak_claims_v1';
 const RECEIPTS_KEY = 'sahayak_receipts_v1';
 const MESSAGES_KEY = 'sahayak_messages_v1';
 const USERS_KEY = 'sahayak_users_v1';
+export const CALLS_HISTORY_KEY = 'sahayak_call_history_v1';
 
 type StorageListener = () => void;
 const listeners: Set<StorageListener> = new Set();
@@ -74,16 +75,132 @@ function maskDemoPhone(phone?: string): string {
   return trimmed;
 }
 
+/**
+ * Safely removes stale/temporary data from localStorage when approaching quota limits.
+ */
+export function pruneStorageQuota(): void {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) {
+        // Prune old temporary call signaling sessions and temporary reaction cache
+        // Note: NEVER remove the persistent call history storage
+        if (
+          (k.startsWith('sahayak_call_') && k !== CALLS_HISTORY_KEY && k !== 'sahayak_calls_v1') ||
+          k.startsWith('sahayak_chat_reactions_temp') ||
+          k.includes('_reactions_item_')
+        ) {
+          keysToRemove.push(k);
+        }
+      }
+    }
+    keysToRemove.forEach(k => {
+      try {
+        localStorage.removeItem(k);
+      } catch {}
+    });
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Compacts an item array by stripping giant duplicate base64 strings if quota is tight
+ */
+function compactItemsForStorage(items: ItemReport[]): ItemReport[] {
+  return items.map(item => {
+    let imageUrl = item.imageUrl;
+    let imageUrls = item.imageUrls;
+    if (imageUrl && imageUrl.startsWith('data:image/') && imageUrl.length > 80000) {
+      const fallback = INITIAL_REPORTS.find(r => r.id === item.id)?.imageUrl;
+      if (fallback) {
+        imageUrl = fallback;
+      }
+    }
+    if (imageUrls && imageUrls.length > 0) {
+      imageUrls = imageUrls.map(u => {
+        if (u.startsWith('data:image/') && u.length > 80000) {
+          return imageUrl || '';
+        }
+        return u;
+      });
+    }
+    const { image, ...rest } = item as any;
+    return { ...rest, imageUrl, imageUrls };
+  });
+}
+
+/**
+ * Safe wrapper for localStorage.setItem that protects against QuotaExceededError
+ */
+export function safeSetItem(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err: any) {
+    console.warn(`[Storage Quota Notice] localStorage.setItem failed for '${key}', running quota cleanup...`);
+    pruneStorageQuota();
+
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (err2: any) {
+      // If items key exceeded quota, compact the JSON payload
+      if (key === ITEMS_KEY) {
+        try {
+          const parsed: ItemReport[] = JSON.parse(value);
+          const compacted = compactItemsForStorage(parsed);
+          localStorage.setItem(key, JSON.stringify(compacted));
+          return true;
+        } catch {
+          // fallback
+        }
+      } else if (key === MESSAGES_KEY) {
+        try {
+          // Keep only the latest 80 messages in local storage
+          const parsed: ItemMessage[] = JSON.parse(value);
+          const compacted = parsed.slice(0, 80);
+          localStorage.setItem(key, JSON.stringify(compacted));
+          return true;
+        } catch {
+          // fallback
+        }
+      } else if (key === CALLS_HISTORY_KEY) {
+        try {
+          // Keep only the latest 50 calls in local storage
+          const parsed: WebRTCCallRecord[] = JSON.parse(value);
+          const compacted = parsed.slice(0, 50);
+          localStorage.setItem(key, JSON.stringify(compacted));
+          return true;
+        } catch {
+          // fallback
+        }
+      }
+      console.warn(`[Storage Quota Warning] Unable to persist '${key}' to localStorage. Operating with in-memory cache.`);
+      return false;
+    }
+  }
+}
+
 function loadLocalItems(): ItemReport[] {
+  let sanitized: ItemReport[] = INITIAL_REPORTS;
   try {
     const raw = localStorage.getItem(ITEMS_KEY);
     if (!raw) {
-      localStorage.setItem(ITEMS_KEY, JSON.stringify(INITIAL_REPORTS));
+      safeSetItem(ITEMS_KEY, JSON.stringify(INITIAL_REPORTS));
       return INITIAL_REPORTS;
     }
     const parsed: ItemReport[] = JSON.parse(raw);
+    sanitized = Array.isArray(parsed) ? parsed : INITIAL_REPORTS;
+  } catch (err) {
+    console.warn('Failed to parse items from localStorage, falling back to initial reports:', err);
+    return INITIAL_REPORTS;
+  }
+
+  try {
     let mutated = false;
-    const sanitized = parsed.map(item => {
+    sanitized = sanitized.map(item => {
       let changed = false;
       let userPhone = item.userPhone;
       let imageUrls = item.imageUrls;
@@ -113,7 +230,7 @@ function loadLocalItems(): ItemReport[] {
 
       if (changed) {
         mutated = true;
-        return { ...item, userPhone, imageUrl, imageUrls, image: imageUrl };
+        return { ...item, userPhone, imageUrl, imageUrls };
       }
       return item;
     });
@@ -126,25 +243,33 @@ function loadLocalItems(): ItemReport[] {
       }
     });
     if (mutated) {
-      localStorage.setItem(ITEMS_KEY, JSON.stringify(sanitized));
+      safeSetItem(ITEMS_KEY, JSON.stringify(sanitized));
     }
-    return sanitized;
   } catch (err) {
-    console.error('Failed to read items from localStorage:', err);
-    return INITIAL_REPORTS;
+    console.warn('Non-fatal warning while sanitizing items cache:', err);
   }
+
+  return sanitized;
 }
 
 function loadLocalClaims(): ItemClaim[] {
+  let sanitized: ItemClaim[] = INITIAL_CLAIMS;
   try {
     const raw = localStorage.getItem(CLAIMS_KEY);
     if (!raw) {
-      localStorage.setItem(CLAIMS_KEY, JSON.stringify(INITIAL_CLAIMS));
+      safeSetItem(CLAIMS_KEY, JSON.stringify(INITIAL_CLAIMS));
       return INITIAL_CLAIMS;
     }
     const parsed: ItemClaim[] = JSON.parse(raw);
+    sanitized = Array.isArray(parsed) ? parsed : INITIAL_CLAIMS;
+  } catch (err) {
+    console.warn('Failed to parse claims from localStorage:', err);
+    return INITIAL_CLAIMS;
+  }
+
+  try {
     let mutated = false;
-    const sanitized = parsed.map(claim => {
+    sanitized = sanitized.map(claim => {
       if (claim.claimantPhone && (claim.claimantPhone.includes('98765') || claim.claimantPhone.includes('98123') || claim.claimantPhone.includes('98888'))) {
         mutated = true;
         return { ...claim, claimantPhone: '+91 9878XXXXXX' };
@@ -152,13 +277,13 @@ function loadLocalClaims(): ItemClaim[] {
       return claim;
     });
     if (mutated) {
-      localStorage.setItem(CLAIMS_KEY, JSON.stringify(sanitized));
+      safeSetItem(CLAIMS_KEY, JSON.stringify(sanitized));
     }
-    return sanitized;
   } catch (err) {
-    console.error('Failed to read claims from localStorage:', err);
-    return INITIAL_CLAIMS;
+    console.warn('Non-fatal warning while sanitizing claims cache:', err);
   }
+
+  return sanitized;
 }
 
 function loadLocalReceipts(): HandoverReceipt[] {
@@ -180,6 +305,7 @@ function loadLocalMessages(): ItemMessage[] {
 }
 
 function loadLocalUsers(): UserProfile[] {
+  let sanitized: UserProfile[] = DEMO_USERS;
   try {
     const raw = localStorage.getItem(USERS_KEY);
     if (!raw) {
@@ -197,12 +323,19 @@ function loadLocalUsers(): UserProfile[] {
           profileCompleted: true,
         },
       ];
-      localStorage.setItem(USERS_KEY, JSON.stringify(initialUsers));
+      safeSetItem(USERS_KEY, JSON.stringify(initialUsers));
       return initialUsers;
     }
     const parsed: UserProfile[] = JSON.parse(raw);
+    sanitized = Array.isArray(parsed) ? parsed : DEMO_USERS;
+  } catch (err) {
+    console.warn('Failed to parse users from localStorage:', err);
+    return DEMO_USERS;
+  }
+
+  try {
     let mutated = false;
-    const sanitized = parsed.map(user => {
+    sanitized = sanitized.map(user => {
       if (user.phone && (user.phone.includes('98765') || user.phone.includes('98123') || user.phone.includes('98888'))) {
         mutated = true;
         return { ...user, phone: '+91 9878XXXXXX' };
@@ -210,13 +343,79 @@ function loadLocalUsers(): UserProfile[] {
       return user;
     });
     if (mutated) {
-      localStorage.setItem(USERS_KEY, JSON.stringify(sanitized));
+      safeSetItem(USERS_KEY, JSON.stringify(sanitized));
     }
-    return sanitized;
   } catch (err) {
-    console.error('Failed to read users from localStorage:', err);
-    return DEMO_USERS;
+    console.warn('Non-fatal warning while sanitizing users cache:', err);
   }
+
+  return sanitized;
+}
+
+function loadLocalCalls(): WebRTCCallRecord[] {
+  let sanitized: WebRTCCallRecord[] = [];
+  try {
+    const raw = localStorage.getItem(CALLS_HISTORY_KEY) || localStorage.getItem('sahayak_calls_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        sanitized = parsed;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to parse calls from localStorage:', err);
+  }
+
+  // Continuity check: Recover any calls previously logged in messages if call history is empty
+  try {
+    const existingCallIds = new Set(sanitized.map(c => c.callId));
+    const msgs = loadLocalMessages();
+    let recoveredCount = 0;
+
+    msgs.forEach(m => {
+      if (m.id.startsWith('msg_call_') || (m.messageText && m.messageText.includes('In-App Voice Call'))) {
+        const callId = m.id.replace('msg_', '');
+        if (!existingCallIds.has(callId)) {
+          const isDeclined = m.messageText.includes('Declined');
+          const isCancelled = m.messageText.includes('Cancelled');
+          const durationMatch = m.messageText.match(/\((\d{2}):(\d{2})\)/);
+          let durationSeconds = 0;
+          if (durationMatch) {
+            durationSeconds = parseInt(durationMatch[1], 10) * 60 + parseInt(durationMatch[2], 10);
+          }
+
+          sanitized.push({
+            callId,
+            threadId: m.threadId || m.itemId,
+            itemId: m.itemId,
+            itemTitle: m.itemTitle || 'Lost / Found Item',
+            callerId: m.senderId,
+            callerName: m.senderName,
+            callerEmail: m.senderEmail,
+            callerUid: m.senderUid,
+            receiverId: m.recipientId || '',
+            receiverName: m.recipientName || 'Student',
+            receiverEmail: m.recipientEmail || '',
+            status: isDeclined ? 'rejected' : (isCancelled ? 'missed' : 'ended'),
+            durationSeconds,
+            createdAt: m.createdAt,
+            endedAt: m.createdAt,
+          });
+          existingCallIds.add(callId);
+          recoveredCount++;
+        }
+      }
+    });
+
+    if (recoveredCount > 0) {
+      sanitized.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      safeSetItem(CALLS_HISTORY_KEY, JSON.stringify(sanitized));
+    }
+  } catch {
+    // non-fatal
+  }
+
+  return sanitized;
 }
 
 // In-memory caches initialized from localStorage
@@ -225,6 +424,7 @@ let cachedClaims: ItemClaim[] = loadLocalClaims();
 let cachedReceipts: HandoverReceipt[] = loadLocalReceipts();
 let cachedMessages: ItemMessage[] = loadLocalMessages();
 let cachedUsers: UserProfile[] = loadLocalUsers();
+let cachedCalls: WebRTCCallRecord[] = loadLocalCalls();
 
 let seenMessageIds = new Set<string>(cachedMessages.map(m => m.id));
 let isFirstMessagesSnapshot = true;
@@ -265,7 +465,7 @@ export function initFirestoreSync() {
           // Sort newest first
           firestoreItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           cachedItems = firestoreItems;
-          localStorage.setItem(ITEMS_KEY, JSON.stringify(firestoreItems));
+          safeSetItem(ITEMS_KEY, JSON.stringify(firestoreItems));
           notifyListeners();
         } else {
           // First run on empty collection: seed initial campus reports
@@ -298,7 +498,7 @@ export function initFirestoreSync() {
           });
           firestoreClaims.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           cachedClaims = firestoreClaims;
-          localStorage.setItem(CLAIMS_KEY, JSON.stringify(firestoreClaims));
+          safeSetItem(CLAIMS_KEY, JSON.stringify(firestoreClaims));
           notifyListeners();
         } else {
           INITIAL_CLAIMS.forEach(async (claim) => {
@@ -329,7 +529,7 @@ export function initFirestoreSync() {
             firestoreReceipts.push(docSnap.data() as HandoverReceipt);
           });
           cachedReceipts = firestoreReceipts;
-          localStorage.setItem(RECEIPTS_KEY, JSON.stringify(firestoreReceipts));
+          safeSetItem(RECEIPTS_KEY, JSON.stringify(firestoreReceipts));
           notifyListeners();
         }
       }, (error) => {
@@ -364,7 +564,7 @@ export function initFirestoreSync() {
           isFirstMessagesSnapshot = false;
           firestoreMessages.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           cachedMessages = firestoreMessages;
-          localStorage.setItem(MESSAGES_KEY, JSON.stringify(firestoreMessages));
+          safeSetItem(MESSAGES_KEY, JSON.stringify(firestoreMessages));
           notifyListeners();
 
           // Trigger push notifications for the recipient / owner of reported items
@@ -416,7 +616,7 @@ export function initFirestoreSync() {
           }
 
           cachedUsers = firestoreUsers;
-          localStorage.setItem(USERS_KEY, JSON.stringify(cachedUsers));
+          safeSetItem(USERS_KEY, JSON.stringify(cachedUsers));
           notifyListeners();
         } else {
           cachedUsers.forEach(async (user) => {
@@ -489,7 +689,7 @@ export function saveItem(newItem: ItemReport): ItemReport {
   } else {
     cachedItems.unshift(newItem);
   }
-  localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
+  safeSetItem(ITEMS_KEY, JSON.stringify(cachedItems));
   notifyListeners();
 
   // 2. Persist to Firebase Firestore
@@ -531,7 +731,7 @@ export function updateItemStatus(
 
   cachedItems[index].status = status;
   cachedItems[index].updatedAt = new Date().toISOString();
-  localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
+  safeSetItem(ITEMS_KEY, JSON.stringify(cachedItems));
   notifyListeners();
 
   // Update Firestore
@@ -581,7 +781,7 @@ export function updateItem(
   };
 
   cachedItems[index] = updatedItem;
-  localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
+  safeSetItem(ITEMS_KEY, JSON.stringify(cachedItems));
   notifyListeners();
 
   // Update Firestore
@@ -624,7 +824,7 @@ export function deleteItem(
 
   // Update local
   cachedItems = cachedItems.filter(i => i.id !== itemId);
-  localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
+  safeSetItem(ITEMS_KEY, JSON.stringify(cachedItems));
   notifyListeners();
 
   // Delete from Firestore
@@ -647,7 +847,7 @@ export function getStoredClaims(): ItemClaim[] {
 export function saveClaim(newClaim: ItemClaim): ItemClaim {
   // Update local
   cachedClaims.unshift(newClaim);
-  localStorage.setItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
+  safeSetItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
 
   // Automatically update the associated item status to 'claimed' so it is immediately removed from the dashboard!
   updateItemStatus(newClaim.itemId, 'claimed');
@@ -672,7 +872,7 @@ export function updateClaim(claimId: string, updates: Partial<ItemClaim>): void 
   const idx = cachedClaims.findIndex(c => c.id === claimId);
   if (idx >= 0) {
     cachedClaims[idx] = { ...cachedClaims[idx], ...updates, updatedAt: new Date().toISOString() };
-    localStorage.setItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
+    safeSetItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
 
     // Update item status accordingly
     if (updates.status === 'verified') {
@@ -705,7 +905,7 @@ export function deleteClaim(claimId: string): boolean {
   if (!claim) return false;
 
   cachedClaims = cachedClaims.filter(c => c.id !== claimId);
-  localStorage.setItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
+  safeSetItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
   notifyListeners();
 
   try {
@@ -724,11 +924,74 @@ export function getStoredMessages(): ItemMessage[] {
   return cachedMessages;
 }
 
+/**
+ * Scopes a chat thread by itemId AND the claimant identifier (1-on-1 private dialogue)
+ */
+export function getItemThreadId(itemId: string, claimantIdentifier: string): string {
+  const cleanItem = (itemId || '').trim();
+  const cleanClaimant = (claimantIdentifier || '').trim().toLowerCase();
+  return `${cleanItem}__${cleanClaimant}`;
+}
+
+/**
+ * Resolves or derives the thread ID of a message based on item and participants
+ */
+export function resolveMessageThreadId(msg: ItemMessage, item?: ItemReport): string {
+  if (msg.threadId && msg.threadId.trim()) {
+    return msg.threadId.trim();
+  }
+
+  const itemId = msg.itemId;
+  if (!item) {
+    const claimant = msg.recipientId || msg.recipientEmail || msg.senderId || msg.senderEmail || 'claimant';
+    return getItemThreadId(itemId, claimant);
+  }
+
+  // Poster is item.userId or item.userEmail
+  const posterId = (item.userId || '').toLowerCase();
+  const posterEmail = (item.userEmail || '').toLowerCase();
+  const sId = (msg.senderId || '').toLowerCase();
+  const sEmail = (msg.senderEmail || '').toLowerCase();
+
+  const isSenderPoster = (posterId && sId === posterId) || (posterEmail && sEmail === posterEmail);
+
+  if (isSenderPoster) {
+    // Sender is poster -> claimant is the recipient
+    const claimant = msg.recipientId || msg.recipientEmail || 'claimant';
+    return getItemThreadId(itemId, claimant);
+  } else {
+    // Sender is claimant
+    const claimant = msg.senderId || msg.senderEmail || 'claimant';
+    return getItemThreadId(itemId, claimant);
+  }
+}
+
+export interface ItemInquiryThread {
+  threadId: string;
+  itemId: string;
+  claimantId: string;
+  claimantName: string;
+  claimantEmail: string;
+  claimantPhone?: string;
+  claimantUid?: string;
+  claimantAvatarUrl?: string;
+  lastMessage?: ItemMessage;
+  unreadCount: number;
+  messageCount: number;
+  messages: ItemMessage[];
+}
+
 export function saveMessage(newMessage: ItemMessage): ItemMessage {
+  // Ensure threadId is populated for 1-on-1 private conversation isolation
+  if (!newMessage.threadId) {
+    const targetItem = cachedItems.find(i => i.id === newMessage.itemId);
+    newMessage.threadId = resolveMessageThreadId(newMessage, targetItem);
+  }
+
   // Update local cache immediately
   cachedMessages.unshift(newMessage);
   seenMessageIds.add(newMessage.id);
-  localStorage.setItem(MESSAGES_KEY, JSON.stringify(cachedMessages));
+  safeSetItem(MESSAGES_KEY, JSON.stringify(cachedMessages));
 
   // Automatically update the associated lost item status to 'match_found' if it was 'lost'
   const targetItem = cachedItems.find(i => i.id === newMessage.itemId);
@@ -757,7 +1020,7 @@ export function updateMessage(messageId: string, updates: Partial<ItemMessage>):
   const idx = cachedMessages.findIndex(m => m.id === messageId);
   if (idx >= 0) {
     cachedMessages[idx] = { ...cachedMessages[idx], ...updates };
-    localStorage.setItem(MESSAGES_KEY, JSON.stringify(cachedMessages));
+    safeSetItem(MESSAGES_KEY, JSON.stringify(cachedMessages));
     notifyListeners();
 
     try {
@@ -779,7 +1042,7 @@ export function markMessageAsRead(messageId: string): void {
 
 export function deleteMessage(messageId: string): void {
   cachedMessages = cachedMessages.filter(m => m.id !== messageId);
-  localStorage.setItem(MESSAGES_KEY, JSON.stringify(cachedMessages));
+  safeSetItem(MESSAGES_KEY, JSON.stringify(cachedMessages));
   notifyListeners();
 
   try {
@@ -792,12 +1055,220 @@ export function deleteMessage(messageId: string): void {
 }
 
 /**
- * Retrieve all messages linked to a specific item report
+ * Retrieve messages for an item, strictly scoped to authorized 1-on-1 participant pair.
+ * Unauthenticated users or non-participants receive an empty array to prevent privacy leakage.
  */
-export function getItemMessages(itemId: string): ItemMessage[] {
-  return cachedMessages
-    .filter(m => m.itemId === itemId)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+export function getItemMessages(
+  itemId: string,
+  requestingUser?: { id?: string; email?: string; role?: string } | null,
+  specificThreadId?: string
+): ItemMessage[] {
+  // If user is not authenticated, strictly block message retrieval
+  if (!requestingUser || (!requestingUser.id && !requestingUser.email)) {
+    return [];
+  }
+
+  const item = cachedItems.find(i => i.id === itemId);
+  if (!item) return [];
+
+  const uId = (requestingUser.id || '').toLowerCase();
+  const uEmail = (requestingUser.email || '').toLowerCase();
+  const isPoster = Boolean(
+    (item.userId && item.userId.toLowerCase() === uId) ||
+    (item.userEmail && item.userEmail.toLowerCase() === uEmail)
+  );
+  const isAdmin = requestingUser.role === 'admin' || requestingUser.email === 'gsrajpoot2019@gmail.com';
+
+  const allItemMsgs = cachedMessages.filter(m => m.itemId === itemId);
+
+  // If requestingUser is a claimant (NOT the poster and NOT admin):
+  // Strictly isolate to ONLY their 1-on-1 thread with the poster!
+  if (!isPoster && !isAdmin) {
+    const myThreadIdById = requestingUser.id ? getItemThreadId(itemId, requestingUser.id) : '';
+    const myThreadIdByEmail = requestingUser.email ? getItemThreadId(itemId, requestingUser.email) : '';
+
+    return allItemMsgs
+      .filter(m => {
+        const tId = resolveMessageThreadId(m, item);
+        if (tId === myThreadIdById || tId === myThreadIdByEmail) {
+          return true;
+        }
+        // Direct participant check
+        const sId = (m.senderId || '').toLowerCase();
+        const sEmail = (m.senderEmail || '').toLowerCase();
+        const rId = (m.recipientId || '').toLowerCase();
+        const rEmail = (m.recipientEmail || '').toLowerCase();
+        return (sId === uId || sEmail === uEmail || rId === uId || rEmail === uEmail);
+      })
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }
+
+  // If requestingUser is the poster or admin:
+  // If specificThreadId is provided, filter for that claimant's thread
+  if (specificThreadId) {
+    return allItemMsgs
+      .filter(m => resolveMessageThreadId(m, item) === specificThreadId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }
+
+  // Otherwise return messages for this item
+  return allItemMsgs.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+/**
+ * For item posters: Get all isolated claimant inquiries for an item
+ */
+export function getItemInquiriesForPoster(
+  itemId: string,
+  requestingUser?: { id?: string; email?: string; role?: string } | null
+): ItemInquiryThread[] {
+  if (!requestingUser) return [];
+
+  const item = cachedItems.find(i => i.id === itemId);
+  if (!item) return [];
+
+  const uId = (requestingUser.id || '').toLowerCase();
+  const uEmail = (requestingUser.email || '').toLowerCase();
+  const isPoster = Boolean(
+    (item.userId && item.userId.toLowerCase() === uId) ||
+    (item.userEmail && item.userEmail.toLowerCase() === uEmail)
+  );
+  const isAdmin = requestingUser.role === 'admin' || requestingUser.email === 'gsrajpoot2019@gmail.com';
+
+  if (!isPoster && !isAdmin) {
+    return [];
+  }
+
+  const allItemMsgs = cachedMessages.filter(m => m.itemId === itemId);
+  const threadsMap = new Map<string, ItemMessage[]>();
+
+  // Group messages by resolved threadId
+  for (const msg of allItemMsgs) {
+    const tId = resolveMessageThreadId(msg, item);
+    if (!threadsMap.has(tId)) {
+      threadsMap.set(tId, []);
+    }
+    threadsMap.get(tId)!.push(msg);
+  }
+
+  // Also include claimants who filed a claim on this item even if they haven't sent a text yet
+  const relatedClaims = cachedClaims.filter(c => c.itemId === itemId);
+  for (const claim of relatedClaims) {
+    const tId = getItemThreadId(itemId, claim.claimantId || claim.claimantEmail);
+    if (!threadsMap.has(tId)) {
+      threadsMap.set(tId, []);
+    }
+  }
+
+  const inquiryThreads: ItemInquiryThread[] = [];
+  const storedUsers = getStoredUsers();
+
+  threadsMap.forEach((msgs, tId) => {
+    msgs.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    let claimantId = '';
+    let claimantName = '';
+    let claimantEmail = '';
+    let claimantPhone: string | undefined;
+    let claimantUid: string | undefined;
+    let claimantAvatarUrl: string | undefined;
+
+    // Detect claimant from messages
+    const claimantMsg = msgs.find(m => {
+      const sId = (m.senderId || '').toLowerCase();
+      const sEmail = (m.senderEmail || '').toLowerCase();
+      const posterId = (item.userId || '').toLowerCase();
+      const posterEmail = (item.userEmail || '').toLowerCase();
+      return (sId !== posterId && sEmail !== posterEmail);
+    }) || msgs[0];
+
+    if (claimantMsg) {
+      const isFromClaimant = claimantMsg.senderId !== item.userId && claimantMsg.senderEmail?.toLowerCase() !== item.userEmail?.toLowerCase();
+      if (isFromClaimant) {
+        claimantId = claimantMsg.senderId;
+        claimantName = claimantMsg.senderName;
+        claimantEmail = claimantMsg.senderEmail;
+        claimantPhone = claimantMsg.senderPhone;
+        claimantUid = claimantMsg.senderUid;
+      } else {
+        claimantId = claimantMsg.recipientId || '';
+        claimantName = claimantMsg.recipientName || 'Student Claimant';
+        claimantEmail = claimantMsg.recipientEmail || '';
+      }
+    }
+
+    // Match with claims
+    const claim = relatedClaims.find(c => 
+      (c.claimantId && c.claimantId === claimantId) ||
+      (c.claimantEmail && c.claimantEmail.toLowerCase() === claimantEmail.toLowerCase()) ||
+      tId === getItemThreadId(itemId, c.claimantId || c.claimantEmail)
+    );
+
+    if (claim) {
+      claimantId = claimantId || claim.claimantId;
+      claimantName = claimantName || claim.claimantName;
+      claimantEmail = claimantEmail || claim.claimantEmail;
+      claimantPhone = claimantPhone || claim.claimantPhone;
+      claimantUid = claimantUid || claim.claimantUid;
+      claimantAvatarUrl = claimantAvatarUrl || claim.claimantAvatarUrl;
+    }
+
+    // Match with user profile
+    const matchedUser = storedUsers.find(u => 
+      (claimantId && u.id === claimantId) ||
+      (claimantEmail && u.email?.toLowerCase() === claimantEmail.toLowerCase())
+    ) || DEMO_USERS.find(d => 
+      (claimantId && d.id === claimantId) ||
+      (claimantEmail && d.email?.toLowerCase() === claimantEmail.toLowerCase())
+    );
+
+    if (matchedUser) {
+      claimantName = claimantName || matchedUser.name;
+      claimantAvatarUrl = claimantAvatarUrl || matchedUser.avatarUrl;
+      claimantPhone = claimantPhone || matchedUser.phone;
+      claimantUid = claimantUid || matchedUser.uidOrRoll;
+    }
+
+    if (!claimantName) {
+      claimantName = 'Student Claimant';
+    }
+
+    const unreadCount = msgs.filter(m => {
+      const isForPoster = m.recipientId === item.userId || 
+        (item.userEmail && m.recipientEmail?.toLowerCase() === item.userEmail.toLowerCase()) ||
+        (!m.recipientId && m.senderId !== item.userId);
+      return isForPoster && m.status === 'unread';
+    }).length;
+
+    const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : undefined;
+
+    inquiryThreads.push({
+      threadId: tId,
+      itemId,
+      claimantId,
+      claimantName,
+      claimantEmail,
+      claimantPhone,
+      claimantUid,
+      claimantAvatarUrl,
+      lastMessage: lastMsg,
+      unreadCount,
+      messageCount: msgs.length,
+      messages: msgs,
+    });
+  });
+
+  // Sort: highest unread first, then latest message time
+  inquiryThreads.sort((a, b) => {
+    if (a.unreadCount !== b.unreadCount) {
+      return b.unreadCount - a.unreadCount;
+    }
+    const timeA = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
+    const timeB = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
+    return timeB - timeA;
+  });
+
+  return inquiryThreads;
 }
 
 /**
@@ -830,7 +1301,7 @@ export function getStoredReceipts(): HandoverReceipt[] {
 
 export function saveReceipt(receipt: HandoverReceipt): void {
   cachedReceipts.unshift(receipt);
-  localStorage.setItem(RECEIPTS_KEY, JSON.stringify(cachedReceipts));
+  safeSetItem(RECEIPTS_KEY, JSON.stringify(cachedReceipts));
   notifyListeners();
 
   // Save to Firestore
@@ -850,7 +1321,7 @@ export function deleteReceipt(receiptNumber: string): boolean {
   if (!receipt) return false;
 
   cachedReceipts = cachedReceipts.filter(r => r.receiptNumber !== receiptNumber);
-  localStorage.setItem(RECEIPTS_KEY, JSON.stringify(cachedReceipts));
+  safeSetItem(RECEIPTS_KEY, JSON.stringify(cachedReceipts));
   notifyListeners();
 
   try {
@@ -869,8 +1340,8 @@ export function resetDemoData(): void {
   cachedItems = [...INITIAL_REPORTS];
   cachedClaims = [...INITIAL_CLAIMS];
   cachedReceipts = [];
-  localStorage.setItem(ITEMS_KEY, JSON.stringify(cachedItems));
-  localStorage.setItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
+  safeSetItem(ITEMS_KEY, JSON.stringify(cachedItems));
+  safeSetItem(CLAIMS_KEY, JSON.stringify(cachedClaims));
   localStorage.removeItem(RECEIPTS_KEY);
   notifyListeners();
 }
@@ -920,7 +1391,7 @@ export function saveUser(newUser: UserProfile): UserProfile {
   } else {
     cachedUsers.unshift(newUser);
   }
-  localStorage.setItem(USERS_KEY, JSON.stringify(cachedUsers));
+  safeSetItem(USERS_KEY, JSON.stringify(cachedUsers));
   notifyListeners();
 
   try {
@@ -951,7 +1422,7 @@ export function updateUser(userId: string, updates: Partial<UserProfile>): boole
     cachedUsers.unshift(updatedUser);
   }
 
-  localStorage.setItem(USERS_KEY, JSON.stringify(cachedUsers));
+  safeSetItem(USERS_KEY, JSON.stringify(cachedUsers));
   notifyListeners();
 
   try {
@@ -969,7 +1440,7 @@ export function updateUser(userId: string, updates: Partial<UserProfile>): boole
 
 export function deleteUser(userId: string): boolean {
   cachedUsers = cachedUsers.filter(u => u.id !== userId);
-  localStorage.setItem(USERS_KEY, JSON.stringify(cachedUsers));
+  safeSetItem(USERS_KEY, JSON.stringify(cachedUsers));
   notifyListeners();
 
   try {
@@ -983,3 +1454,141 @@ export function deleteUser(userId: string): boolean {
 
   return true;
 }
+
+// ================= CALL HISTORY & LOG MANAGEMENT (STRICT 1-ON-1 PRIVACY) =================
+
+/**
+ * Retrieve stored call history strictly scoped to the authenticated user.
+ * Strictly returns only calls where currentUser.id (or currentUser.email) is either
+ * the caller or receiver, preventing unauthorized viewing of call history.
+ * If no authenticated user ID is provided, an empty array is returned.
+ */
+export function getStoredCalls(
+  currentUserIdOrUser?: string | { id?: string; email?: string } | null,
+  currentUserEmail?: string
+): WebRTCCallRecord[] {
+  let targetId = '';
+  let targetEmail = '';
+
+  if (typeof currentUserIdOrUser === 'string') {
+    targetId = currentUserIdOrUser.trim();
+  } else if (currentUserIdOrUser && typeof currentUserIdOrUser === 'object') {
+    targetId = (currentUserIdOrUser.id || '').trim();
+    targetEmail = (currentUserIdOrUser.email || '').trim();
+  }
+
+  if (currentUserEmail && typeof currentUserEmail === 'string' && !targetEmail) {
+    targetEmail = currentUserEmail.trim();
+  }
+
+  // If no authenticated user ID or email is provided, strictly block access to prevent unauthorized viewing
+  if (!targetId && !targetEmail) {
+    return [];
+  }
+
+  const normalizedId = targetId.toLowerCase();
+  const normalizedEmail = targetEmail.toLowerCase();
+
+  const allCalls = cachedCalls.length > 0 ? cachedCalls : loadLocalCalls();
+
+  return allCalls
+    .filter(call => {
+      const cId = (call.callerId || '').trim().toLowerCase();
+      const rId = (call.receiverId || '').trim().toLowerCase();
+      const cEmail = (call.callerEmail || '').trim().toLowerCase();
+      const rEmail = (call.receiverEmail || '').trim().toLowerCase();
+
+      // Ensure that currentUser.id is strictly either the caller or receiver
+      const isCaller = Boolean(
+        (normalizedId && cId === normalizedId) ||
+        (normalizedEmail && cEmail === normalizedEmail)
+      );
+
+      const isReceiver = Boolean(
+        (normalizedId && rId === normalizedId) ||
+        (normalizedEmail && rEmail === normalizedEmail)
+      );
+
+      return isCaller || isReceiver;
+    })
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+}
+
+/**
+ * Saves or updates a call record in persistent call history storage
+ */
+export function saveCallRecord(session: WebRTCCallRecord | any): void {
+  if (!session || !session.callId) return;
+
+  // Clean data to avoid storing large WebRTC SDP/candidate blobs in history
+  const cleanRecord: WebRTCCallRecord = {
+    callId: session.callId,
+    threadId: session.threadId || session.itemId,
+    itemId: session.itemId,
+    itemTitle: session.itemTitle || 'Lost / Found Item',
+    callerId: session.callerId,
+    callerName: session.callerName,
+    callerEmail: session.callerEmail || '',
+    callerAvatarUrl: session.callerAvatarUrl,
+    callerUid: session.callerUid,
+    receiverId: session.receiverId,
+    receiverName: session.receiverName,
+    receiverEmail: session.receiverEmail || '',
+    receiverAvatarUrl: session.receiverAvatarUrl,
+    receiverUid: session.receiverUid,
+    status: session.status || 'ended',
+    createdAt: session.createdAt || new Date().toISOString(),
+    startedAt: session.startedAt,
+    endedAt: session.endedAt || (session.status === 'ended' || session.status === 'rejected' ? new Date().toISOString() : undefined),
+    durationSeconds: session.durationSeconds || 0,
+  };
+
+  const existingIdx = cachedCalls.findIndex(c => c.callId === cleanRecord.callId);
+  if (existingIdx >= 0) {
+    cachedCalls[existingIdx] = { ...cachedCalls[existingIdx], ...cleanRecord };
+  } else {
+    cachedCalls.unshift(cleanRecord);
+  }
+
+  // Keep latest 80 calls max to protect storage quota
+  if (cachedCalls.length > 80) {
+    cachedCalls = cachedCalls.slice(0, 80);
+  }
+
+  safeSetItem(CALLS_HISTORY_KEY, JSON.stringify(cachedCalls));
+  notifyListeners();
+}
+
+/**
+ * Delete a specific call record from history, authorized only for participants
+ */
+export function deleteCallRecord(callId: string, currentUserId: string): boolean {
+  if (!currentUserId) return false;
+  const uid = currentUserId.toLowerCase().trim();
+  const call = cachedCalls.find(c => c.callId === callId);
+  if (!call) return false;
+
+  // Only participant (caller or receiver) can delete their call record
+  if (call.callerId?.toLowerCase() !== uid && call.receiverId?.toLowerCase() !== uid) {
+    return false;
+  }
+
+  cachedCalls = cachedCalls.filter(c => c.callId !== callId);
+  safeSetItem(CALLS_HISTORY_KEY, JSON.stringify(cachedCalls));
+  notifyListeners();
+  return true;
+}
+
+/**
+ * Clear call history for the authenticated user only
+ */
+export function clearCallHistory(currentUserId: string): void {
+  if (!currentUserId) return;
+  const uid = currentUserId.toLowerCase().trim();
+  cachedCalls = cachedCalls.filter(
+    c => c.callerId?.toLowerCase() !== uid && c.receiverId?.toLowerCase() !== uid
+  );
+  safeSetItem(CALLS_HISTORY_KEY, JSON.stringify(cachedCalls));
+  notifyListeners();
+}
+

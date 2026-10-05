@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AuthProvider, useAuth, isUserAdmin } from './context/AuthContext';
 import { ItemReport, ItemClaim, ReportType } from './types';
-import { getStoredItems, getStoredClaims, subscribeToStorage, deleteItem, updateClaim } from './lib/storage';
+import { getStoredItems, getStoredClaims, getStoredMessages, subscribeToStorage, deleteItem, updateClaim } from './lib/storage';
 import { findMatchesForItem } from './lib/matching';
 import { Navbar } from './components/Navbar';
 import { LoginPage } from './components/LoginPage';
@@ -48,8 +48,17 @@ import {
   CheckCircle2,
   Lock,
   Radio,
-  ShieldCheck
+  ShieldCheck,
+  PhoneCall,
+  PhoneOff
 } from 'lucide-react';
+import { 
+  WebRTCCallSession, 
+  WebRTCCallClient, 
+  subscribeToIncomingCalls, 
+  playIncomingRingtoneSound, 
+  stopAllCallSounds 
+} from './lib/webrtcCallService';
 
 const QUICK_CATEGORIES = [
   { id: 'all', label: 'All Categories', icon: '✨' },
@@ -126,17 +135,102 @@ function SahayakMain() {
 
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [messageTargetItem, setMessageTargetItem] = useState<ItemReport | null>(null);
+  const [messageRecipientUser, setMessageRecipientUser] = useState<{
+    id?: string;
+    email?: string;
+    name?: string;
+    phone?: string;
+    uid?: string;
+    role?: string;
+    avatarUrl?: string;
+  } | null>(null);
+  const [messageInitialThreadId, setMessageInitialThreadId] = useState<string | null>(null);
+  const [globalIncomingCall, setGlobalIncomingCall] = useState<WebRTCCallSession | null>(null);
+  const [callAutoAcceptSession, setCallAutoAcceptSession] = useState<WebRTCCallSession | null>(null);
+
+  // Listen for incoming WebRTC audio calls when user is authenticated
+  useEffect(() => {
+    if (!currentUser) {
+      setGlobalIncomingCall(null);
+      return;
+    }
+
+    const unsubscribe = subscribeToIncomingCalls(
+      currentUser.id,
+      currentUser.email,
+      (call) => {
+        // If modal is already open for this exact thread or item, let modal handle it directly
+        if (messageModalOpen && messageTargetItem?.id === call.itemId) {
+          return;
+        }
+        setGlobalIncomingCall(call);
+        playIncomingRingtoneSound();
+      }
+    );
+
+    return () => {
+      unsubscribe();
+      stopAllCallSounds();
+    };
+  }, [currentUser, messageModalOpen, messageTargetItem?.id]);
+
+  const handleAnswerGlobalCall = (call: WebRTCCallSession) => {
+    stopAllCallSounds();
+    setGlobalIncomingCall(null);
+
+    const currentList = getStoredItems();
+    const foundItem = currentList.find(i => i.id === call.itemId) || items.find(i => i.id === call.itemId);
+    if (foundItem) {
+      setMessageTargetItem(foundItem);
+      setMessageInitialThreadId(call.threadId);
+      setMessageRecipientUser({
+        id: call.callerId,
+        name: call.callerName,
+        email: call.callerEmail,
+        uid: call.callerUid,
+        avatarUrl: call.callerAvatarUrl,
+      });
+      setCallAutoAcceptSession(call);
+      setMessageModalOpen(true);
+    }
+  };
+
+  const handleDeclineGlobalCall = (call: WebRTCCallSession) => {
+    stopAllCallSounds();
+    if (currentUser) {
+      const client = new WebRTCCallClient(currentUser.id, currentUser.email);
+      client.rejectCall(call).catch(() => {});
+    }
+    setGlobalIncomingCall(null);
+  };
 
   // Handle opening item chat when user clicks a push notification or in-app alert
   useEffect(() => {
     const handleOpenItemChat = (e: Event) => {
       const customEvent = e as CustomEvent<{ itemId: string; messageId?: string }>;
       const targetId = customEvent.detail?.itemId;
+      const targetMsgId = customEvent.detail?.messageId;
       if (targetId) {
         const currentList = getStoredItems();
         const found = currentList.find(i => i.id === targetId) || items.find(i => i.id === targetId);
         if (found) {
           setMessageTargetItem(found);
+          if (targetMsgId) {
+            const allMsgs = getStoredMessages();
+            const msg = allMsgs.find(m => m.id === targetMsgId);
+            if (msg) {
+              setMessageInitialThreadId(msg.threadId || null);
+              if (msg.senderId !== currentUser?.id) {
+                setMessageRecipientUser({
+                  id: msg.senderId,
+                  name: msg.senderName,
+                  email: msg.senderEmail,
+                  phone: msg.senderPhone,
+                  uid: msg.senderUid,
+                });
+              }
+            }
+          }
           setMessageModalOpen(true);
         }
       }
@@ -146,7 +240,7 @@ function SahayakMain() {
     return () => {
       window.removeEventListener('sahayak:open_item_chat', handleOpenItemChat);
     };
-  }, [items]);
+  }, [items, currentUser]);
 
   // Check URL parameter on load (e.g. redirected from Service Worker push notification or shared item link)
   useEffect(() => {
@@ -365,12 +459,18 @@ function SahayakMain() {
     setClaimModalOpen(true);
   };
 
-  const handleSendMessage = (item: ItemReport) => {
+  const handleSendMessage = (
+    item: ItemReport,
+    recipientUser?: { id?: string; email?: string; name?: string; phone?: string; uid?: string; role?: string; avatarUrl?: string } | null,
+    threadId?: string
+  ) => {
     if (!isAuthenticated) {
-      openAuthModal('login', 'Please sign in with your Chandigarh University ID to send a message to the owner of this lost item.');
+      openAuthModal('login', 'Please sign in with your Chandigarh University ID to send a private message.');
       return;
     }
     setMessageTargetItem(item);
+    setMessageRecipientUser(recipientUser || null);
+    setMessageInitialThreadId(threadId || null);
     setMessageModalOpen(true);
   };
 
@@ -1010,9 +1110,15 @@ function SahayakMain() {
       <SendMessageModal
         item={messageTargetItem}
         isOpen={messageModalOpen}
+        recipientUser={messageRecipientUser}
+        initialThreadId={messageInitialThreadId || undefined}
+        autoAcceptCallSession={callAutoAcceptSession}
         onClose={() => {
           setMessageModalOpen(false);
           setMessageTargetItem(null);
+          setMessageRecipientUser(null);
+          setMessageInitialThreadId(null);
+          setCallAutoAcceptSession(null);
         }}
         onMessageSent={() => {
           setItems(getStoredItems());
@@ -1023,6 +1129,64 @@ function SahayakMain() {
           setDetailModalOpen(true);
         }}
       />
+
+      {/* Global In-App Audio Call Ringing Notification Banner */}
+      {globalIncomingCall && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4 animate-in slide-in-from-top-4 duration-300">
+          <div className="p-4 rounded-3xl bg-slate-900/98 backdrop-blur-2xl border-2 border-emerald-500/50 shadow-2xl shadow-emerald-950/60 flex items-center justify-between gap-3 text-white">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative shrink-0">
+                {globalIncomingCall.callerAvatarUrl ? (
+                  <img src={globalIncomingCall.callerAvatarUrl} alt="" className="w-12 h-12 rounded-2xl object-cover ring-2 ring-emerald-400" />
+                ) : (
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-700 text-white font-black flex items-center justify-center text-base">
+                    {globalIncomingCall.callerName.charAt(0)}
+                  </div>
+                )}
+                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-400 border-2 border-slate-900 animate-ping" />
+                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-400 border-2 border-slate-900" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold text-sm text-white truncate">
+                    {globalIncomingCall.callerName}
+                  </span>
+                  <span className="font-mono text-[10px] text-emerald-400 font-semibold">
+                    ({globalIncomingCall.callerUid || 'CU Student'})
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 truncate">
+                  Incoming Voice Call • <span className="text-emerald-300 font-semibold">{globalIncomingCall.itemTitle}</span>
+                </p>
+                <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                  <Lock className="w-2.5 h-2.5 text-emerald-400" />
+                  <span>Numberless Campus Audio Call</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleDeclineGlobalCall(globalIncomingCall)}
+                className="w-10 h-10 rounded-2xl bg-rose-600/90 hover:bg-rose-600 text-white flex items-center justify-center active:scale-95 shadow-md cursor-pointer transition-all"
+                title="Decline call"
+              >
+                <PhoneOff className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAnswerGlobalCall(globalIncomingCall)}
+                className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-black text-xs flex items-center gap-1.5 active:scale-95 shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-400/50 cursor-pointer transition-all animate-pulse"
+                title="Answer in-app call"
+              >
+                <PhoneCall className="w-4 h-4" />
+                <span>Answer</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <MatchingModal
         lostItem={matchLostItem}
@@ -1061,8 +1225,25 @@ function SahayakMain() {
           const currentList = getStoredItems();
           const found = currentList.find(i => i.id === itemId) || items.find(i => i.id === itemId);
           if (found) {
-            setMessageTargetItem(found);
-            setMessageModalOpen(true);
+            let targetThread: string | undefined;
+            let targetUser: any = undefined;
+            if (messageId) {
+              const allMsgs = getStoredMessages();
+              const msg = allMsgs.find(m => m.id === messageId);
+              if (msg) {
+                targetThread = msg.threadId;
+                if (msg.senderId !== currentUser?.id) {
+                  targetUser = {
+                    id: msg.senderId,
+                    name: msg.senderName,
+                    email: msg.senderEmail,
+                    phone: msg.senderPhone,
+                    uid: msg.senderUid,
+                  };
+                }
+              }
+            }
+            handleSendMessage(found, targetUser, targetThread);
           }
         }}
         onViewItemDetails={(itemId) => {
@@ -1096,12 +1277,12 @@ function SahayakMain() {
         onClose={() => setReviewClaimModalOpen(false)}
         onAcceptClaim={handleAcceptClaimHandover}
         onRejectClaim={handleRejectClaimHandover}
-        onOpenChatWithClaimant={(itemId) => {
+        onOpenChatWithClaimant={(itemId, claimantUser) => {
           const currentList = getStoredItems();
           const target = currentList.find(i => i.id === itemId) || items.find(i => i.id === itemId);
           if (target) {
-            setMessageTargetItem(target);
-            setMessageModalOpen(true);
+            const threadId = claimantUser?.id ? `${target.id}__${claimantUser.id.toLowerCase()}` : undefined;
+            handleSendMessage(target, claimantUser, threadId);
           }
         }}
       />
@@ -1113,12 +1294,29 @@ function SahayakMain() {
 
       {/* Floating In-App Chat Notification Banner */}
       <InAppNotificationBanner 
-        onOpenChatForItem={(itemId) => {
+        onOpenChatForItem={(itemId, messageId) => {
           const currentList = getStoredItems();
           const found = currentList.find(i => i.id === itemId) || items.find(i => i.id === itemId);
           if (found) {
-            setMessageTargetItem(found);
-            setMessageModalOpen(true);
+            let targetThread: string | undefined;
+            let targetUser: any = undefined;
+            if (messageId) {
+              const allMsgs = getStoredMessages();
+              const msg = allMsgs.find(m => m.id === messageId);
+              if (msg) {
+                targetThread = msg.threadId;
+                if (msg.senderId !== currentUser?.id) {
+                  targetUser = {
+                    id: msg.senderId,
+                    name: msg.senderName,
+                    email: msg.senderEmail,
+                    phone: msg.senderPhone,
+                    uid: msg.senderUid,
+                  };
+                }
+              }
+            }
+            handleSendMessage(found, targetUser, targetThread);
           }
         }}
       />
