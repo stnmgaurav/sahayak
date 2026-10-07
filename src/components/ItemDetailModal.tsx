@@ -61,8 +61,10 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    const previousOverflow = document.body.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
 
     if (containerRef.current) {
       containerRef.current.scrollTop = 0;
@@ -76,7 +78,8 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
@@ -206,7 +209,8 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto overscroll-contain flex flex-col text-slate-800 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto min-h-screen h-full flex flex-col text-slate-800 animate-in fade-in duration-200 touch-pan-y"
+      style={{ WebkitOverflowScrolling: 'touch' }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="item-detail-title"
@@ -467,7 +471,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
           </div>
 
           {/* Right Column (col-span-5): Key Specs, Reporter Info & Elevated Primary Actions */}
-          <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-20">
+          <div className="lg:col-span-5 space-y-6 self-start">
             
             {/* Item Title & Core Summary Card */}
             <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-4">

@@ -110,11 +110,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
     if (tab === 'admin-dashboard') {
       if (!isAuthenticated || !currentUser || !isUserAdmin(currentUser.email)) {
-        openAuthModal('login', 'Access Restricted: Campus Security Desk is reserved strictly for campus administrator.');
-        return;
-      }
-      if (!isAdmin) {
-        openAdminVerificationModal();
+        openAuthModal('login', 'Access Restricted: Campus Security Desk is reserved strictly for campus administrator (gsrajpoot2019@gmail.com).');
         return;
       }
     }
@@ -456,7 +452,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
                           </button>
 
-                          {currentUser && isUserAdmin(currentUser.email) && isAdmin && (
+                          {currentUser && isUserAdmin(currentUser.email) && (
                             <button
                               onClick={() => {
                                 setCurrentTab('admin-dashboard');
@@ -481,27 +477,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 )}
                                 <ChevronRight className="w-3.5 h-3.5 text-red-400 group-hover:translate-x-0.5 transition-all" />
                               </div>
-                            </button>
-                          )}
-
-                          {currentUser && isUserAdmin(currentUser.email) && !isAdmin && (
-                            <button
-                              onClick={() => {
-                                openAdminVerificationModal();
-                                setIsProfileDropdownOpen(false);
-                              }}
-                              className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-semibold text-amber-900 bg-amber-50/70 hover:bg-amber-100/80 border border-amber-200/80 transition-all group text-left cursor-pointer"
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="w-7 h-7 rounded-lg bg-amber-700 text-white flex items-center justify-center shrink-0">
-                                  <Lock className="w-3.5 h-3.5" />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-bold text-amber-950 leading-tight">Unlock Admin Console</p>
-                                  <p className="text-[10px] text-amber-700 leading-tight truncate">Passcode required</p>
-                                </div>
-                              </div>
-                              <ChevronRight className="w-3.5 h-3.5 text-amber-500 group-hover:translate-x-0.5 transition-all shrink-0" />
                             </button>
                           )}
                         </div>

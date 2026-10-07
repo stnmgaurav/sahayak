@@ -191,23 +191,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Toggle role handler
-  const handleToggleRole = (user: UserProfile) => {
-    const newRole = user.role === 'admin' ? 'student' : 'admin';
-    const confirmMsg = newRole === 'admin' 
-      ? `Promote ${user.name} (${user.uidOrRoll}) to Campus Security Admin?`
-      : `Demote ${user.name} from Admin back to Student role?`;
-
-    let confirmed = true;
-    try {
-      confirmed = window.confirm(confirmMsg);
-    } catch {}
-    if (confirmed) {
-      updateUser(user.id, { role: newRole });
-      setUsers(getStoredUsers());
-    }
-  };
-
   // Delete user handler
   const handleDeleteUser = (user: UserProfile) => {
     let confirmed = true;
@@ -346,33 +329,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </span>
         </div>
       </div>
-
-      {/* Secondary Security Passcode Banner if !isAdmin */}
-      {!isAdmin && (
-        <div className="bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 border border-amber-500/30 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30">
-              <Lock className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-sm font-extrabold text-slate-900">
-                Secondary Security Verification Required
-              </h4>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Full administrative actions (overriding listings, verified returns, promoting users) require the session security passcode.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={openAdminVerificationModal}
-            className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-md shadow-rose-600/25 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 shrink-0"
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Unlock Admin Desk</span>
-          </button>
-        </div>
-      )}
 
       {/* Bento Grid KPI Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5 w-full">
@@ -820,7 +776,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         (uUid && (c.claimantUid || '').toLowerCase() === uUid)
                       ).length;
 
-                      const isAdminUser = user.role === 'admin';
+                      const isAdminUser = Boolean(user.email && user.email.toLowerCase().trim() === 'gsrajpoot2019@gmail.com');
                       const displayName = user.name || user.email || 'Campus Member';
                       const displayInitial = (displayName.charAt(0) || 'U').toUpperCase();
 
@@ -896,20 +852,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 title="Edit user details"
                               >
                                 <Edit3 className="w-4 h-4" />
-                              </button>
-
-                              {/* Toggle Role */}
-                              <button
-                                type="button"
-                                onClick={() => handleToggleRole(user)}
-                                className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold transition-all cursor-pointer active:scale-95 ${
-                                  isAdminUser 
-                                    ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200' 
-                                    : 'text-red-700 bg-red-50 hover:bg-red-100 border border-red-200'
-                                }`}
-                                title={isAdminUser ? 'Demote to student' : 'Promote to admin'}
-                              >
-                                {isAdminUser ? 'Demote' : 'Make Admin'}
                               </button>
 
                               {/* Delete User */}

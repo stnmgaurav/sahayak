@@ -15,17 +15,9 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Identifies verified campus administrators and security officers
-    // Bootstraps project owner (gsrajpoot2019@gmail.com / gauravsinghrajpoot2019@gmail.com)
+    // Identifies verified campus administrator strictly for gsrajpoot2019@gmail.com
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'gsrajpoot2019@gmail.com' ||
-        request.auth.token.email == 'gauravsinghrajpoot2019@gmail.com' ||
-        (request.auth.token.email != null && (
-          request.auth.token.email.matches('(?i).*admin.*') ||
-          request.auth.token.email.matches('(?i).*security.*')
-        ))
-      );
+      return isSignedIn() && request.auth.token.email == 'gsrajpoot2019@gmail.com';
     }
 
     // Default deny catch-all
@@ -120,17 +112,8 @@ service cloud.firestore {
     // 6. Calls Collection (Private 1-on-1 WebRTC In-App Audio Calling Signaling)
     // =========================================================================
     match /calls/{callId} {
-      // Allow reading so cross-device real-time listeners receive incoming call alerts and signaling
-      allow read: if true;
-
-      // Allow creating a call session when callerId is provided
-      allow create: if isSignedIn() || request.resource.data.callerId != null;
-
-      // Allow updating call signaling (WebRTC SDP offer/answer, ICE candidates, call status transitions)
-      allow update: if isSignedIn() || true;
-
-      // Allow participants to remove terminated call signaling
-      allow delete: if isSignedIn() || true;
+      // Allow reading and writing signaling messages (offers, answers, ICE candidates, call states)
+      allow read, write: if true;
     }
   }
 }

@@ -244,20 +244,47 @@ export async function saveCallSession(session: WebRTCCallSession): Promise<void>
 export function subscribeToIncomingCalls(
   currentUserId: string,
   currentUserEmail: string,
-  onIncomingCall: (call: WebRTCCallSession) => void
+  onIncomingCall: (call: WebRTCCallSession) => void,
+  currentUserUid?: string
 ): () => void {
   const uId = (currentUserId || '').trim().toLowerCase();
   const uEmail = (currentUserEmail || '').trim().toLowerCase();
+  const uUid = (currentUserUid || '').trim().toLowerCase();
 
-  // 1. BroadcastChannel listener
+  // Helper to determine if call is intended for current user
+  const isTargetForUser = (session: WebRTCCallSession): boolean => {
+    if (!session || session.status !== 'ringing') return false;
+
+    const rId = (session.receiverId || '').trim().toLowerCase();
+    const rEmail = (session.receiverEmail || '').trim().toLowerCase();
+    const rUid = (session.receiverUid || '').trim().toLowerCase();
+    const cId = (session.callerId || '').trim().toLowerCase();
+    const cEmail = (session.callerEmail || '').trim().toLowerCase();
+
+    // Ignore self calls (caller's own device)
+    if ((uId && cId === uId) || (uEmail && cEmail === uEmail)) {
+      return false;
+    }
+
+    // Match by user ID, email address, or campus Roll/UID
+    const matchesId = Boolean(uId && rId && (rId === uId || rId.includes(uId) || uId.includes(rId)));
+    const matchesEmail = Boolean(uEmail && rEmail && rEmail === uEmail);
+    const matchesUid = Boolean(uUid && rUid && (rUid === uUid || rUid.includes(uUid) || uUid.includes(rUid)));
+
+    if (!matchesId && !matchesEmail && !matchesUid) {
+      return false;
+    }
+
+    // Freshness check: call created within last 60 seconds
+    const ageMs = session.createdAt ? Date.now() - new Date(session.createdAt).getTime() : 0;
+    return ageMs < 60000;
+  };
+
+  // 1. BroadcastChannel listener (local tabs)
   const handleBroadcast = (event: MessageEvent) => {
     if (event.data && event.data.type === 'CALL_UPDATE' && event.data.session) {
       const session: WebRTCCallSession = event.data.session;
-      const isTarget = 
-        (session.receiverId && session.receiverId.toLowerCase() === uId) ||
-        (session.receiverEmail && session.receiverEmail.toLowerCase() === uEmail);
-      
-      if (isTarget && session.status === 'ringing') {
+      if (isTargetForUser(session)) {
         onIncomingCall(session);
       }
     }
@@ -272,10 +299,7 @@ export function subscribeToIncomingCalls(
     if (e.key && e.key.startsWith(CALLS_STORAGE_PREFIX) && e.newValue) {
       try {
         const session: WebRTCCallSession = JSON.parse(e.newValue);
-        const isTarget = 
-          (session.receiverId && session.receiverId.toLowerCase() === uId) ||
-          (session.receiverEmail && session.receiverEmail.toLowerCase() === uEmail);
-        if (isTarget && session.status === 'ringing') {
+        if (isTargetForUser(session)) {
           onIncomingCall(session);
         }
       } catch {
@@ -288,26 +312,16 @@ export function subscribeToIncomingCalls(
   // 3. Firestore query listener for remote incoming calls across physical devices
   let firestoreUnsub: (() => void) | null = null;
   try {
-    if (uId || uEmail) {
+    if (uId || uEmail || uUid) {
       const callsQuery = query(
         collection(db, 'calls'),
         where('status', '==', 'ringing')
       );
       firestoreUnsub = onSnapshot(callsQuery, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'added' || change.type === 'modified') {
-            const session = change.doc.data() as WebRTCCallSession;
-            if (session.status === 'ringing') {
-              const rId = (session.receiverId || '').trim().toLowerCase();
-              const rEmail = (session.receiverEmail || '').trim().toLowerCase();
-              const isTarget = 
-                Boolean(uId && rId === uId) ||
-                Boolean(uEmail && rEmail === uEmail);
-
-              if (isTarget) {
-                onIncomingCall(session);
-              }
-            }
+        snapshot.docs.forEach((docSnap) => {
+          const session = docSnap.data() as WebRTCCallSession;
+          if (isTargetForUser(session)) {
+            onIncomingCall(session);
           }
         });
       }, (err) => {

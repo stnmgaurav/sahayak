@@ -108,12 +108,10 @@ function SahayakMain() {
     } else if (isAuthenticated && currentTab === 'admin-dashboard') {
       if (!currentUser || !isUserAdmin(currentUser.email)) {
         setCurrentTab('browse');
-        openAuthModal('login', 'Access Restricted: Campus Security Desk is strictly reserved for campus administrator.');
-      } else if (!isAdmin) {
-        openAdminVerificationModal();
+        openAuthModal('login', 'Access Restricted: Campus Security Desk is strictly reserved for campus administrator (gsrajpoot2019@gmail.com).');
       }
     }
-  }, [isAuthenticated, currentTab, isAdmin, currentUser, openAuthModal, openAdminVerificationModal]);
+  }, [isAuthenticated, currentTab, currentUser, openAuthModal]);
 
   // Filter and Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -165,7 +163,8 @@ function SahayakMain() {
         }
         setGlobalIncomingCall(call);
         playIncomingRingtoneSound();
-      }
+      },
+      currentUser.uidOrRoll
     );
 
     return () => {
@@ -617,10 +616,10 @@ function SahayakMain() {
             onSendMessage={handleSendMessage}
             onBackToBrowse={() => setCurrentTab('browse')}
             onOpenSecurityDesk={() => {
-              if (!isAdmin) {
-                openAdminVerificationModal();
-              } else {
+              if (currentUser && isUserAdmin(currentUser.email)) {
                 setCurrentTab('admin-dashboard');
+              } else {
+                openAuthModal('login', 'Please sign in with authorized administrator account (gsrajpoot2019@gmail.com).');
               }
             }}
           />

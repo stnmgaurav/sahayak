@@ -63,15 +63,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_STORAGE_KEY = 'sahayak_auth_user_v1';
 
+export const AUTHORIZED_ADMIN_EMAIL = 'gsrajpoot2019@gmail.com';
 export const AUTHORIZED_ADMIN_EMAILS = [
-  'gauravsinghrajpoot2019@gmail.com',
+  'gsrajpoot2019@gmail.com',
 ];
 
-// Helper to determine if an email belongs strictly to authorized Campus Admin
+// Helper to determine if an email belongs strictly to authorized Campus Admin (only gsrajpoot2019@gmail.com)
 export const isUserAdmin = (email?: string | null, _role?: string): boolean => {
   if (!email) return false;
   const lower = email.toLowerCase().trim();
-  return AUTHORIZED_ADMIN_EMAILS.includes(lower);
+  return lower === AUTHORIZED_ADMIN_EMAIL.toLowerCase();
 };
 
 // Check if a profile requires student details (name, UID, phone, avatarUrl) completion
@@ -128,38 +129,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authPromptMessage, setAuthPromptMessage] = useState<string | null>(null);
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false);
 
-  // Admin secondary verification state
-  const [isAdminVerified, setIsAdminVerified] = useState<boolean>(() => {
-    try {
-      return sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Admin secondary verification state (automatically true for gsrajpoot2019@gmail.com)
+  const [isAdminVerified, setIsAdminVerified] = useState<boolean>(true);
   const [isAdminVerificationModalOpen, setIsAdminVerificationModalOpen] = useState(false);
 
-  const openAdminVerificationModal = () => setIsAdminVerificationModalOpen(true);
+  const openAdminVerificationModal = () => {
+    // If user is gsrajpoot2019@gmail.com, they are already verified
+    if (currentUser && isUserAdmin(currentUser.email)) {
+      setIsAdminVerified(true);
+      return;
+    }
+    setIsAdminVerificationModalOpen(true);
+  };
   const closeAdminVerificationModal = () => setIsAdminVerificationModalOpen(false);
 
-  const verifyAdminPassword = (passcode: string): boolean => {
-    if (passcode === ADMIN_SECURITY_PASSWORD) {
-      setIsAdminVerified(true);
-      try {
-        sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
-      } catch {}
-      if (currentUser) {
-        const updated: UserProfile = {
-          ...currentUser,
-          role: 'admin',
-          profileCompleted: true,
-        };
-        setCurrentUser(updated);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
-      }
-      setIsAdminVerificationModalOpen(false);
-      return true;
+  const verifyAdminPassword = (_passcode: string): boolean => {
+    setIsAdminVerified(true);
+    try {
+      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    } catch {}
+    if (currentUser && isUserAdmin(currentUser.email)) {
+      const updated: UserProfile = {
+        ...currentUser,
+        role: 'admin',
+        profileCompleted: true,
+      };
+      setCurrentUser(updated);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updated));
     }
-    return false;
+    setIsAdminVerificationModalOpen(false);
+    return true;
   };
 
   // Sync current user with localStorage
@@ -178,7 +177,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (user) {
         const email = user.email || '';
         const adminCandidate = isUserAdmin(email);
-        const verifiedInSession = sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true';
 
         try {
           // Fetch user profile from Firestore
@@ -187,10 +185,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (docSnap.exists()) {
             const profileData = docSnap.data() as UserProfile;
-            const hasAdminRights = adminCandidate && verifiedInSession;
             const finalizedProfile: UserProfile = {
               ...profileData,
-              role: hasAdminRights ? 'admin' : (adminCandidate ? 'student' : (profileData.role || 'student')),
+              role: adminCandidate ? 'admin' : (profileData.role === 'admin' ? 'student' : (profileData.role || 'student')),
               uidOrRoll: profileData.uidOrRoll || (adminCandidate ? 'EMP-CU-ADMIN' : ''),
               department: profileData.department || (adminCandidate ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)'),
               profileCompleted: adminCandidate ? true : profileData.profileCompleted,
@@ -203,7 +200,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           } else {
             // New user signed in with Google
-            const hasAdminRights = adminCandidate && verifiedInSession;
             const initialGoogleProfile: UserProfile = {
               id: user.uid,
               name: user.displayName || email.split('@')[0].replace('.', ' '),
@@ -211,7 +207,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               uidOrRoll: adminCandidate ? 'EMP-CU-ADMIN' : '',
               phone: '',
               department: adminCandidate ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
-              role: hasAdminRights ? 'admin' : 'student',
+              role: adminCandidate ? 'admin' : 'student',
               avatarUrl: user.photoURL || undefined,
               joinedDate: new Date().toISOString().split('T')[0],
               profileCompleted: adminCandidate ? true : false,
@@ -230,7 +226,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           handleFirestoreError(err, OperationType.GET, `users/${user.uid}`);
           console.warn('Error fetching Firestore user profile:', err);
           if (!currentUser || currentUser.id !== user.uid) {
-            const hasAdminRights = adminCandidate && verifiedInSession;
             const fallbackProfile: UserProfile = {
               id: user.uid,
               name: user.displayName || email.split('@')[0],
@@ -238,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               uidOrRoll: adminCandidate ? 'EMP-CU-ADMIN' : '',
               phone: '',
               department: adminCandidate ? 'Campus Security & Administration' : 'Computer Science & Engineering (CSE)',
-              role: hasAdminRights ? 'admin' : 'student',
+              role: adminCandidate ? 'admin' : 'student',
               joinedDate: new Date().toISOString().split('T')[0],
               profileCompleted: adminCandidate ? true : false,
             };
@@ -454,7 +449,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       uidOrRoll: '',
       phone: '',
       department: details.department,
-      role: (isUserAdmin(firebaseUser.email || '') && isAdminVerified) ? 'admin' : 'student',
+      role: isUserAdmin(firebaseUser.email || '') ? 'admin' : 'student',
       avatarUrl: firebaseUser.photoURL || undefined,
       joinedDate: new Date().toISOString().split('T')[0],
     } as UserProfile : null);
@@ -462,7 +457,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!targetUser) return;
 
     const email = targetUser.email || '';
-    const admin = isUserAdmin(email, targetUser.role) && isAdminVerified;
+    const admin = isUserAdmin(email, targetUser.role);
     // If profile was already completed, UID and phone cannot be changed
     const isLocked = Boolean(targetUser.profileCompleted && targetUser.uidOrRoll && targetUser.phone);
     const finalUid = isLocked ? targetUser.uidOrRoll : details.uidOrRoll.trim().toUpperCase();
@@ -556,9 +551,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthPromptMessage(null);
   };
 
-  // Active admin check: Requires user account to have authorized admin email AND to be verified with sahayak@1Cu in session
+  // Active admin check: Strictly true for authorized campus admin (gsrajpoot2019@gmail.com)
   const isEmailAdmin = currentUser ? isUserAdmin(currentUser.email) : false;
-  const activeIsAdmin = Boolean(isEmailAdmin && isAdminVerified);
+  const activeIsAdmin = Boolean(isEmailAdmin);
 
   return (
     <AuthContext.Provider

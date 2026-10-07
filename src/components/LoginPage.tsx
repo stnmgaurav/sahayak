@@ -65,20 +65,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   React.useEffect(() => {
     if (isAuthenticated && currentUser) {
       if (isUserAdmin(currentUser.email)) {
-        if (isAdmin) {
-          const timer = setTimeout(() => {
-            if (onOpenDashboard) {
-              onOpenDashboard('admin');
-            } else {
-              onBackToBrowse();
-            }
-          }, 500);
-          return () => clearTimeout(timer);
-        } else {
-          // Administrator needs to verify
-          openAdminVerificationModal();
-        }
-        return;
+        const timer = setTimeout(() => {
+          if (onOpenDashboard) {
+            onOpenDashboard('admin');
+          } else {
+            onBackToBrowse();
+          }
+        }, 300);
+        return () => clearTimeout(timer);
       }
 
       if (currentUser.profileCompleted) {
@@ -92,7 +86,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         return () => clearTimeout(timer);
       }
     }
-  }, [isAuthenticated, currentUser, isAdmin, onOpenDashboard, onBackToBrowse, openAdminVerificationModal]);
+  }, [isAuthenticated, currentUser, onOpenDashboard, onBackToBrowse]);
 
   const getFriendlyErrorMessage = (err: any): string => {
     const code = err?.code || '';
@@ -138,7 +132,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       await loginWithEmail(email.trim(), password);
       const isTargetAdmin = isUserAdmin(email.trim());
       if (onOpenDashboard) {
-        onOpenDashboard(isTargetAdmin && isAdmin ? 'admin' : 'student');
+        onOpenDashboard(isTargetAdmin ? 'admin' : 'student');
       } else {
         onBackToBrowse();
       }

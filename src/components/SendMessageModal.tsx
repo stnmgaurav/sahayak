@@ -572,19 +572,22 @@ export const SendMessageModal: React.FC<SendMessageModalProps> = ({
     targetRecipientAvatarUrl = targetRecipientAvatarUrl || chatPartnerAvatar;
     targetRecipientEmail = targetRecipientEmail || chatPartnerEmail;
 
-    // Cross-link ID and Email using user directory to ensure cross-phone recipient matching
-    if (!targetRecipientId && targetRecipientEmail) {
+    // Cross-link ID, Email, and UID using user directory to ensure cross-phone recipient matching
+    if (targetRecipientEmail || targetRecipientId || targetRecipientUid) {
       try {
         const storedUsers = getStoredUsers();
-        const found = storedUsers.find(u => u.email?.toLowerCase() === targetRecipientEmail?.toLowerCase());
-        if (found) targetRecipientId = found.id;
-      } catch {}
-    }
-    if (!targetRecipientEmail && targetRecipientId) {
-      try {
-        const storedUsers = getStoredUsers();
-        const found = storedUsers.find(u => u.id === targetRecipientId);
-        if (found?.email) targetRecipientEmail = found.email;
+        const found = storedUsers.find(u => 
+          (targetRecipientEmail && u.email?.toLowerCase() === targetRecipientEmail?.toLowerCase()) ||
+          (targetRecipientId && u.id === targetRecipientId) ||
+          (targetRecipientUid && u.uidOrRoll?.toLowerCase() === targetRecipientUid?.toLowerCase())
+        );
+        if (found) {
+          if (!targetRecipientId) targetRecipientId = found.id;
+          if (!targetRecipientEmail) targetRecipientEmail = found.email;
+          if (!targetRecipientUid) targetRecipientUid = found.uidOrRoll;
+          if (!targetRecipientName) targetRecipientName = found.name;
+          if (!targetRecipientAvatarUrl) targetRecipientAvatarUrl = found.avatarUrl;
+        }
       } catch {}
     }
 
