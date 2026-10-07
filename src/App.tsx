@@ -1076,6 +1076,7 @@ function SahayakMain() {
           setMatchModalOpen(false);
           handleInitiateClaim(foundItem);
         }}
+        onSendMessage={handleSendMessage}
       />
 
       <HandoverReceiptModal

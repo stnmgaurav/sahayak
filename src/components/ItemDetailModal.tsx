@@ -225,12 +225,13 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto overscroll-y-contain flex flex-col text-slate-800 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto block text-slate-800 animate-in fade-in duration-200"
       style={{ WebkitOverflowScrolling: 'touch' }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="item-detail-title"
     >
+      <div className="min-h-full flex flex-col w-full pb-20 sm:pb-0">
       {/* Sticky Full-Page Top Navigation Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
@@ -788,6 +789,98 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
           </button>
         </div>
       </footer>
+      </div>
+
+      {/* Mobile Sticky Bottom Action Dock (Quick Chat & Claim access on phones) */}
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 p-3 shadow-lg flex sm:hidden items-center gap-2">
+        {/* If Found Item & !isOwner */}
+        {item.type === 'found' && item.status !== 'returned' && item.status !== 'recovered' && !isOwner && (
+          <>
+            {onSendMessage && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    onClose();
+                    openAuthModal('login', `Please sign in with your Chandigarh University ID to chat with finder ${item.userName}.`);
+                    return;
+                  }
+                  onClose();
+                  onSendMessage(item);
+                }}
+                className="flex-1 py-3 px-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 active:scale-[0.98] text-white rounded-xl font-black text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Ask question about your belongings"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-200 shrink-0" />
+                <span className="truncate">Ask Question / Chat</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (!isAuthenticated) {
+                  onClose();
+                  openAuthModal('login', 'Please sign in with your Chandigarh University ID to file an ownership claim for this found item.');
+                  return;
+                }
+                onClose();
+                onClaim(item);
+              }}
+              className="flex-1 py-3 px-3 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 active:scale-[0.98] text-white rounded-xl font-black text-xs shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <ShieldCheck className="w-4 h-4 text-white shrink-0" />
+              <span className="truncate">Claim Item</span>
+            </button>
+          </>
+        )}
+
+        {/* If Lost Item & !isOwner */}
+        {item.type === 'lost' && item.status !== 'recovered' && !isOwner && onSendMessage && (
+          <button
+            type="button"
+            onClick={() => {
+              if (!isAuthenticated) {
+                onClose();
+                openAuthModal('login', `Please sign in with your Chandigarh University ID to message ${item.userName}.`);
+                return;
+              }
+              onClose();
+              onSendMessage(item);
+            }}
+            className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 active:scale-[0.98] text-white rounded-xl font-black text-xs shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <MessageSquare className="w-4 h-4 text-white shrink-0" />
+            <span>Ask Question / Message Owner</span>
+          </button>
+        )}
+
+        {/* If Owner */}
+        {isOwner && onSendMessage && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onSendMessage(item);
+            }}
+            className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 active:scale-[0.98] text-white rounded-xl font-black text-xs shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <MessageSquare className="w-4 h-4 text-white shrink-0" />
+            <span>Open Inquiries &amp; Chat</span>
+          </button>
+        )}
+
+        {/* If Recovered/Returned and !isOwner */}
+        {(item.status === 'recovered' || item.status === 'returned') && !isOwner && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2.5 px-4 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-500" />
+            <span>Item Closed — Back to Registry</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 };

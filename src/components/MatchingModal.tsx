@@ -14,7 +14,8 @@ import {
   Palette,
   Building2,
   ArrowLeft,
-  Image as ImageIcon
+  Image as ImageIcon,
+  MessageSquare
 } from 'lucide-react';
 
 interface MatchingModalProps {
@@ -23,6 +24,7 @@ interface MatchingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProceedToClaim: (foundItem: ItemReport) => void;
+  onSendMessage?: (item: ItemReport) => void;
 }
 
 export const MatchingModal: React.FC<MatchingModalProps> = ({
@@ -31,6 +33,7 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
   isOpen,
   onClose,
   onProceedToClaim,
+  onSendMessage,
 }) => {
   // Escape key listener to dismiss modal
   useEffect(() => {
@@ -223,17 +226,34 @@ export const MatchingModal: React.FC<MatchingModalProps> = ({
             <span>Back to Details</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onProceedToClaim(foundItem);
-            }}
-            className="flex items-center justify-center gap-2 px-7 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-sm hover:shadow transition-all cursor-pointer active:scale-95"
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>This is My Item — Claim &amp; Verify</span>
-          </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            {onSendMessage && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onSendMessage(foundItem);
+                }}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold shadow-sm transition-all cursor-pointer active:scale-95"
+                title="Ask finder questions about your belongings"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-200" />
+                <span>Ask Finder (Chat)</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onProceedToClaim(foundItem);
+              }}
+              className="flex items-center justify-center gap-2 px-7 py-2.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold shadow-sm hover:shadow transition-all cursor-pointer active:scale-95"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>This is My Item — Claim</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

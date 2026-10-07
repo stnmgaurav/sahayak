@@ -616,15 +616,24 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           </button>
                         )}
 
-                        {allMessages.filter(m => m.itemId === item.id).length > 0 && (
-                          <button
-                            onClick={() => setActiveTab('messages')}
-                            className="px-3.5 sm:px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white rounded-full text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5 text-white" />
-                            <span>{allMessages.filter(m => m.itemId === item.id).length} Message(s)</span>
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            if (onSendMessage) {
+                              onSendMessage(item);
+                            } else {
+                              setActiveTab('messages');
+                            }
+                          }}
+                          className="px-3.5 sm:px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white rounded-full text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                          title="Open messages and inquiries for this lost item"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-white" />
+                          <span>
+                            {allMessages.filter(m => m.itemId === item.id).length > 0 
+                              ? `${allMessages.filter(m => m.itemId === item.id).length} Message(s)` 
+                              : 'Chat & Inquiries'}
+                          </span>
+                        </button>
 
                         {onEditItem && (
                           <button
@@ -811,6 +820,25 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         className="px-3.5 py-2 bg-white/80 hover:bg-white border border-slate-200/80 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-2xs"
                       >
                         View Report
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (onSendMessage) {
+                            onSendMessage(item);
+                          } else {
+                            setActiveTab('messages');
+                          }
+                        }}
+                        className="px-3.5 py-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                        title="View inquiries and answer questions from students about their belongings"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-white" />
+                        <span>
+                          {allMessages.filter(m => m.itemId === item.id).length > 0
+                            ? `${allMessages.filter(m => m.itemId === item.id).length} Inquiry Message(s)`
+                            : 'Inquiries & Chat'}
+                        </span>
                       </button>
 
                       {!isRecovered && (
