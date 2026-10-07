@@ -56,8 +56,28 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   const { currentUser, isAdmin, isAuthenticated, openAuthModal } = useAuth();
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const lastOpenedItemIdRef = useRef<string | null>(null);
+  const onCloseRef = useRef(onClose);
 
-  // Lock background scroll and reset scroll position when opening full-page view
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Reset scroll position ONLY once when opening or switching to a new item
+  useEffect(() => {
+    if (isOpen && item) {
+      if (lastOpenedItemIdRef.current !== item.id) {
+        lastOpenedItemIdRef.current = item.id;
+        if (containerRef.current) {
+          containerRef.current.scrollTop = 0;
+        }
+      }
+    } else {
+      lastOpenedItemIdRef.current = null;
+    }
+  }, [isOpen, item?.id]);
+
+  // Lock background scroll when modal is open
   useEffect(() => {
     if (!isOpen) return;
 
@@ -66,13 +86,9 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
 
-    if (containerRef.current) {
-      containerRef.current.scrollTop = 0;
-    }
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
       }
     };
 
@@ -82,7 +98,7 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
       document.documentElement.style.overflow = previousHtmlOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen || !item) return null;
 
@@ -209,14 +225,14 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto min-h-screen h-full flex flex-col text-slate-800 animate-in fade-in duration-200 touch-pan-y"
+      className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto overscroll-y-contain flex flex-col text-slate-800 animate-in fade-in duration-200"
       style={{ WebkitOverflowScrolling: 'touch' }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="item-detail-title"
     >
       {/* Sticky Full-Page Top Navigation Header */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
           {/* Left: Back Button & Breadcrumbs */}
           <div className="flex items-center gap-3 min-w-0">
@@ -619,34 +635,55 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                 Primary Actions
               </span>
 
-              {/* If Found item and not returned: Claim Button */}
+              {/* If Found item and not returned: Claim Button and Ask Question / Chat with Finder */}
               {item.type === 'found' && item.status !== 'returned' && item.status !== 'recovered' && !isOwner && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isAuthenticated) {
+                <div className="space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        onClose();
+                        openAuthModal('login', 'Please sign in with your Chandigarh University ID to file an ownership claim for this found item.');
+                        return;
+                      }
                       onClose();
-                      openAuthModal('login', 'Please sign in with your Chandigarh University ID to file an ownership claim for this found item.');
-                      return;
-                    }
-                    onClose();
-                    onClaim(item);
-                  }}
-                  className="w-full py-3.5 px-6 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-2xl font-black text-sm shadow-md shadow-red-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
-                >
-                  <ShieldCheck className="w-5 h-5 text-white" />
-                  <span>Claim This Item</span>
-                </button>
+                      onClaim(item);
+                    }}
+                    className="w-full py-3.5 px-6 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-2xl font-black text-sm shadow-md shadow-red-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-5 h-5 text-white" />
+                    <span>Claim This Item</span>
+                  </button>
+
+                  {onSendMessage && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          onClose();
+                          openAuthModal('login', `Please sign in with your Chandigarh University ID to chat with finder ${item.userName}.`);
+                          return;
+                        }
+                        onClose();
+                        onSendMessage(item);
+                      }}
+                      className="w-full py-3 px-5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-2xl font-extrabold text-xs shadow-sm shadow-emerald-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <MessageSquare className="w-4 h-4 text-emerald-200" />
+                      <span>Ask Question About Belongings (Chat with Finder)</span>
+                    </button>
+                  )}
+                </div>
               )}
 
-              {/* If Lost item and not recovered: "I Found This" action */}
+              {/* If Lost item and not recovered: Message Reporter */}
               {item.type === 'lost' && item.status !== 'recovered' && !isOwner && onSendMessage && (
                 <button
                   type="button"
                   onClick={() => {
                     if (!isAuthenticated) {
                       onClose();
-                      openAuthModal('login', `Please sign in with your Chandigarh University ID to notify ${item.userName} you found their item.`);
+                      openAuthModal('login', `Please sign in with your Chandigarh University ID to message ${item.userName}.`);
                       return;
                     }
                     onClose();
@@ -654,8 +691,8 @@ export const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                   }}
                   className="w-full py-3.5 px-6 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-2xl font-black text-sm shadow-md shadow-emerald-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
                 >
-                  <CheckCircle2 className="w-5 h-5 text-white" />
-                  <span>I Found This Item (Message Owner)</span>
+                  <MessageSquare className="w-5 h-5 text-white" />
+                  <span>Ask Question / Message Owner</span>
                 </button>
               )}
 

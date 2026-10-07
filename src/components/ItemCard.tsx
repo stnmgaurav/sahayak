@@ -127,13 +127,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
       {/* Top Media & Badges */}
       <div>
         <div 
-          onClick={() => {
-            if (item.type === 'found' && !isOwner) {
-              onClaimItem(item);
-            } else {
-              onViewDetails(item);
-            }
-          }}
+          onClick={() => onViewDetails(item)}
           className="relative aspect-16/10 bg-slate-100 overflow-hidden cursor-pointer"
         >
           {!coverImage || imgError ? (
@@ -186,12 +180,12 @@ export const ItemCard: React.FC<ItemCardProps> = ({
             </div>
           )}
 
-          {/* Click to Claim Pill Overlay for Found Items */}
+          {/* Helpful Card Badge for Found Items */}
           {item.type === 'found' && (
             <div className="absolute bottom-2.5 left-3 right-3 pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/85 text-white text-[11px] font-bold backdrop-blur-md border border-white/20 shadow-md">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Click card to claim this item</span>
+                <span>Available to claim or ask questions</span>
               </span>
             </div>
           )}
@@ -260,62 +254,80 @@ export const ItemCard: React.FC<ItemCardProps> = ({
       </div>
 
       {/* Card Footer Actions - Vibrant Modern App Buttons */}
-      <div className="px-4 pb-4 pt-3 border-t border-slate-100 bg-gradient-to-b from-white to-slate-50/80 flex items-center justify-between gap-2">
+      <div className="px-3.5 pb-3.5 pt-2.5 border-t border-slate-100 bg-gradient-to-b from-white to-slate-50/80 flex items-center gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={() => onViewDetails(item)}
-          className="py-2 px-3.5 text-xs font-bold text-slate-700 hover:text-slate-950 bg-white hover:bg-slate-100 border border-slate-200/90 hover:border-slate-300 rounded-full transition-all shadow-2xs hover:shadow-xs text-center flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+          className="py-2 px-3 text-xs font-bold text-slate-700 hover:text-slate-950 bg-white hover:bg-slate-100 border border-slate-200/90 hover:border-slate-300 rounded-full transition-all shadow-2xs hover:shadow-xs text-center flex items-center justify-center gap-1 cursor-pointer active:scale-95 shrink-0"
           title="View full item details and safe custody location"
         >
-          <Eye className="w-3.5 h-3.5 text-indigo-600" />
-          <span>Details</span>
+          <Eye className="w-3.5 h-3.5 text-slate-600" />
+          <span className="hidden sm:inline">Details</span>
         </button>
 
-        {/* 1. RULE: IF FOUND ITEM -> CLICK TO CLAIM OPTION (Vibrant Gradient CTA) */}
-        {item.type === 'found' && (
-          isOwner ? (
-            <button
-              type="button"
-              onClick={() => onViewDetails(item)}
-              className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-full text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <PackageCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Your Listing</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onClaimItem(item)}
-              className="flex-1 py-2 px-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold transition-all shadow-xs hover:shadow-md hover:shadow-rose-600/30 active:scale-95 text-center flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-rose-200" />
-              <span>Claim Item</span>
-            </button>
-          )
-        )}
-
-        {/* 2. RULE: IF LOST ITEM -> BUTTON TO SEND MESSAGE IF FOUND (Vibrant Emerald CTA) */}
-        {item.type === 'lost' && !isOwner && onSendMessage && (
+        {/* Chat / Message Option on EVERY listing */}
+        {!isOwner && onSendMessage && (
           <button
             type="button"
-            onClick={() => onSendMessage(item)}
-            className="flex-1 py-2 px-4 bg-gradient-to-r from-emerald-500 via-teal-600 to-emerald-700 hover:from-emerald-400 hover:via-teal-500 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold transition-all shadow-xs hover:shadow-md hover:shadow-emerald-600/30 active:scale-95 text-center flex items-center justify-center gap-1.5 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSendMessage(item);
+            }}
+            className="flex-1 py-2 px-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:via-teal-500 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold transition-all shadow-xs hover:shadow-md hover:shadow-emerald-600/25 active:scale-95 text-center flex items-center justify-center gap-1.5 cursor-pointer"
+            title={item.type === 'lost' ? "Found this? Message the reporter" : "Ask questions about your belongings to finder"}
           >
-            <MessageSquare className="w-3.5 h-3.5 text-emerald-200" />
-            <span>Found This? Message</span>
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
+            <span className="truncate">
+              {item.type === 'lost' ? 'Found This? Chat' : 'Ask / Chat'}
+            </span>
           </button>
         )}
 
-        {/* 3. RULE: IF LOST ITEM & OWNER -> BUTTON TO MARK RECOVERED */}
+        {/* Claim Option for Found Items */}
+        {item.type === 'found' && !isOwner && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClaimItem(item);
+            }}
+            className="py-2 px-3.5 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:via-rose-500 hover:to-red-600 text-white rounded-full text-xs font-extrabold transition-all shadow-xs hover:shadow-md hover:shadow-rose-600/30 active:scale-95 text-center flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+            title="File an ownership claim for this found item"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-rose-200 shrink-0" />
+            <span>Claim</span>
+          </button>
+        )}
+
+        {/* Owner View Inquiries */}
+        {isOwner && onSendMessage && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSendMessage(item);
+            }}
+            className="flex-1 py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+            title="Open messages and inquiries for your listing"
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>Inquiries</span>
+          </button>
+        )}
+
+        {/* If Lost Item & Owner: Mark Recovered */}
         {item.type === 'lost' && isOwner && onMarkRecovered && (
           <button
             type="button"
-            onClick={() => onMarkRecovered(item)}
-            className="flex-1 py-2 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:via-teal-500 hover:to-emerald-600 text-white rounded-full text-xs font-extrabold transition-all shadow-xs hover:shadow-md hover:shadow-emerald-600/30 active:scale-95 text-center flex items-center justify-center gap-1.5 cursor-pointer"
-            title="Confirm you have recovered this lost item to remove it from the dashboard"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMarkRecovered(item);
+            }}
+            className="py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-full text-xs font-extrabold transition-all shadow-xs active:scale-95 text-center flex items-center justify-center gap-1 cursor-pointer shrink-0"
+            title="Confirm you have recovered this lost item"
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-            <span>Mark Recovered</span>
+            <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
+            <span>Recovered</span>
           </button>
         )}
       </div>
