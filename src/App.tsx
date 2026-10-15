@@ -600,6 +600,9 @@ function SahayakMain() {
 
                     <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.15]">
                       SAHAYAK
+                      <span className="block text-lg sm:text-2xl font-bold text-slate-700 mt-1">
+                        Chandigarh University Lost &amp; Found
+                      </span>
                     </h1>
 
                     {/* Prominent Tagline */}
@@ -988,6 +991,33 @@ function SahayakMain() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* SEO CONTENT: real crawlable text for Google (keywords used naturally) */}
+        {currentTab === 'browse' && (
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10" aria-label="About Sahayak">
+            <div className="rounded-2xl border border-slate-100 bg-white p-6 sm:p-8 space-y-4">
+              <h2 className="text-xl font-extrabold text-slate-900">Chandigarh University me khoya samaan kaise dhundhe?</h2>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Sahayak Chandigarh University (CU) ka lost and found platform hai. Agar aapka ID card, phone, wallet,
+                water bottle, keys, laptop charger ya koi bhi samaan campus, library, hostel ya academic block me kho gaya hai,
+                to yahan lost item report karo. Agar kisi ko koi item mila hai, to wo found item post karke use sahi
+                owner tak pahuncha sakta hai.
+              </p>
+              <h3 className="text-base font-bold text-slate-900">Sahayak kaise kaam karta hai</h3>
+              <ol className="list-decimal pl-5 text-sm text-slate-600 space-y-1">
+                <li>Apni CU email ya Google account se login karo.</li>
+                <li>&quot;I Lost Something&quot; ya &quot;I Found Something&quot; par click karke item ki details, photo aur location daalo.</li>
+                <li>Smart matching lost aur found items ko automatically match karti hai.</li>
+                <li>Claim verify hone ke baad item campus security desk ke through safely handover hota hai.</li>
+              </ol>
+              <h3 className="text-base font-bold text-slate-900">Aam taur par kho jaane wale items</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                CU ID card, mobile phone, earphones, wallet, power bank, water bottle, keys, bag, notebook, calculator aur
+                hostel ya library me chhoda gaya samaan.
+              </p>
+            </div>
+          </section>
         )}
       </main>
 
