@@ -559,7 +559,7 @@ function SahayakMain() {
               if (currentUser && isUserAdmin(currentUser.email)) {
                 setCurrentTab('admin-dashboard');
               } else {
-                openAuthModal('login', 'Please sign in with authorized administrator account (gsrajpoot2019@gmail.com).');
+                openAuthModal('login', 'Please sign in with authorized administrator account.');
               }
             }}
           />
